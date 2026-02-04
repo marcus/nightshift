@@ -41,3 +41,6 @@ go.work.sum
 # Debug files
 debug
 *.log
+
+.sidecar/
+.todos/

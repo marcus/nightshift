@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "shells": [
+    {
+      "tmuxName": "sidecar-sh-nightshift-1",
+      "displayName": "the-project",
+      "createdAt": "2026-02-03T20:50:23.297551-08:00",
+      "agentType": "claude",
+      "skipPerms": true
+    }
+  ]
+}

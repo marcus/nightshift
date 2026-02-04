@@ -1,8 +1,8 @@
-# Night Shift Technical Specification
+# Nightshift Technical Specification
 
 ## Overview
 
-Night Shift is a Go CLI tool that runs overnight to perform AI-powered maintenance tasks on your codebase. It uses remaining daily token budget from Claude Code or Codex subscriptions, ensuring you wake up to a cleaner codebase without unexpected costs.
+Nightshift is a Go CLI tool that runs overnight to perform AI-powered maintenance tasks on your codebase. It uses remaining daily token budget from Claude Code or Codex subscriptions (derived from local usage data), ensuring you wake up to a cleaner codebase without unexpected costs.
 
 ### Goals
 
@@ -23,7 +23,7 @@ Night Shift is a Go CLI tool that runs overnight to perform AI-powered maintenan
                                        |
                                        v
 +------------------------------------------------------------------------------+
-|                            Night Shift Daemon                                 |
+|                            Nightshift Daemon                                  |
 |                                                                               |
 |  +----------------+    +------------------+    +-------------------+          |
 |  |   Scheduler    |--->|  Budget Manager  |--->|  Task Selector    |          |
@@ -50,7 +50,7 @@ Night Shift is a Go CLI tool that runs overnight to perform AI-powered maintenan
 ### Flow
 
 1. System timer (launchd/systemd) wakes daemon at configured interval
-2. Budget Manager checks remaining budget via provider APIs
+2. Budget Manager checks remaining budget via provider usage data (local caches)
 3. If within threshold, Task Selector picks next task
 4. Agent Spawner executes: plan -> implement -> review (max 3 iterations)
 5. Logger records results; generates morning summary
@@ -65,6 +65,7 @@ Configuration file: `nightshift.yaml` (per-project) or `~/.config/nightshift/con
 schedule:
   cron: "0 2 * * *"           # Run at 2 AM daily (cron expression)
   interval: 1h                 # Alternative: run every N hours
+  # cron and interval are mutually exclusive; specifying both is an error
   window:                      # Optional time window constraint
     start: "22:00"             # Only run between these hours
     end: "06:00"
@@ -83,6 +84,10 @@ budget:
   max_percent: 10              # Max % of budget to use per run (default: 10)
   aggressive_end_of_week: false # Weekly mode: ramp up spending in last 2 days
   reserve_percent: 5           # Always keep this % in reserve (never touch)
+  weekly_tokens: 700000        # Fallback weekly budget (used if provider doesn't expose limits)
+  per_provider:                # Optional per-provider overrides
+    claude: 700000
+    codex: 500000
 
 # Provider configuration (how to track usage)
 providers:
@@ -97,7 +102,8 @@ providers:
     data_path: "~/.codex"      # Path to Codex data directory
     # File format parsing reference: ~/code/sidecar/
     # sessions/<year>/<month>/<day>/*.jsonl for session data
-    # rate_limits.primary.used_percent for budget tracking
+    # rate_limits.primary.used_percent for daily tracking
+    # rate_limits.secondary.used_percent for weekly tracking
 
 # Projects to manage (or single project mode if omitted)
 projects:
@@ -159,6 +165,7 @@ reporting:
 - `projects/<path>/<session>.jsonl`: Per-message token usage in `usage` field
   - `inputTokens`, `outputTokens`, `cacheReadInputTokens`, `cacheCreationInputTokens`
   - Note: `costUSD` is always 0; requires external Anthropic pricing table
+  - Budget baseline: use `budget.per_provider.claude` or `budget.weekly_tokens`
 
 **Codex** (`~/.codex/`):
 - `sessions/<year>/<month>/<day>/*.jsonl`: Session data with token_count events
@@ -175,26 +182,36 @@ reporting:
 
 ### Budget Calculation
 
-**Daily Mode**: You get 1/7 of your weekly budget each day. Night Shift takes up to `max_percent` of whatever you haven't used today.
+**Daily Mode**: You get 1/7 of your weekly budget each day. Nightshift takes up to `max_percent` of whatever you haven't used today.
 
-**Weekly Mode**: Night Shift looks at your remaining weekly budget and takes up to `max_percent` of what's left divided by remaining days. With `aggressive_end_of_week`, it spends more in the final days to avoid wasted budget.
+**Weekly Mode**: Nightshift looks at your remaining weekly budget and takes up to `max_percent` of what's left divided by remaining days. With `aggressive_end_of_week`, it spends more in the final days to avoid wasted budget.
+
+**Used Percent Source**:
+- Claude Code: derive `used_percent` from `stats-cache.json` aggregates (daily uses current date; weekly uses last 7 days) vs configured weekly budget.
+- Codex: use `rate_limits.primary.used_percent` for daily mode and `rate_limits.secondary.used_percent` for weekly mode.
 
 ```
+weekly_budget = provider_limit_tokens if known else config.budget.per_provider[provider] or config.budget.weekly_tokens
+
 # Daily mode
 daily_budget = weekly_budget / 7
 available_today = daily_budget * (1 - used_percent / 100)
 nightshift_allowance = min(available_today * max_percent / 100, available_today)
+budget_base = daily_budget
 
 # Weekly mode
 remaining_days = days_until_weekly_reset
+remaining_weekly = weekly_budget * (1 - used_percent / 100)
 if aggressive_end_of_week && remaining_days <= 2:
     multiplier = 3 - remaining_days  # 2x on day before, 3x on last day
 else:
     multiplier = 1
 nightshift_allowance = (remaining_weekly / remaining_days) * max_percent / 100 * multiplier
+budget_base = remaining_weekly
 
 # Reserve enforcement
-final_allowance = max(0, nightshift_allowance - reserve_percent)
+reserve_amount = budget_base * reserve_percent / 100
+final_allowance = max(0, nightshift_allowance - reserve_amount)
 ```
 
 ### Cost Estimation per Task Type
@@ -485,7 +502,7 @@ gh issue comment NUMBER --body "Working on this..."
 Generated at end of each night's run:
 
 ```markdown
-# Night Shift Summary - 2024-01-15
+# Nightshift Summary - 2024-01-15
 
 ## Budget
 - Started with: 100,000 tokens
