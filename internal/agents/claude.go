@@ -190,7 +190,7 @@ func (a *ClaudeAgent) buildFileContext(files []string) (string, error) {
 			displayPath = abs
 		}
 
-		sb.WriteString(fmt.Sprintf("## File: %s\n\n```\n%s\n```\n\n", displayPath, string(content)))
+		fmt.Fprintf(&sb, "## File: %s\n\n```\n%s\n```\n\n", displayPath, string(content))
 	}
 
 	return sb.String(), nil
