@@ -26,7 +26,20 @@ type StateData struct {
 	Version    int                      `json:"version"`
 	Projects   map[string]*ProjectState `json:"projects"`
 	Assigned   map[string]AssignedTask  `json:"assigned"`
+	RunHistory []RunRecord              `json:"run_history"`
 	LastUpdate time.Time                `json:"last_update"`
+}
+
+// RunRecord represents a single nightshift run for history tracking.
+type RunRecord struct {
+	ID         string    `json:"id"`
+	StartTime  time.Time `json:"start_time"`
+	EndTime    time.Time `json:"end_time"`
+	Project    string    `json:"project"`
+	Tasks      []string  `json:"tasks"`
+	TokensUsed int       `json:"tokens_used"`
+	Status     string    `json:"status"` // success, failed, partial
+	Error      string    `json:"error,omitempty"`
 }
 
 // ProjectState tracks state for a single project.
@@ -84,9 +97,10 @@ func New(stateDir string) (*State, error) {
 // newStateData creates an empty StateData.
 func newStateData() *StateData {
 	return &StateData{
-		Version:  stateVersion,
-		Projects: make(map[string]*ProjectState),
-		Assigned: make(map[string]AssignedTask),
+		Version:    stateVersion,
+		Projects:   make(map[string]*ProjectState),
+		Assigned:   make(map[string]AssignedTask),
+		RunHistory: make([]RunRecord, 0),
 	}
 }
 
@@ -108,12 +122,15 @@ func (s *State) Load() error {
 		return fmt.Errorf("parsing state: %w", err)
 	}
 
-	// Initialize nil maps
+	// Initialize nil maps/slices
 	if loaded.Projects == nil {
 		loaded.Projects = make(map[string]*ProjectState)
 	}
 	if loaded.Assigned == nil {
 		loaded.Assigned = make(map[string]AssignedTask)
+	}
+	if loaded.RunHistory == nil {
+		loaded.RunHistory = make([]RunRecord, 0)
 	}
 	for _, p := range loaded.Projects {
 		if p.TaskHistory == nil {
@@ -370,4 +387,100 @@ func expandPath(path string) string {
 		return filepath.Join(home, path[2:])
 	}
 	return path
+}
+
+// AddRunRecord adds a run record to history.
+func (s *State) AddRunRecord(record RunRecord) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Generate ID if empty
+	if record.ID == "" {
+		record.ID = fmt.Sprintf("run-%d", time.Now().UnixNano())
+	}
+
+	s.data.RunHistory = append(s.data.RunHistory, record)
+
+	// Keep only the last 100 runs
+	if len(s.data.RunHistory) > 100 {
+		s.data.RunHistory = s.data.RunHistory[len(s.data.RunHistory)-100:]
+	}
+}
+
+// GetRunHistory returns the last N run records (most recent first).
+func (s *State) GetRunHistory(n int) []RunRecord {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if n <= 0 || n > len(s.data.RunHistory) {
+		n = len(s.data.RunHistory)
+	}
+
+	// Return in reverse order (most recent first)
+	result := make([]RunRecord, n)
+	for i := 0; i < n; i++ {
+		result[i] = s.data.RunHistory[len(s.data.RunHistory)-1-i]
+	}
+	return result
+}
+
+// GetTodayRuns returns all runs from today.
+func (s *State) GetTodayRuns() []RunRecord {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	now := time.Now()
+	var result []RunRecord
+
+	for i := len(s.data.RunHistory) - 1; i >= 0; i-- {
+		run := s.data.RunHistory[i]
+		if isSameDay(run.StartTime, now) {
+			result = append(result, run)
+		}
+	}
+
+	return result
+}
+
+// TodaySummary returns a summary of today's activity.
+type TodaySummary struct {
+	TotalRuns      int
+	SuccessfulRuns int
+	FailedRuns     int
+	TotalTokens    int
+	TaskCounts     map[string]int
+	Projects       []string
+}
+
+// GetTodaySummary returns a summary of today's activity.
+func (s *State) GetTodaySummary() TodaySummary {
+	runs := s.GetTodayRuns()
+
+	summary := TodaySummary{
+		TaskCounts: make(map[string]int),
+	}
+
+	projectSet := make(map[string]bool)
+
+	for _, run := range runs {
+		summary.TotalRuns++
+		summary.TotalTokens += run.TokensUsed
+
+		if run.Status == "success" {
+			summary.SuccessfulRuns++
+		} else if run.Status == "failed" {
+			summary.FailedRuns++
+		}
+
+		for _, task := range run.Tasks {
+			summary.TaskCounts[task]++
+		}
+
+		if run.Project != "" && !projectSet[run.Project] {
+			projectSet[run.Project] = true
+			summary.Projects = append(summary.Projects, run.Project)
+		}
+	}
+
+	return summary
 }
