@@ -290,8 +290,10 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 				Project:    projectPath,
 			}}
 		} else {
-			// Select top tasks that fit budget
-			selectedTasks = p.selector.SelectTopN(choice.allowance.Allowance, projectPath, 5)
+			// Select the top task that fits budget
+			if task := p.selector.SelectNext(choice.allowance.Allowance, projectPath); task != nil {
+				selectedTasks = []tasks.ScoredTask{*task}
+			}
 		}
 
 		if len(selectedTasks) == 0 {

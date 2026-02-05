@@ -94,7 +94,7 @@ func runBudget(filterProvider string) error {
 	// Print status for each provider
 	snapCollector := snapshots.NewCollector(database, nil, nil, nil, weekStartDayFromConfig(cfg))
 	for _, provName := range providerList {
-		if err := printProviderBudget(mgr, cfg, provName, cal, snapCollector); err != nil {
+		if err := printProviderBudget(mgr, cfg, provName, cal, snapCollector, codex); err != nil {
 			fmt.Printf("%s: error: %v\n\n", provName, err)
 			continue
 		}
@@ -104,7 +104,7 @@ func runBudget(filterProvider string) error {
 	return nil
 }
 
-func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName string, source budget.BudgetSource, snapCollector *snapshots.Collector) error {
+func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName string, source budget.BudgetSource, snapCollector *snapshots.Collector, codex *providers.Codex) error {
 	result, err := mgr.CalculateAllowance(provName)
 	if err != nil {
 		return err
@@ -155,6 +155,12 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 		fmt.Println(usedLine)
 
 		fmt.Printf("  Remaining:    %s tokens\n", formatTokens64(remaining))
+
+		// Show dual-source breakdown for Codex
+		if provName == "codex" && codex != nil {
+			printCodexBreakdown(codex)
+		}
+
 		if result.PredictedUsage > 0 {
 			fmt.Printf("  Daytime:      %s tokens reserved\n", formatTokens64(result.PredictedUsage))
 		}
@@ -190,6 +196,12 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 
 		fmt.Printf("  Remaining:    %s tokens\n", formatTokens64(remaining))
 		fmt.Printf("  Days left:    %d\n", result.RemainingDays)
+
+		// Show dual-source breakdown for Codex
+		if provName == "codex" && codex != nil {
+			printCodexBreakdown(codex)
+		}
+
 		if result.PredictedUsage > 0 {
 			fmt.Printf("  Daytime:      %s tokens reserved\n", formatTokens64(result.PredictedUsage))
 		}
@@ -233,7 +245,23 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 	// Budget used bar
 	fmt.Printf("  Budget used:  %s\n", progressBar(result.UsedPercent, 30))
 
+	// Token accounting note
+	printTokenAccountingNote(provName, estimate)
+
 	return nil
+}
+
+// printTokenAccountingNote adds a brief note about how tokens are counted.
+func printTokenAccountingNote(provider string, estimate budget.BudgetEstimate) {
+	if estimate.Source != "calibrated" && estimate.Source != "scraped" {
+		return
+	}
+	switch provider {
+	case "claude":
+		fmt.Printf("  Note:         tokens from stats-cache.json (Claude Code's internal accounting)\n")
+	case "codex":
+		fmt.Printf("  Note:         %% from rate limit; tokens = billable (excludes cached input)\n")
+	}
 }
 
 func formatTokens64(tokens int64) string {
@@ -273,6 +301,35 @@ func formatResetLine(sessionReset, weeklyReset string) string {
 		parts = append(parts, "week "+weeklyReset)
 	}
 	return strings.Join(parts, " · ")
+}
+
+// printCodexBreakdown shows rate limit and local token data side by side.
+func printCodexBreakdown(codex *providers.Codex) {
+	bd := codex.GetUsageBreakdown()
+
+	// Rate limit line
+	var rlParts []string
+	if bd.PrimaryPct > 0 {
+		rlParts = append(rlParts, fmt.Sprintf("%.0f%% primary (5h)", bd.PrimaryPct))
+	}
+	if bd.WeeklyPct > 0 {
+		rlParts = append(rlParts, fmt.Sprintf("%.0f%% weekly", bd.WeeklyPct))
+	}
+	if len(rlParts) > 0 {
+		fmt.Printf("  Rate limit:   %s\n", strings.Join(rlParts, " · "))
+	}
+
+	// Local token line
+	var localParts []string
+	if bd.TodayTokens != nil && bd.TodayTokens.TotalTokens > 0 {
+		localParts = append(localParts, fmt.Sprintf("%s today", formatTokens64(bd.TodayTokens.TotalTokens)))
+	}
+	if bd.WeeklyTokens != nil && bd.WeeklyTokens.TotalTokens > 0 {
+		localParts = append(localParts, fmt.Sprintf("%s this week", formatTokens64(bd.WeeklyTokens.TotalTokens)))
+	}
+	if len(localParts) > 0 {
+		fmt.Printf("  Local tokens: %s (billable)\n", strings.Join(localParts, " · "))
+	}
 }
 
 func progressBar(percent float64, width int) string {

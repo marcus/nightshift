@@ -206,21 +206,22 @@ func (c *Calibrator) loadClaudeWeeklySamples(provider string) ([]float64, error)
 	return values, nil
 }
 
-// loadCodexWeeklySamples uses scraped_pct directly as the usage metric.
-// Codex has no local token counts; scraped_pct is the authoritative source.
-// Returns config_budget * (scraped_pct / 100) to produce token-scale values
-// compatible with the calibrator's outlier filtering and median logic.
+// loadCodexWeeklySamples infers budget from local_tokens / scraped_pct.
+// Same approach as Claude: if we know local usage in tokens and the scraped
+// percentage, we can infer the total budget. Falls back to config budget
+// if no snapshots have local token data.
 func (c *Calibrator) loadCodexWeeklySamples() ([]float64, error) {
 	weekStart := startOfWeek(time.Now(), c.weekStartDay)
-	configBudget := float64(c.cfg.GetProviderBudget("codex"))
 
+	// Try snapshots with both local_tokens and scraped_pct (preferred)
 	rows, err := c.db.SQL().Query(
-		`SELECT scraped_pct
+		`SELECT local_tokens, scraped_pct
 		 FROM snapshots
 		 WHERE provider = 'codex'
 		 AND week_start = ?
 		 AND scraped_pct IS NOT NULL
-		 AND scraped_pct BETWEEN 1 AND 99`,
+		 AND scraped_pct BETWEEN 10 AND 95
+		 AND local_tokens > 0`,
 		weekStart,
 	)
 	if err != nil {
@@ -230,13 +231,15 @@ func (c *Calibrator) loadCodexWeeklySamples() ([]float64, error) {
 
 	values := make([]float64, 0)
 	for rows.Next() {
+		var localTokens int64
 		var scrapedPct float64
-		if err := rows.Scan(&scrapedPct); err != nil {
+		if err := rows.Scan(&localTokens, &scrapedPct); err != nil {
 			return nil, fmt.Errorf("scan codex snapshot: %w", err)
 		}
-		// Convert scraped_pct to a token-scale inferred budget so the
-		// calibrator's outlier/median logic works uniformly.
-		inferred := configBudget * (scrapedPct / 100)
+		if scrapedPct <= 0 {
+			continue
+		}
+		inferred := float64(localTokens) / (scrapedPct / 100)
 		values = append(values, inferred)
 	}
 	if err := rows.Err(); err != nil {

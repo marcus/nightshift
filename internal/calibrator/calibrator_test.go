@@ -167,7 +167,7 @@ func TestGetBudgetImplementsInterface(t *testing.T) {
 	}
 }
 
-func TestCalibrateCodexUsesScrapedPct(t *testing.T) {
+func TestCalibrateCodexWithLocalTokens(t *testing.T) {
 	cfg := &config.Config{
 		Budget: config.BudgetConfig{
 			BillingMode:      "subscription",
@@ -180,11 +180,11 @@ func TestCalibrateCodexUsesScrapedPct(t *testing.T) {
 	cal, database := newTestCalibrator(t, cfg)
 
 	now := time.Now()
-	// Insert Codex snapshots with local_tokens=0 (the structural reality)
-	// and scraped_pct values. The calibrator should use scraped_pct directly.
-	insertSnapshot(t, database, "codex", 0, 50, now)
-	insertSnapshot(t, database, "codex", 0, 50, now.Add(1*time.Hour))
-	insertSnapshot(t, database, "codex", 0, 50, now.Add(2*time.Hour))
+	// Codex snapshots with real local token data and scraped percentage.
+	// Inferred budget = local_tokens / (scraped_pct / 100)
+	insertSnapshot(t, database, "codex", 500000, 50, now)
+	insertSnapshot(t, database, "codex", 500000, 50, now.Add(1*time.Hour))
+	insertSnapshot(t, database, "codex", 500000, 50, now.Add(2*time.Hour))
 
 	result, err := cal.Calibrate("codex")
 	if err != nil {
@@ -196,9 +196,39 @@ func TestCalibrateCodexUsesScrapedPct(t *testing.T) {
 	if result.SampleCount != 3 {
 		t.Fatalf("sample count = %d, want 3", result.SampleCount)
 	}
-	// config budget = 1000000, scraped_pct = 50 → inferred = 1000000 * 0.50 = 500000
-	if result.InferredBudget != 500000 {
-		t.Fatalf("budget = %d, want 500000", result.InferredBudget)
+	// 500000 / 0.50 = 1000000
+	if result.InferredBudget != 1000000 {
+		t.Fatalf("budget = %d, want 1000000", result.InferredBudget)
+	}
+}
+
+func TestCalibrateCodexNoLocalTokensFallsBack(t *testing.T) {
+	cfg := &config.Config{
+		Budget: config.BudgetConfig{
+			BillingMode:      "subscription",
+			CalibrateEnabled: true,
+			WeeklyTokens:     500000,
+			WeekStartDay:     "monday",
+			PerProvider:      map[string]int{"codex": 800000},
+		},
+	}
+	cal, database := newTestCalibrator(t, cfg)
+
+	now := time.Now()
+	// Legacy snapshots with local_tokens=0 (before token parsing was added).
+	// No samples will match local_tokens > 0, so calibrator falls back to config.
+	insertSnapshot(t, database, "codex", 0, 50, now)
+	insertSnapshot(t, database, "codex", 0, 50, now.Add(1*time.Hour))
+
+	result, err := cal.Calibrate("codex")
+	if err != nil {
+		t.Fatalf("Calibrate error: %v", err)
+	}
+	if result.Source != "config" {
+		t.Fatalf("source = %s, want config", result.Source)
+	}
+	if result.InferredBudget != 800000 {
+		t.Fatalf("budget = %d, want 800000", result.InferredBudget)
 	}
 }
 
@@ -240,12 +270,12 @@ func TestCalibrateCodexFiltersOutOfRange(t *testing.T) {
 	cal, database := newTestCalibrator(t, cfg)
 
 	now := time.Now()
-	// scraped_pct=0 should be filtered (BETWEEN 1 AND 99)
-	insertSnapshot(t, database, "codex", 0, 0, now)
+	// scraped_pct=5 should be filtered (BETWEEN 10 AND 95)
+	insertSnapshot(t, database, "codex", 50000, 5, now)
 	// scraped_pct=100 should be filtered
-	insertSnapshot(t, database, "codex", 0, 100, now.Add(1*time.Hour))
-	// scraped_pct=40 should be included
-	insertSnapshot(t, database, "codex", 0, 40, now.Add(2*time.Hour))
+	insertSnapshot(t, database, "codex", 1000000, 100, now.Add(1*time.Hour))
+	// scraped_pct=40, local_tokens=400000 should be included
+	insertSnapshot(t, database, "codex", 400000, 40, now.Add(2*time.Hour))
 
 	result, err := cal.Calibrate("codex")
 	if err != nil {
@@ -254,9 +284,9 @@ func TestCalibrateCodexFiltersOutOfRange(t *testing.T) {
 	if result.SampleCount != 1 {
 		t.Fatalf("sample count = %d, want 1", result.SampleCount)
 	}
-	// 1000000 * 0.40 = 400000
-	if result.InferredBudget != 400000 {
-		t.Fatalf("budget = %d, want 400000", result.InferredBudget)
+	// 400000 / 0.40 = 1000000
+	if result.InferredBudget != 1000000 {
+		t.Fatalf("budget = %d, want 1000000", result.InferredBudget)
 	}
 }
 

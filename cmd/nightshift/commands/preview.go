@@ -2,10 +2,10 @@ package commands
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -39,6 +39,8 @@ func init() {
 	previewCmd.Flags().Bool("long", false, "Show full prompts (default shows a truncated preview)")
 	previewCmd.Flags().String("write", "", "Write full prompts to a directory")
 	previewCmd.Flags().Bool("explain", false, "Show budget and task-filter explanations")
+	previewCmd.Flags().Bool("plain", false, "Disable gum pager output")
+	previewCmd.Flags().Bool("json", false, "Output JSON (includes full prompts)")
 	rootCmd.AddCommand(previewCmd)
 }
 
@@ -49,6 +51,8 @@ func runPreview(cmd *cobra.Command, args []string) error {
 	longPrompt, _ := cmd.Flags().GetBool("long")
 	writeDir, _ := cmd.Flags().GetString("write")
 	explain, _ := cmd.Flags().GetBool("explain")
+	plainOutput, _ := cmd.Flags().GetBool("plain")
+	jsonOutput, _ := cmd.Flags().GetBool("json")
 
 	sources, err := detectPreviewConfigSources(projectPath)
 	if err != nil {
@@ -75,13 +79,28 @@ func runPreview(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("resolve projects: %w", err)
 	}
 
-	return renderPreview(cmd.OutOrStdout(), cfg, database, projects, taskFilter, runs, longPrompt, writeDir, explain, sources)
+	result, err := buildPreviewResult(cfg, database, projects, taskFilter, runs, writeDir, sources, explain || jsonOutput)
+	if err != nil {
+		return err
+	}
+
+	if jsonOutput {
+		return writePreviewJSON(cmd.OutOrStdout(), result)
+	}
+
+	text := renderPreviewText(result, previewTextOptions{
+		LongPrompt: longPrompt,
+		Explain:    explain,
+	})
+	return writePreviewText(cmd.OutOrStdout(), text, previewPagerOptions{
+		Plain: plainOutput,
+	})
 }
 
 type previewConfigSources struct {
-	GlobalPath   string
-	GlobalExists bool
-	ProjectPath  string
+	GlobalPath    string
+	GlobalExists  bool
+	ProjectPath   string
 	ProjectExists bool
 }
 
@@ -114,27 +133,109 @@ func detectPreviewConfigSources(projectPath string) (*previewConfigSources, erro
 	}, nil
 }
 
-func renderPreview(w io.Writer, cfg *config.Config, database *db.DB, projects []string, taskFilter string, runs int, longPrompt bool, writeDir string, explain bool, sources *previewConfigSources) error {
+type previewResult struct {
+	GeneratedAt    time.Time
+	Provider       string
+	TaskFilter     string
+	BudgetMode     string
+	MaxPercent     int
+	ReservePercent int
+	EnabledTasks   []string
+	ProjectCount   int
+	Runs           []previewRun
+	Providers      []providerBudgetSummary
+	ConfigSources  *previewConfigSources
+	Note           string
+}
+
+type previewRun struct {
+	Index    int
+	RunAt    time.Time
+	Projects []previewProject
+}
+
+type previewProjectStatus string
+
+const (
+	previewProjectReady           previewProjectStatus = "ready"
+	previewProjectSkipped         previewProjectStatus = "skipped"
+	previewProjectBudgetExhausted previewProjectStatus = "budget_exhausted"
+	previewProjectNoTasks         previewProjectStatus = "no_tasks"
+	previewProjectError           previewProjectStatus = "error"
+)
+
+type previewProject struct {
+	Path        string
+	Status      previewProjectStatus
+	Detail      string
+	Budget      *budget.AllowanceResult
+	Tasks       []previewTask
+	Diagnostics *previewDiagnostics
+}
+
+type previewTask struct {
+	Index           int
+	Name            string
+	Type            string
+	Description     string
+	Score           float64
+	CostTier        string
+	MinTokens       int
+	MaxTokens       int
+	Prompt          string
+	PromptFile      string
+	PromptFileError string
+}
+
+type previewDiagnostics struct {
+	FilteredTask *previewFilteredTaskDiagnostic `json:"filtered_task,omitempty"`
+	Aggregate    *previewAggregateDiagnostic    `json:"aggregate,omitempty"`
+}
+
+type previewFilteredTaskDiagnostic struct {
+	Type         string `json:"type"`
+	Name         string `json:"name,omitempty"`
+	CostTier     string `json:"cost_tier,omitempty"`
+	MinTokens    int    `json:"min_tokens,omitempty"`
+	MaxTokens    int    `json:"max_tokens,omitempty"`
+	Budget       int64  `json:"budget,omitempty"`
+	BudgetTooLow bool   `json:"budget_too_low,omitempty"`
+	Disabled     bool   `json:"disabled,omitempty"`
+	Error        string `json:"error,omitempty"`
+}
+
+type previewAggregateDiagnostic struct {
+	Enabled        int      `json:"enabled"`
+	Disabled       int      `json:"disabled"`
+	OverBudget     int      `json:"over_budget"`
+	Assigned       int      `json:"assigned"`
+	Candidates     int      `json:"candidates"`
+	Budget         int64    `json:"budget"`
+	UnknownEnabled []string `json:"unknown_enabled,omitempty"`
+	NoEnabledTasks bool     `json:"no_enabled_tasks,omitempty"`
+}
+
+func buildPreviewResult(cfg *config.Config, database *db.DB, projects []string, taskFilter string, runs int, writeDir string, sources *previewConfigSources, includeDiagnostics bool) (*previewResult, error) {
 	if runs <= 0 {
-		return fmt.Errorf("runs must be positive")
+		return nil, fmt.Errorf("runs must be positive")
 	}
 	if len(projects) == 0 {
-		return fmt.Errorf("no projects configured")
+		return nil, fmt.Errorf("no projects configured")
 	}
 
 	st, err := state.New(database)
 	if err != nil {
-		return fmt.Errorf("init state: %w", err)
+		return nil, fmt.Errorf("init state: %w", err)
 	}
 
 	sched, err := scheduler.NewFromConfig(&cfg.Schedule)
 	if err != nil {
-		return fmt.Errorf("schedule config: %w", err)
+		return nil, fmt.Errorf("schedule config: %w", err)
 	}
 
 	nextRuns, err := sched.NextRuns(runs)
 	if err != nil {
-		return fmt.Errorf("compute next runs: %w", err)
+		return nil, fmt.Errorf("compute next runs: %w", err)
 	}
 
 	claudeProvider := providers.NewClaudeWithPath(cfg.ExpandedProviderPath("claude"))
@@ -148,61 +249,95 @@ func renderPreview(w io.Writer, cfg *config.Config, database *db.DB, projects []
 
 	if writeDir != "" {
 		if err := os.MkdirAll(writeDir, 0755); err != nil {
-			return fmt.Errorf("create write dir: %w", err)
+			return nil, fmt.Errorf("create write dir: %w", err)
 		}
 	}
 
 	provider, err := previewProvider(cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	fmt.Fprintf(w, "Previewing next %d run(s). Assumes current state and usage; no tasks are executed.\n\n", runs)
+	mode := cfg.Budget.Mode
+	if mode == "" {
+		mode = config.DefaultBudgetMode
+	}
+	maxPercent := cfg.Budget.MaxPercent
+	if maxPercent <= 0 {
+		maxPercent = config.DefaultMaxPercent
+	}
+	reservePercent := cfg.Budget.ReservePercent
+	if reservePercent < 0 {
+		reservePercent = config.DefaultReservePercent
+	}
 
-	if explain {
-		providers := collectProviderBudgets(cfg, budgetMgr)
-		printPreviewContext(w, cfg, provider, taskFilter, providers, sources)
-		fmt.Fprintln(w)
+	result := &previewResult{
+		GeneratedAt:    time.Now(),
+		Provider:       provider,
+		TaskFilter:     taskFilter,
+		BudgetMode:     mode,
+		MaxPercent:     maxPercent,
+		ReservePercent: reservePercent,
+		EnabledTasks:   append([]string(nil), cfg.Tasks.Enabled...),
+		ProjectCount:   len(projects),
+		Providers:      collectProviderBudgets(cfg, budgetMgr),
+		ConfigSources:  sources,
+		Note:           "Only the plan prompt is deterministic. Implement/review prompts are generated after plan output.",
 	}
 
 	for i, runAt := range nextRuns {
-		fmt.Fprintf(w, "Run %d: %s\n", i+1, runAt.Format("2006-01-02 15:04"))
-
+		run := previewRun{Index: i + 1, RunAt: runAt}
 		for _, project := range projects {
+			projectResult := previewProject{Path: project}
+
 			if taskFilter == "" && st.WasProcessedToday(project) {
-				fmt.Fprintf(w, "  %s: skipped (already processed today)\n", project)
+				projectResult.Status = previewProjectSkipped
+				projectResult.Detail = "already processed today"
+				run.Projects = append(run.Projects, projectResult)
 				continue
 			}
 
 			allowance, err := budgetMgr.CalculateAllowance(provider)
 			if err != nil {
-				fmt.Fprintf(w, "  %s: budget error: %v\n", project, err)
+				projectResult.Status = previewProjectError
+				projectResult.Detail = fmt.Sprintf("budget error: %v", err)
+				run.Projects = append(run.Projects, projectResult)
 				continue
 			}
+
+			projectResult.Budget = allowance
 			if allowance.Allowance <= 0 {
-				fmt.Fprintf(w, "  %s: budget exhausted\n", project)
+				projectResult.Status = previewProjectBudgetExhausted
+				projectResult.Detail = "budget exhausted"
+				if includeDiagnostics {
+					projectResult.Diagnostics = computePreviewDiagnostics(cfg, st, project, taskFilter, allowance.Allowance)
+				}
+				run.Projects = append(run.Projects, projectResult)
 				continue
 			}
 
 			selected, err := previewSelectTasks(selector, project, taskFilter, allowance.Allowance)
 			if err != nil {
-				fmt.Fprintf(w, "  %s: %v\n", project, err)
+				projectResult.Status = previewProjectError
+				projectResult.Detail = err.Error()
+				if includeDiagnostics {
+					projectResult.Diagnostics = computePreviewDiagnostics(cfg, st, project, taskFilter, allowance.Allowance)
+				}
+				run.Projects = append(run.Projects, projectResult)
 				continue
 			}
 			if len(selected) == 0 {
-				if explain {
-					fmt.Fprintf(w, "  %s: no tasks available within budget\n", project)
-					printTaskFilterDiagnostics(w, cfg, st, project, taskFilter, allowance.Allowance)
-				} else {
-					fmt.Fprintf(w, "  %s: no tasks available within budget\n", project)
+				projectResult.Status = previewProjectNoTasks
+				projectResult.Detail = "no tasks available within budget"
+				if includeDiagnostics {
+					projectResult.Diagnostics = computePreviewDiagnostics(cfg, st, project, taskFilter, allowance.Allowance)
 				}
+				run.Projects = append(run.Projects, projectResult)
 				continue
 			}
 
-			fmt.Fprintf(w, "  %s:\n", project)
-			if explain {
-				printProjectBudget(w, cfg, allowance)
-			}
+			projectResult.Status = previewProjectReady
+			projectResult.Tasks = make([]previewTask, 0, len(selected))
 			for idx, scored := range selected {
 				taskInstance := &tasks.Task{
 					ID:          fmt.Sprintf("%s:%s", scored.Definition.Type, project),
@@ -212,29 +347,40 @@ func renderPreview(w io.Writer, cfg *config.Config, database *db.DB, projects []
 					Type:        scored.Definition.Type,
 				}
 				prompt := orch.PlanPrompt(taskInstance)
+				minTokens, maxTokens := scored.Definition.EstimatedTokens()
 
-				fmt.Fprintf(w, "    %d. %s (%s)\n", idx+1, scored.Definition.Name, scored.Definition.Type)
-				fmt.Fprintf(w, "       Prompt preview:\n")
-				fmt.Fprintf(w, "       %s\n", renderPromptPreview(prompt, longPrompt))
+				taskPreview := previewTask{
+					Index:       idx + 1,
+					Name:        scored.Definition.Name,
+					Type:        string(scored.Definition.Type),
+					Description: scored.Definition.Description,
+					Score:       scored.Score,
+					CostTier:    scored.Definition.CostTier.String(),
+					MinTokens:   minTokens,
+					MaxTokens:   maxTokens,
+					Prompt:      prompt,
+				}
 
 				if writeDir != "" {
 					filename := fmt.Sprintf("run-%02d-%s-%s-plan.txt", i+1, sanitizeFileName(filepath.Base(project)), scored.Definition.Type)
 					fullPath := filepath.Join(writeDir, filename)
 					if err := os.WriteFile(fullPath, []byte(prompt), 0644); err != nil {
-						fmt.Fprintf(w, "       Prompt file: error writing (%v)\n", err)
+						taskPreview.PromptFileError = err.Error()
 					} else {
-						fmt.Fprintf(w, "       Prompt file: %s\n", fullPath)
+						taskPreview.PromptFile = fullPath
 					}
 				}
-				fmt.Fprintln(w)
+
+				projectResult.Tasks = append(projectResult.Tasks, taskPreview)
 			}
+
+			run.Projects = append(run.Projects, projectResult)
 		}
 
-		fmt.Fprintln(w)
+		result.Runs = append(result.Runs, run)
 	}
 
-	fmt.Fprintln(w, "Note: Only the plan prompt is deterministic. Implement/review prompts are generated after plan output.")
-	return nil
+	return result, nil
 }
 
 type providerBudgetSummary struct {
@@ -264,102 +410,29 @@ func collectProviderBudgets(cfg *config.Config, budgetMgr *budget.Manager) []pro
 	return summaries
 }
 
-func printPreviewContext(w io.Writer, cfg *config.Config, provider, taskFilter string, providers []providerBudgetSummary, sources *previewConfigSources) {
-	mode := cfg.Budget.Mode
-	if mode == "" {
-		mode = config.DefaultBudgetMode
-	}
-	maxPercent := cfg.Budget.MaxPercent
-	if maxPercent <= 0 {
-		maxPercent = config.DefaultMaxPercent
-	}
-	reservePercent := cfg.Budget.ReservePercent
-	if reservePercent < 0 {
-		reservePercent = config.DefaultReservePercent
-	}
-
-	fmt.Fprintln(w, "Context:")
-	fmt.Fprintf(w, "  Provider: %s (preview picks first enabled: claude -> codex)\n", provider)
-	fmt.Fprintf(w, "  Budget mode: %s (max %d%%, reserve %d%%)\n", mode, maxPercent, reservePercent)
-	if sources != nil {
-		if sources.GlobalExists {
-			fmt.Fprintf(w, "  Config global: %s (loaded)\n", sources.GlobalPath)
-		} else {
-			fmt.Fprintf(w, "  Config global: %s (missing)\n", sources.GlobalPath)
-		}
-		if sources.ProjectExists {
-			fmt.Fprintf(w, "  Config project: %s (loaded)\n", sources.ProjectPath)
-		} else {
-			fmt.Fprintf(w, "  Config project: %s (missing)\n", sources.ProjectPath)
-		}
-		fmt.Fprintln(w, "  Config order: global -> project -> env overrides")
-	}
-	if len(providers) > 0 {
-		fmt.Fprintln(w, "  Provider budgets:")
-		for _, summary := range providers {
-			if summary.err != nil {
-				fmt.Fprintf(w, "    - %s: budget error: %v\n", summary.name, summary.err)
-				continue
-			}
-			fmt.Fprintf(w, "    - %s: %s available (%.1f%% used, weekly=%s, source=%s)\n",
-				summary.name,
-				formatTokens64(summary.allowance.Allowance),
-				summary.allowance.UsedPercent,
-				formatTokens64(summary.allowance.WeeklyBudget),
-				summary.allowance.BudgetSource)
-		}
-	}
-	if taskFilter != "" {
-		fmt.Fprintf(w, "  Task filter: %s\n", taskFilter)
-	} else {
-		enabled := cfg.Tasks.Enabled
-		if len(enabled) == 0 {
-			fmt.Fprintln(w, "  Task filter: all enabled tasks (none explicitly enabled)")
-		} else {
-			fmt.Fprintf(w, "  Task filter: enabled list (%d) [%s]\n", len(enabled), strings.Join(enabled, ", "))
-		}
-	}
-}
-
-func printProjectBudget(w io.Writer, cfg *config.Config, allowance *budget.AllowanceResult) {
-	if allowance == nil {
-		return
-	}
-	available := allowance.Allowance
-	fmt.Fprintf(w, "    Budget: %s available (%.1f%% used)\n", formatTokens64(available), allowance.UsedPercent)
-	fmt.Fprintf(w, "    Budget calc: weekly=%s, base=%s, reserve=%s, predicted=%s\n",
-		formatTokens64(allowance.WeeklyBudget),
-		formatTokens64(allowance.BudgetBase),
-		formatTokens64(allowance.ReserveAmount),
-		formatTokens64(allowance.PredictedUsage))
-	if allowance.Mode == "weekly" {
-		fmt.Fprintf(w, "    Budget window: %d day(s) remaining, multiplier %.2f\n", allowance.RemainingDays, allowance.Multiplier)
-	}
-	fmt.Fprintf(w, "    Budget source: %s (confidence=%s, samples=%d)\n",
-		allowance.BudgetSource, allowance.BudgetConfidence, allowance.BudgetSampleCount)
-	if len(cfg.Projects) > 1 {
-		fmt.Fprintf(w, "    Note: budget is not split per project during preview/run\n")
-	}
-}
-
-func printTaskFilterDiagnostics(w io.Writer, cfg *config.Config, st *state.State, project, taskFilter string, allowance int64) {
-	fmt.Fprintf(w, "    Diagnostics:\n")
+func computePreviewDiagnostics(cfg *config.Config, st *state.State, project, taskFilter string, allowance int64) *previewDiagnostics {
+	diagnostics := &previewDiagnostics{}
 	if taskFilter != "" {
 		def, err := tasks.GetDefinition(tasks.TaskType(taskFilter))
 		if err != nil {
-			fmt.Fprintf(w, "      - Task filter unknown: %s\n", taskFilter)
-			return
+			diagnostics.FilteredTask = &previewFilteredTaskDiagnostic{
+				Type:  taskFilter,
+				Error: "unknown task type",
+			}
+			return diagnostics
 		}
 		minTok, maxTok := def.EstimatedTokens()
-		fmt.Fprintf(w, "      - Filtered to %s (%s), cost %s (%d-%d)\n",
-			def.Type, def.Name, def.CostTier, minTok, maxTok)
-		if int64(maxTok) > allowance {
-			fmt.Fprintf(w, "      - Budget too low for %s: need %d, have %d\n", def.Type, maxTok, allowance)
+		diagnostics.FilteredTask = &previewFilteredTaskDiagnostic{
+			Type:         string(def.Type),
+			Name:         def.Name,
+			CostTier:     def.CostTier.String(),
+			MinTokens:    minTok,
+			MaxTokens:    maxTok,
+			Budget:       allowance,
+			BudgetTooLow: int64(maxTok) > allowance,
+			Disabled:     !cfg.IsTaskEnabled(string(def.Type)),
 		}
-		if !cfg.IsTaskEnabled(string(def.Type)) {
-			fmt.Fprintf(w, "      - Task disabled by config\n")
-		}
-		return
+		return diagnostics
 	}
 
 	defs := tasks.AllDefinitions()
@@ -367,6 +440,7 @@ func printTaskFilterDiagnostics(w io.Writer, cfg *config.Config, st *state.State
 	for _, def := range defs {
 		known[string(def.Type)] = true
 	}
+
 	enabledCount := 0
 	disabledCount := 0
 	overBudgetCount := 0
@@ -391,26 +465,27 @@ func printTaskFilterDiagnostics(w io.Writer, cfg *config.Config, st *state.State
 		candidateCount++
 	}
 
-	fmt.Fprintf(w, "      - Enabled tasks: %d (disabled: %d)\n", enabledCount, disabledCount)
-	fmt.Fprintf(w, "      - Over budget: %d (budget=%d)\n", overBudgetCount, allowance)
-	if assignedCount > 0 {
-		fmt.Fprintf(w, "      - Already assigned: %d\n", assignedCount)
-	}
-	fmt.Fprintf(w, "      - Candidates after filters: %d\n", candidateCount)
+	var unknown []string
 	if len(cfg.Tasks.Enabled) > 0 {
-		var unknown []string
 		for _, taskName := range cfg.Tasks.Enabled {
 			if !known[taskName] {
 				unknown = append(unknown, taskName)
 			}
 		}
-		if len(unknown) > 0 {
-			fmt.Fprintf(w, "      - Unknown enabled task types: %s\n", strings.Join(unknown, ", "))
-		}
 	}
-	if enabledCount == 0 {
-		fmt.Fprintf(w, "      - No enabled tasks in config\n")
+
+	diagnostics.Aggregate = &previewAggregateDiagnostic{
+		Enabled:        enabledCount,
+		Disabled:       disabledCount,
+		OverBudget:     overBudgetCount,
+		Assigned:       assignedCount,
+		Candidates:     candidateCount,
+		Budget:         allowance,
+		UnknownEnabled: unknown,
+		NoEnabledTasks: enabledCount == 0,
 	}
+
+	return diagnostics
 }
 
 func previewProvider(cfg *config.Config) (string, error) {
@@ -435,7 +510,11 @@ func previewSelectTasks(selector *tasks.Selector, projectPath, taskFilter string
 			Project:    projectPath,
 		}}, nil
 	}
-	return selector.SelectTopN(allowance, projectPath, 5), nil
+	task := selector.SelectNext(allowance, projectPath)
+	if task == nil {
+		return nil, nil
+	}
+	return []tasks.ScoredTask{*task}, nil
 }
 
 func renderPromptPreview(prompt string, full bool) string {

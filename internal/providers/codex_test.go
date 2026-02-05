@@ -305,7 +305,7 @@ func TestCodexGetUsedPercent_Daily_RateLimitFallback(t *testing.T) {
 	}
 }
 
-func TestCodexGetUsedPercent_Daily_TokenBased(t *testing.T) {
+func TestCodexGetUsedPercent_Daily_PrefersRateLimit(t *testing.T) {
 	tmpDir := t.TempDir()
 	now := time.Now()
 	todayDir := filepath.Join(
@@ -318,9 +318,8 @@ func TestCodexGetUsedPercent_Daily_TokenBased(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create a session with token data for today (single event: first == last)
-	// input=5000, cached=4000, output=1000, reasoning=200
-	// Billable: (5000-4000) + 1000 + 200 = 2200
+	// Session has both token data and rate limits (used_percent: 5.0).
+	// Rate limit should be preferred over token-based calculation.
 	sessionPath := filepath.Join(todayDir, "session.jsonl")
 	content := `{"type":"session_meta","payload":{"id":"test"}}
 ` + codexTokenCountJSON(5000, 4000, 1000, 200, 6200) + "\n"
@@ -329,18 +328,52 @@ func TestCodexGetUsedPercent_Daily_TokenBased(t *testing.T) {
 	}
 
 	provider := NewCodexWithPath(tmpDir)
-	weeklyBudget := int64(700000)
-	pct, err := provider.GetUsedPercent("daily", weeklyBudget)
+	pct, err := provider.GetUsedPercent("daily", 700000)
 	if err != nil {
 		t.Fatalf("GetUsedPercent error: %v", err)
 	}
 
+	// Rate limit used_percent=5.0 is preferred over token-based (2.2%)
+	if pct != 5.0 {
+		t.Errorf("GetUsedPercent(daily) = %.1f, want 5.0 (rate limit preferred)", pct)
+	}
+}
+
+func TestCodexGetUsedPercent_Daily_TokenFallback(t *testing.T) {
+	tmpDir := t.TempDir()
+	now := time.Now()
+	todayDir := filepath.Join(
+		tmpDir, "sessions",
+		fmt.Sprintf("%04d", now.Year()),
+		fmt.Sprintf("%02d", int(now.Month())),
+		fmt.Sprintf("%02d", now.Day()),
+	)
+	if err := os.MkdirAll(todayDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Session with token data but no rate limits — should fall back to tokens
+	sessionPath := filepath.Join(todayDir, "session.jsonl")
+	content := `{"type":"session_meta","payload":{"id":"test"}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":5000,"cached_input_tokens":4000,"output_tokens":1000,"reasoning_output_tokens":200,"total_tokens":6200},"last_token_usage":{"input_tokens":100,"cached_input_tokens":50,"output_tokens":20,"reasoning_output_tokens":0,"total_tokens":120}}}}
+`
+	if err := os.WriteFile(sessionPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	provider := NewCodexWithPath(tmpDir)
+	pct, err := provider.GetUsedPercent("daily", 700000)
+	if err != nil {
+		t.Fatalf("GetUsedPercent error: %v", err)
+	}
+
+	// No rate limits available, falls back to token-based:
 	// dailyBudget = 700000/7 = 100000
-	// billable = 2200
+	// billable = (5000-4000) + 1000 + 200 = 2200
 	// pct = 2200/100000 * 100 = 2.2%
 	expectedPct := float64(2200) / float64(100000) * 100
 	if pct != expectedPct {
-		t.Errorf("GetUsedPercent(daily) = %.4f, want %.4f (token-based)", pct, expectedPct)
+		t.Errorf("GetUsedPercent(daily) = %.4f, want %.4f (token fallback)", pct, expectedPct)
 	}
 }
 

@@ -220,14 +220,21 @@ func (c *Codex) GetRateLimits() (*CodexRateLimits, error) {
 	return limits, nil
 }
 
-// GetUsedPercent returns the used percentage based on mode and weekly budget.
-// For daily mode, uses actual token counts from today's sessions when available,
-// falling back to the primary rate limit used_percent.
-// For weekly mode, uses the secondary rate limit used_percent.
+// GetUsedPercent returns the used percentage based on mode.
+// Uses Codex's own rate limit percentages as the authoritative source since our
+// local billable token calculation may not match Codex's internal accounting
+// (prompt caching, model launch bonuses, etc.).
+// For daily mode: primary rate limit used_percent (5h window).
+// For weekly mode: secondary rate limit used_percent.
+// Falls back to token-based calculation only if rate limits are unavailable.
 func (c *Codex) GetUsedPercent(mode string, weeklyBudget int64) (float64, error) {
 	switch mode {
 	case "daily":
-		// Try token-based usage first (mirrors Claude's approach)
+		pct, err := c.GetPrimaryUsedPercent()
+		if err == nil && pct > 0 {
+			return pct, nil
+		}
+		// Fall back to token-based if no rate limit data
 		if weeklyBudget > 0 {
 			usage, err := c.GetTodayTokenUsage()
 			if err == nil && usage != nil && usage.TotalTokens > 0 {
@@ -237,13 +244,50 @@ func (c *Codex) GetUsedPercent(mode string, weeklyBudget int64) (float64, error)
 				}
 			}
 		}
-		// Fall back to rate limit data
-		return c.GetPrimaryUsedPercent()
+		return 0, nil
 	case "weekly":
-		return c.GetSecondaryUsedPercent()
+		pct, err := c.GetSecondaryUsedPercent()
+		if err == nil && pct > 0 {
+			return pct, nil
+		}
+		// Fall back to token-based if no rate limit data
+		if weeklyBudget > 0 {
+			usage, err := c.GetWeeklyTokenUsage()
+			if err == nil && usage != nil && usage.TotalTokens > 0 {
+				return float64(usage.TotalTokens) / float64(weeklyBudget) * 100, nil
+			}
+		}
+		return 0, nil
 	default:
 		return 0, fmt.Errorf("invalid mode: %s (must be 'daily' or 'weekly')", mode)
 	}
+}
+
+// UsageBreakdown contains both rate-limit and local token data for display.
+type UsageBreakdown struct {
+	PrimaryPct   float64        // 5h window used_percent from rate limit
+	WeeklyPct    float64        // weekly used_percent from rate limit
+	TodayTokens  *CodexTokenUsage // local billable tokens today
+	WeeklyTokens *CodexTokenUsage // local billable tokens this week
+}
+
+// GetUsageBreakdown returns both rate limit percentages and local token counts
+// so the budget display can show both authoritative and measured data.
+func (c *Codex) GetUsageBreakdown() UsageBreakdown {
+	var bd UsageBreakdown
+	if pct, err := c.GetPrimaryUsedPercent(); err == nil {
+		bd.PrimaryPct = pct
+	}
+	if pct, err := c.GetSecondaryUsedPercent(); err == nil {
+		bd.WeeklyPct = pct
+	}
+	if usage, err := c.GetTodayTokenUsage(); err == nil {
+		bd.TodayTokens = usage
+	}
+	if usage, err := c.GetWeeklyTokenUsage(); err == nil {
+		bd.WeeklyTokens = usage
+	}
+	return bd
 }
 
 // GetPrimaryUsedPercent returns the primary (daily) used_percent.
