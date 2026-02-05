@@ -220,19 +220,24 @@ func (c *Codex) GetRateLimits() (*CodexRateLimits, error) {
 	return limits, nil
 }
 
-// GetUsedPercent returns the used_percent based on mode.
-// mode: "daily" uses primary rate limit, "weekly" uses secondary.
-func (c *Codex) GetUsedPercent(mode string) (float64, error) {
-	limits, err := c.GetRateLimits()
-	if err != nil {
-		return 0, err
-	}
-	if limits == nil {
-		return 0, nil // No data available
-	}
-
+// GetUsedPercent returns the used percentage based on mode and weekly budget.
+// For daily mode, uses actual token counts from today's sessions when available,
+// falling back to the primary rate limit used_percent.
+// For weekly mode, uses the secondary rate limit used_percent.
+func (c *Codex) GetUsedPercent(mode string, weeklyBudget int64) (float64, error) {
 	switch mode {
 	case "daily":
+		// Try token-based usage first (mirrors Claude's approach)
+		if weeklyBudget > 0 {
+			usage, err := c.GetTodayTokenUsage()
+			if err == nil && usage != nil && usage.TotalTokens > 0 {
+				dailyBudget := weeklyBudget / 7
+				if dailyBudget > 0 {
+					return float64(usage.TotalTokens) / float64(dailyBudget) * 100, nil
+				}
+			}
+		}
+		// Fall back to rate limit data
 		return c.GetPrimaryUsedPercent()
 	case "weekly":
 		return c.GetSecondaryUsedPercent()

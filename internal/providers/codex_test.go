@@ -275,7 +275,7 @@ func TestCodexGetRateLimits_NoSessions(t *testing.T) {
 	}
 }
 
-func TestCodexGetUsedPercent_Daily(t *testing.T) {
+func TestCodexGetUsedPercent_Daily_RateLimitFallback(t *testing.T) {
 	tmpDir := t.TempDir()
 	sessionsDir := filepath.Join(tmpDir, "sessions", "2026", "02", "03")
 
@@ -293,14 +293,52 @@ func TestCodexGetUsedPercent_Daily(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// No today sessions with token data, so should fall back to rate limit
 	provider := NewCodexWithPath(tmpDir)
-	pct, err := provider.GetUsedPercent("daily")
+	pct, err := provider.GetUsedPercent("daily", 700000)
 	if err != nil {
 		t.Fatalf("GetUsedPercent error: %v", err)
 	}
 
 	if pct != 34.0 {
-		t.Errorf("GetUsedPercent(daily) = %.1f, want 34.0", pct)
+		t.Errorf("GetUsedPercent(daily) = %.1f, want 34.0 (rate limit fallback)", pct)
+	}
+}
+
+func TestCodexGetUsedPercent_Daily_TokenBased(t *testing.T) {
+	tmpDir := t.TempDir()
+	now := time.Now()
+	todayDir := filepath.Join(
+		tmpDir, "sessions",
+		fmt.Sprintf("%04d", now.Year()),
+		fmt.Sprintf("%02d", int(now.Month())),
+		fmt.Sprintf("%02d", now.Day()),
+	)
+	if err := os.MkdirAll(todayDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a session with token data for today
+	sessionPath := filepath.Join(todayDir, "session.jsonl")
+	content := `{"type":"session_meta","payload":{"id":"test"}}
+` + codexTokenCountJSON(5000, 4000, 1000, 200, 6200) + "\n"
+	if err := os.WriteFile(sessionPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	provider := NewCodexWithPath(tmpDir)
+	weeklyBudget := int64(700000)
+	pct, err := provider.GetUsedPercent("daily", weeklyBudget)
+	if err != nil {
+		t.Fatalf("GetUsedPercent error: %v", err)
+	}
+
+	// dailyBudget = 700000/7 = 100000
+	// usage = 6200 total tokens
+	// pct = 6200/100000 * 100 = 6.2%
+	expectedPct := float64(6200) / float64(100000) * 100
+	if pct != expectedPct {
+		t.Errorf("GetUsedPercent(daily) = %.1f, want %.1f (token-based)", pct, expectedPct)
 	}
 }
 
@@ -323,7 +361,7 @@ func TestCodexGetUsedPercent_Weekly(t *testing.T) {
 	}
 
 	provider := NewCodexWithPath(tmpDir)
-	pct, err := provider.GetUsedPercent("weekly")
+	pct, err := provider.GetUsedPercent("weekly", 700000)
 	if err != nil {
 		t.Fatalf("GetUsedPercent error: %v", err)
 	}
@@ -352,7 +390,7 @@ func TestCodexGetUsedPercent_InvalidMode(t *testing.T) {
 	}
 
 	provider := NewCodexWithPath(tmpDir)
-	_, err := provider.GetUsedPercent("monthly")
+	_, err := provider.GetUsedPercent("monthly", 700000)
 	if err == nil {
 		t.Error("expected error for invalid mode")
 	}
@@ -360,7 +398,7 @@ func TestCodexGetUsedPercent_InvalidMode(t *testing.T) {
 
 func TestCodexGetUsedPercent_NoData(t *testing.T) {
 	provider := NewCodexWithPath(t.TempDir())
-	pct, err := provider.GetUsedPercent("daily")
+	pct, err := provider.GetUsedPercent("daily", 700000)
 	if err != nil {
 		t.Fatalf("GetUsedPercent error: %v", err)
 	}

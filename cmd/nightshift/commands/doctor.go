@@ -209,7 +209,7 @@ func checkProviders(cfg *config.Config, add func(string, checkStatus, string)) (
 			add("codex.data_path", statusOK, path)
 		}
 		codexProvider = providers.NewCodexWithPath(path)
-		if pct, err := codexProvider.GetUsedPercent(mode); err != nil {
+		if pct, err := codexProvider.GetUsedPercent(mode, int64(cfg.GetProviderBudget("codex"))); err != nil {
 			add("codex.usage", statusFail, err.Error())
 		} else {
 			add("codex.usage", statusOK, fmt.Sprintf("%.1f%% used (%s)", pct, mode))

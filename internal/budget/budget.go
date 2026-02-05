@@ -25,7 +25,7 @@ type ClaudeUsageProvider interface {
 // CodexUsageProvider extends UsageProvider for Codex-specific usage methods.
 type CodexUsageProvider interface {
 	UsageProvider
-	GetUsedPercent(mode string) (float64, error)
+	GetUsedPercent(mode string, weeklyBudget int64) (float64, error)
 	GetResetTime(mode string) (time.Time, error)
 }
 
@@ -92,6 +92,7 @@ func WithTrendAnalyzer(analyzer TrendAnalyzer) Option {
 // AllowanceResult contains the calculated budget allowance and metadata.
 type AllowanceResult struct {
 	Allowance         int64   // Final token allowance for this run
+	WeeklyBudget      int64   // Weekly token budget used for calculation
 	BudgetBase        int64   // Base budget (daily or remaining weekly)
 	UsedPercent       float64 // Current used percentage
 	ReserveAmount     int64   // Tokens reserved
@@ -166,6 +167,7 @@ func (m *Manager) CalculateAllowance(provider string) (*AllowanceResult, error) 
 	result.BudgetSource = estimate.Source
 	result.BudgetConfidence = estimate.Confidence
 	result.BudgetSampleCount = estimate.SampleCount
+	result.WeeklyBudget = weeklyBudget
 
 	return result, nil
 }
@@ -276,7 +278,8 @@ func (m *Manager) GetUsedPercent(provider string) (float64, error) {
 		if m.codex == nil {
 			return 0, fmt.Errorf("codex provider not configured")
 		}
-		return m.codex.GetUsedPercent(mode)
+		weeklyBudget := int64(m.cfg.GetProviderBudget(provider))
+		return m.codex.GetUsedPercent(mode, weeklyBudget)
 
 	default:
 		return 0, fmt.Errorf("unknown provider: %s", provider)

@@ -26,7 +26,7 @@ type mockCodexProvider struct {
 }
 
 func (m *mockCodexProvider) Name() string { return "codex" }
-func (m *mockCodexProvider) GetUsedPercent(mode string) (float64, error) {
+func (m *mockCodexProvider) GetUsedPercent(mode string, weeklyBudget int64) (float64, error) {
 	return m.usedPercent, m.err
 }
 func (m *mockCodexProvider) GetResetTime(mode string) (time.Time, error) {
