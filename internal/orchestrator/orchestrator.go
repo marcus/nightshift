@@ -424,6 +424,7 @@ Title: %s
 Description: %s
 
 ## Instructions
+0. Work on a new branch and plan to submit a PR. Never work directly on the primary branch.
 1. Analyze the task requirements
 2. Identify files that need to be modified
 3. Create step-by-step implementation plan
@@ -457,6 +458,8 @@ Description: %s
 %v
 %s
 ## Instructions
+0. Create and work on a new branch. Never modify or commit directly to the primary branch.
+   When finished, open a PR. If you cannot open a PR, leave the branch and explain next steps.
 1. Implement the plan step by step
 2. Make all necessary code changes
 3. Ensure tests pass
@@ -484,10 +487,11 @@ Description: %s
 %v
 
 ## Instructions
-1. Check if implementation meets task requirements
-2. Verify code quality and correctness
-3. Check for bugs or issues
-4. Output your review as JSON:
+1. Confirm work was done on a branch (not primary) and is ready for a PR
+2. Check if implementation meets task requirements
+3. Verify code quality and correctness
+4. Check for bugs or issues
+5. Output your review as JSON:
 
 {
   "passed": true/false,

@@ -146,9 +146,11 @@ providers:
   claude:
     enabled: true
     data_path: "~/.claude"       # Path to Claude Code data directory
+    dangerously_skip_permissions: true
   codex:
     enabled: true
     data_path: "~/.codex"        # Path to Codex data directory
+    dangerously_bypass_approvals_and_sandbox: true
 
 # Projects to manage
 # Add your project paths here
@@ -241,4 +243,3 @@ integrations:
 #   max_percent: 5               # Lower budget for this project
 `
 }
-

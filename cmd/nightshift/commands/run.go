@@ -138,8 +138,8 @@ type executeRunParams struct {
 
 // providerChoice holds a selected provider's agent and name.
 type providerChoice struct {
-	agent    agents.Agent
-	name     string
+	agent     agents.Agent
+	name      string
 	allowance *budget.AllowanceResult
 }
 
@@ -147,24 +147,24 @@ type providerChoice struct {
 // Order: claude first, then codex as fallback.
 func selectProvider(cfg *config.Config, budgetMgr *budget.Manager, log *logging.Logger) (*providerChoice, error) {
 	type candidate struct {
-		name    string
-		binary  string
+		name      string
+		binary    string
 		makeAgent func() agents.Agent
 	}
 
 	var candidates []candidate
 	if cfg.Providers.Claude.Enabled {
 		candidates = append(candidates, candidate{
-			name:   "claude",
-			binary: "claude",
-			makeAgent: func() agents.Agent { return agents.NewClaudeAgent() },
+			name:      "claude",
+			binary:    "claude",
+			makeAgent: func() agents.Agent { return newClaudeAgentFromConfig(cfg) },
 		})
 	}
 	if cfg.Providers.Codex.Enabled {
 		candidates = append(candidates, candidate{
-			name:   "codex",
-			binary: "codex",
-			makeAgent: func() agents.Agent { return agents.NewCodexAgent() },
+			name:      "codex",
+			binary:    "codex",
+			makeAgent: func() agents.Agent { return newCodexAgentFromConfig(cfg) },
 		})
 	}
 

@@ -200,9 +200,11 @@ providers:
   claude:
     enabled: true
     data_path: "~/.claude"     # Where Claude Code stores usage data
+    dangerously_skip_permissions: true
   codex:
     enabled: true
     data_path: "~/.codex"
+    dangerously_bypass_approvals_and_sandbox: true
 
 budget:
   weekly_tokens: 700000        # Fallback if provider doesn't expose limits

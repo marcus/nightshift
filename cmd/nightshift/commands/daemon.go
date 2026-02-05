@@ -283,7 +283,7 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 	selector := tasks.NewSelector(cfg, st)
 
 	// Initialize agent
-	agent := agents.NewClaudeAgent()
+	agent := newClaudeAgentFromConfig(cfg)
 	if !agent.Available() {
 		log.Error("claude CLI not available")
 		return fmt.Errorf("claude CLI not found")

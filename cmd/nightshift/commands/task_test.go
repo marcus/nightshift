@@ -165,7 +165,7 @@ func TestTaskInstanceFromDef(t *testing.T) {
 }
 
 func TestAgentByNameUnknown(t *testing.T) {
-	_, err := agentByName("unknown-provider")
+	_, err := agentByName(nil, "unknown-provider")
 	if err == nil {
 		t.Fatal("expected error for unknown provider")
 	}

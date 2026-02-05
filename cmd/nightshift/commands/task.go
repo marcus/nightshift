@@ -192,7 +192,12 @@ func runTaskRun(cmd *cobra.Command, args []string) error {
 	taskInstance := taskInstanceFromDef(def, projectPath)
 
 	// Create orchestrator with the selected agent
-	agent, err := agentByName(provider)
+	cfg, err := loadConfig(projectPath)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	agent, err := agentByName(cfg, provider)
 	if err != nil {
 		return err
 	}

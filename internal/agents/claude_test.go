@@ -19,10 +19,10 @@ type MockRunner struct {
 	Delay    time.Duration // Simulate slow command
 
 	// Captured values
-	CapturedName   string
-	CapturedArgs   []string
-	CapturedDir    string
-	CapturedStdin  string
+	CapturedName  string
+	CapturedArgs  []string
+	CapturedDir   string
+	CapturedStdin string
 }
 
 func (m *MockRunner) Run(ctx context.Context, name string, args []string, dir string, stdin string) (string, string, int, error) {
@@ -111,8 +111,8 @@ func TestClaudeAgent_Execute_Success(t *testing.T) {
 	if mock.CapturedName != "claude" {
 		t.Errorf("binary = %q, want %q", mock.CapturedName, "claude")
 	}
-	if len(mock.CapturedArgs) != 2 || mock.CapturedArgs[0] != "--print" || mock.CapturedArgs[1] != "fix the bug" {
-		t.Errorf("args = %v, want [--print fix the bug]", mock.CapturedArgs)
+	if len(mock.CapturedArgs) != 3 || mock.CapturedArgs[0] != "--print" || mock.CapturedArgs[1] != "--dangerously-skip-permissions" || mock.CapturedArgs[2] != "fix the bug" {
+		t.Errorf("args = %v, want [--print --dangerously-skip-permissions fix the bug]", mock.CapturedArgs)
 	}
 	if mock.CapturedDir != "/project" {
 		t.Errorf("dir = %q, want %q", mock.CapturedDir, "/project")

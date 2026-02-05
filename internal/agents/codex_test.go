@@ -79,8 +79,8 @@ func TestCodexAgent_Execute_Success(t *testing.T) {
 	if mock.CapturedName != "codex" {
 		t.Errorf("binary = %q, want %q", mock.CapturedName, "codex")
 	}
-	if len(mock.CapturedArgs) != 2 || mock.CapturedArgs[0] != "--quiet" || mock.CapturedArgs[1] != "fix the bug" {
-		t.Errorf("args = %v, want [--quiet fix the bug]", mock.CapturedArgs)
+	if len(mock.CapturedArgs) != 3 || mock.CapturedArgs[0] != "--quiet" || mock.CapturedArgs[1] != "--dangerously-bypass-approvals-and-sandbox" || mock.CapturedArgs[2] != "fix the bug" {
+		t.Errorf("args = %v, want [--quiet --dangerously-bypass-approvals-and-sandbox fix the bug]", mock.CapturedArgs)
 	}
 	if mock.CapturedDir != "/project" {
 		t.Errorf("dir = %q, want %q", mock.CapturedDir, "/project")

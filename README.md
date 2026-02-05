@@ -6,6 +6,9 @@
 
 A Go CLI that runs overnight to perform AI-powered maintenance tasks on your codebase, using your remaining daily token budget from Claude Code/Codex subscriptions.
 
+Nightshift always works on a branch or PR. It never writes directly to your primary branch.
+While we take precautions, LLMs are still LLMs — review outputs before merging.
+
 ## Features
 
 - **Budget-aware**: Uses remaining daily allotment, never exceeds configurable max (default 75%)
@@ -142,9 +145,11 @@ providers:
   claude:
     enabled: true
     data_path: "~/.claude"
+    dangerously_skip_permissions: true
   codex:
     enabled: true
     data_path: "~/.codex"
+    dangerously_bypass_approvals_and_sandbox: true
 
 projects:
   - path: ~/code/sidecar

@@ -65,6 +65,10 @@ type ProvidersConfig struct {
 type ProviderConfig struct {
 	Enabled  bool   `mapstructure:"enabled"`
 	DataPath string `mapstructure:"data_path"` // Path to provider data directory
+	// DangerouslySkipPermissions tells the CLI to skip interactive permission prompts.
+	DangerouslySkipPermissions bool `mapstructure:"dangerously_skip_permissions"`
+	// DangerouslyBypassApprovalsAndSandbox tells the CLI to bypass approvals and sandboxing.
+	DangerouslyBypassApprovalsAndSandbox bool `mapstructure:"dangerously_bypass_approvals_and_sandbox"`
 }
 
 // ProjectConfig defines a project to manage.
@@ -224,8 +228,10 @@ func setDefaults(v *viper.Viper) {
 	// Provider defaults
 	v.SetDefault("providers.claude.enabled", true)
 	v.SetDefault("providers.claude.data_path", DefaultClaudeDataPath)
+	v.SetDefault("providers.claude.dangerously_skip_permissions", true)
 	v.SetDefault("providers.codex.enabled", true)
 	v.SetDefault("providers.codex.data_path", DefaultCodexDataPath)
+	v.SetDefault("providers.codex.dangerously_bypass_approvals_and_sandbox", true)
 
 	// Logging defaults
 	v.SetDefault("logging.level", DefaultLogLevel)

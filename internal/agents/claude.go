@@ -51,6 +51,7 @@ type ClaudeAgent struct {
 	binaryPath string        // Path to claude binary (default: "claude")
 	timeout    time.Duration // Default timeout
 	runner     CommandRunner // Command executor (for testing)
+	skipPerms  bool          // Pass --dangerously-skip-permissions
 }
 
 // ClaudeOption configures a ClaudeAgent.
@@ -70,6 +71,13 @@ func WithDefaultTimeout(d time.Duration) ClaudeOption {
 	}
 }
 
+// WithDangerouslySkipPermissions sets whether to pass --dangerously-skip-permissions.
+func WithDangerouslySkipPermissions(enabled bool) ClaudeOption {
+	return func(a *ClaudeAgent) {
+		a.skipPerms = enabled
+	}
+}
+
 // WithRunner sets a custom command runner (for testing).
 func WithRunner(r CommandRunner) ClaudeOption {
 	return func(a *ClaudeAgent) {
@@ -83,6 +91,7 @@ func NewClaudeAgent(opts ...ClaudeOption) *ClaudeAgent {
 		binaryPath: "claude",
 		timeout:    DefaultTimeout,
 		runner:     &ExecRunner{},
+		skipPerms:  true,
 	}
 	for _, opt := range opts {
 		opt(a)
@@ -111,6 +120,9 @@ func (a *ClaudeAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execut
 
 	// Build command args
 	args := []string{"--print"}
+	if a.skipPerms {
+		args = append(args, "--dangerously-skip-permissions")
+	}
 
 	// Add prompt directly as argument
 	if opts.Prompt != "" {

@@ -56,6 +56,7 @@ const (
 	stepConfig
 	stepProjects
 	stepBudget
+	stepSafety
 	stepTaskPreset
 	stepTaskSelect
 	stepSchedule
@@ -82,6 +83,8 @@ type setupModel struct {
 	budgetInput   textinput.Model
 	budgetEditing bool
 	budgetErr     string
+
+	safetyCursor int
 
 	taskPresetCursor int
 	taskCursor       int
@@ -229,6 +232,8 @@ func (m *setupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleProjectsInput(msg)
 		case stepBudget:
 			return m.handleBudgetInput(msg)
+		case stepSafety:
+			return m.handleSafetyInput(msg)
 		case stepTaskPreset:
 			return m.handlePresetInput(msg)
 		case stepTaskSelect:
@@ -331,6 +336,13 @@ func (m *setupModel) View() string {
 		if m.budgetErr != "" {
 			b.WriteString("\nError: " + m.budgetErr + "\n")
 		}
+		b.WriteString("\nPress Enter to continue.\n")
+	case stepSafety:
+		b.WriteString(styleAccent.Render("Approvals & sandbox\n"))
+		b.WriteString("These flags reduce interactive prompts. They’re convenient but carry more risk.\n")
+		b.WriteString("We default them ON; you can turn them off here.\n\n")
+		b.WriteString("Use ↑/↓ to select, space to toggle.\n\n")
+		renderSafetyFields(&b, m)
 		b.WriteString("\nPress Enter to continue.\n")
 	case stepTaskPreset:
 		b.WriteString(styleAccent.Render("Task presets (derived from registry)\n"))
@@ -565,7 +577,7 @@ func (m *setupModel) handleBudgetInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.budgetInput.Focus()
 	case "enter":
 		m.applyBudgetDefaults()
-		return m, m.setStep(stepTaskPreset)
+		return m, m.setStep(stepSafety)
 	}
 	return m, nil
 }
@@ -585,6 +597,29 @@ func (m *setupModel) handlePresetInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.preset = presets[m.taskPresetCursor]
 		m.taskItems = makeTaskItems(m.cfg, m.projects, m.preset)
 		return m, m.setStep(stepTaskSelect)
+	}
+	return m, nil
+}
+
+func (m *setupModel) handleSafetyInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		if m.safetyCursor > 0 {
+			m.safetyCursor--
+		}
+	case "down", "j":
+		if m.safetyCursor < 1 {
+			m.safetyCursor++
+		}
+	case " ":
+		switch m.safetyCursor {
+		case 0:
+			m.cfg.Providers.Claude.DangerouslySkipPermissions = !m.cfg.Providers.Claude.DangerouslySkipPermissions
+		case 1:
+			m.cfg.Providers.Codex.DangerouslyBypassApprovalsAndSandbox = !m.cfg.Providers.Codex.DangerouslyBypassApprovalsAndSandbox
+		}
+	case "enter":
+		return m, m.setStep(stepTaskPreset)
 	}
 	return m, nil
 }
@@ -929,6 +964,43 @@ func renderBudgetFields(b *strings.Builder, m *setupModel) {
 		}
 		b.WriteString(fmt.Sprintf(" %s %s\n", cursor, field))
 	}
+}
+
+func renderSafetyFields(b *strings.Builder, m *setupModel) {
+	items := []struct {
+		label     string
+		enabled   bool
+		available bool
+	}{
+		{
+			label:     "Claude: --dangerously-skip-permissions",
+			enabled:   m.cfg.Providers.Claude.DangerouslySkipPermissions,
+			available: m.cfg.Providers.Claude.Enabled,
+		},
+		{
+			label:     "Codex:  --dangerously-bypass-approvals-and-sandbox",
+			enabled:   m.cfg.Providers.Codex.DangerouslyBypassApprovalsAndSandbox,
+			available: m.cfg.Providers.Codex.Enabled,
+		},
+	}
+
+	for i, item := range items {
+		cursor := " "
+		if i == m.safetyCursor {
+			cursor = ">"
+		}
+		state := "OFF"
+		if item.enabled {
+			state = "ON"
+		}
+		status := state
+		if !item.available {
+			status = fmt.Sprintf("%s (provider disabled)", state)
+		}
+		b.WriteString(fmt.Sprintf(" %s [%s] %s\n", cursor, status, item.label))
+	}
+	b.WriteString(styleNote.Render("Tip: leave these OFF if you want the CLI to ask for approvals."))
+	b.WriteString("\n")
 }
 
 func renderScheduleFields(b *strings.Builder, m *setupModel) {

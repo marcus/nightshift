@@ -17,6 +17,7 @@ type CodexAgent struct {
 	binaryPath string        // Path to codex binary (default: "codex")
 	timeout    time.Duration // Default timeout
 	runner     CommandRunner // Command executor (for testing)
+	bypassPerm bool          // Pass --dangerously-bypass-approvals-and-sandbox
 }
 
 // CodexOption configures a CodexAgent.
@@ -36,6 +37,13 @@ func WithCodexDefaultTimeout(d time.Duration) CodexOption {
 	}
 }
 
+// WithDangerouslyBypassApprovalsAndSandbox sets whether to pass --dangerously-bypass-approvals-and-sandbox.
+func WithDangerouslyBypassApprovalsAndSandbox(enabled bool) CodexOption {
+	return func(a *CodexAgent) {
+		a.bypassPerm = enabled
+	}
+}
+
 // WithCodexRunner sets a custom command runner (for testing).
 func WithCodexRunner(r CommandRunner) CodexOption {
 	return func(a *CodexAgent) {
@@ -49,6 +57,7 @@ func NewCodexAgent(opts ...CodexOption) *CodexAgent {
 		binaryPath: "codex",
 		timeout:    DefaultTimeout,
 		runner:     &ExecRunner{},
+		bypassPerm: true,
 	}
 	for _, opt := range opts {
 		opt(a)
@@ -78,6 +87,9 @@ func (a *CodexAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execute
 	// Build command args for headless/non-interactive execution
 	// Codex CLI uses --quiet for non-interactive mode and accepts prompt directly
 	args := []string{"--quiet"}
+	if a.bypassPerm {
+		args = append(args, "--dangerously-bypass-approvals-and-sandbox")
+	}
 
 	// Add prompt directly as argument
 	if opts.Prompt != "" {
