@@ -67,6 +67,11 @@ const (
 	stepFinish
 )
 
+const (
+	nightshiftPlanIgnore        = ".nightshift-plan"
+	nightshiftPlanIgnoreComment = "# Nightshift plan artifacts (keep out of version control)"
+)
+
 type setupModel struct {
 	step setupStep
 
@@ -80,6 +85,9 @@ type setupModel struct {
 	projectInput   textinput.Model
 	projectEditing bool
 	projectErr     string
+	gitignoreAdded int
+	gitignoreKept  int
+	gitignoreErrs  []string
 
 	budgetCursor  int
 	budgetInput   textinput.Model
@@ -924,6 +932,7 @@ func (m *setupModel) applyProjects() {
 		}
 		m.cfg.Projects = append(m.cfg.Projects, config.ProjectConfig{Path: project})
 	}
+	m.updateProjectGitignores()
 }
 
 func (m *setupModel) applyBudgetDefaults() {
@@ -1170,6 +1179,19 @@ func (m *setupModel) finishExpectations() []string {
 		fmt.Sprintf("Run report: %s", reporting.DefaultRunReportPath(time.Now())),
 		"CLI status: `nightshift status --today` or `nightshift logs`",
 		"Safety: Nightshift never writes to your primary branch. Expect PRs or branches.",
+	}
+	if m.gitignoreAdded > 0 || m.gitignoreKept > 0 {
+		var parts []string
+		if m.gitignoreAdded > 0 {
+			parts = append(parts, fmt.Sprintf("added to %d project(s)", m.gitignoreAdded))
+		}
+		if m.gitignoreKept > 0 {
+			parts = append(parts, fmt.Sprintf("already present in %d project(s)", m.gitignoreKept))
+		}
+		lines = append(lines, fmt.Sprintf("Gitignore: ensured `%s` is ignored (%s) so plan artifacts stay out of version control.", nightshiftPlanIgnore, strings.Join(parts, ", ")))
+	}
+	for _, errLine := range m.gitignoreErrs {
+		lines = append(lines, fmt.Sprintf("Gitignore: %s", errLine))
 	}
 
 	switch m.daemonAction {
@@ -1810,4 +1832,70 @@ func writeGlobalConfig(cfg *config.Config) error {
 
 func execLookPath(name string) (string, error) {
 	return exec.LookPath(name)
+}
+
+func (m *setupModel) updateProjectGitignores() {
+	m.gitignoreAdded = 0
+	m.gitignoreKept = 0
+	m.gitignoreErrs = nil
+
+	for _, project := range m.cfg.Projects {
+		path := expandPath(project.Path)
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+		gitignorePath := filepath.Join(path, ".gitignore")
+		added, err := ensureGitignoreEntry(gitignorePath, nightshiftPlanIgnore, nightshiftPlanIgnoreComment)
+		if err != nil {
+			m.gitignoreErrs = append(m.gitignoreErrs, fmt.Sprintf("%s: %v", path, err))
+			continue
+		}
+		if added {
+			m.gitignoreAdded++
+		} else {
+			m.gitignoreKept++
+		}
+	}
+}
+
+func ensureGitignoreEntry(gitignorePath, entry, comment string) (bool, error) {
+	var existing string
+	if data, err := os.ReadFile(gitignorePath); err == nil {
+		existing = string(data)
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+
+	if gitignoreHasEntry(existing, entry) {
+		return false, nil
+	}
+
+	var b strings.Builder
+	if existing != "" {
+		b.WriteString(strings.TrimRight(existing, "\n"))
+		b.WriteString("\n")
+	}
+	if comment != "" && !strings.Contains(existing, comment) {
+		b.WriteString(comment)
+		b.WriteString("\n")
+	}
+	b.WriteString(entry)
+	b.WriteString("\n")
+
+	return true, os.WriteFile(gitignorePath, []byte(b.String()), 0644)
+}
+
+func gitignoreHasEntry(content, entry string) bool {
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		trimmed = strings.TrimPrefix(trimmed, "/")
+		trimmed = strings.TrimSuffix(trimmed, "/")
+		if trimmed == entry {
+			return true
+		}
+	}
+	return false
 }

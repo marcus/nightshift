@@ -702,9 +702,84 @@ func renderReportOverview(styles reportStyles, runs []reportRun, opts reportOpti
 		}
 	}
 
+	// What's Next section
+	b.WriteString("\n")
+	b.WriteString(renderWhatsNext(styles, runs))
+
 	return b.String()
 }
 
+// renderWhatsNext generates context-aware action items based on run results.
+func renderWhatsNext(styles reportStyles, runs []reportRun) string {
+	var b strings.Builder
+	var items []string
+
+	totalCompleted := 0
+	totalTasks := 0
+	var totalBudgetStart, totalBudgetRemaining int
+
+	for _, run := range runs {
+		if run.results == nil {
+			continue
+		}
+		for _, task := range run.results.Tasks {
+			totalTasks++
+			if task.Status == "completed" {
+				totalCompleted++
+			}
+
+			// PRs to review
+			if strings.EqualFold(task.OutputType, "pr") && task.OutputRef != "" {
+				ref := task.OutputRef
+				if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
+					ref = termenv.Hyperlink(ref, ref)
+				}
+				items = append(items, styles.Accent.Render(fmt.Sprintf("\u2192 Review PR: %s", ref)))
+			}
+
+			// Failed tasks
+			if task.Status == "failed" {
+				project := projectLabel(task.Project)
+				detail := task.Title
+				if project != "" {
+					detail += " (" + project + ")"
+				}
+				items = append(items, styles.Error.Render(fmt.Sprintf("\u2192 Investigate failed: %s", detail)))
+			}
+		}
+
+		totalBudgetStart += run.results.StartBudget
+		totalBudgetRemaining += run.results.RemainingBudget
+	}
+
+	// Budget warning: remaining < 20% of start
+	if totalBudgetStart > 0 {
+		threshold := totalBudgetStart / 5
+		if totalBudgetRemaining < threshold {
+			items = append(items, styles.Warn.Render(fmt.Sprintf("\u2192 Budget low: %s remaining of %s start",
+				formatTokensCompact(totalBudgetRemaining),
+				formatTokensCompact(totalBudgetStart))))
+		}
+	}
+
+	b.WriteString(styles.Section.Render("What's Next"))
+	b.WriteString("\n")
+
+	if len(items) == 0 {
+		taskWord := "tasks"
+		if totalCompleted == 1 {
+			taskWord = "task"
+		}
+		b.WriteString(styles.OK.Render(fmt.Sprintf("  \u2713 All %d %s completed successfully", totalCompleted, taskWord)))
+		b.WriteString("\n")
+	} else {
+		for _, item := range items {
+			b.WriteString("  " + item + "\n")
+		}
+	}
+
+	return b.String()
+}
 
 func renderReportTasks(styles reportStyles, runs []reportRun) string {
 	var b strings.Builder

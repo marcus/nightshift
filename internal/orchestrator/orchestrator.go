@@ -459,6 +459,7 @@ func (o *Orchestrator) review(ctx context.Context, task *tasks.Task, impl *Imple
 func (o *Orchestrator) commit(_ context.Context, task *tasks.Task, impl *ImplementOutput, _ string) error {
 	// For now, commit is a no-op. In full implementation:
 	// - Create git commit with changes
+	// - Include a commit message with https://github.com/marcus/nightshift
 	// - Update task state
 	// - Send notifications
 	o.logger.Infof("commit: task=%s files=%d", task.ID, len(impl.FilesModified))
@@ -516,10 +517,12 @@ Description: %s
 ## Instructions
 0. You are running autonomously. If the task is broad or ambiguous, choose a concrete, minimal scope that delivers value and state any assumptions in the description.
 1. Work on a new branch and plan to submit a PR. Never work directly on the primary branch.
-2. Analyze the task requirements
-3. Identify files that need to be modified
-4. Create step-by-step implementation plan
-5. Output only valid JSON (no markdown, no extra text). The output is read by a machine. Use this schema:
+2. Before creating your branch, record the current branch name and plan to switch back after the PR is opened.
+3. If you create commits, include a message and the repo link: https://github.com/marcus/nightshift
+4. Analyze the task requirements
+5. Identify files that need to be modified
+6. Create step-by-step implementation plan
+7. Output only valid JSON (no markdown, no extra text). The output is read by a machine. Use this schema:
 
 {
   "steps": ["step1", "step2", ...],
@@ -549,12 +552,13 @@ Description: %s
 %v
 %s
 ## Instructions
-0. Create and work on a new branch. Never modify or commit directly to the primary branch.
-   When finished, open a PR. If you cannot open a PR, leave the branch and explain next steps.
-1. Implement the plan step by step
-2. Make all necessary code changes
-3. Ensure tests pass
-4. Output a summary as JSON:
+0. Before creating your branch, record the current branch name. Create and work on a new branch. Never modify or commit directly to the primary branch.
+   When finished, open a PR. After the PR is submitted, switch back to the original branch. If you cannot open a PR, leave the branch and explain next steps.
+1. If you create commits, include a concise message and the repo link: https://github.com/marcus/nightshift
+2. Implement the plan step by step
+3. Make all necessary code changes
+4. Ensure tests pass
+5. Output a summary as JSON:
 
 {
   "files_modified": ["file1.go", ...],
