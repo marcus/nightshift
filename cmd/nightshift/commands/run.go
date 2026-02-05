@@ -396,6 +396,8 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 						TaskType:   string(scoredTask.Definition.Type),
 						Title:      scoredTask.Definition.Name,
 						Status:     "completed",
+						OutputType: result.OutputType,
+						OutputRef:  result.OutputRef,
 						TokensUsed: maxTok,
 						Duration:   result.Duration,
 					})

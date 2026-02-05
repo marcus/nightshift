@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -44,6 +45,8 @@ type TaskResult struct {
 	Iterations int           `json:"iterations"`
 	Plan       *PlanOutput   `json:"plan,omitempty"`
 	Output     string        `json:"output,omitempty"`
+	OutputType string        `json:"output_type,omitempty"` // e.g. "PR"
+	OutputRef  string        `json:"output_ref,omitempty"`  // e.g. PR URL
 	Error      string        `json:"error,omitempty"`
 	Duration   time.Duration `json:"duration"`
 	Logs       []LogEntry    `json:"logs"`
@@ -230,6 +233,18 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 			}
 			result.Status = StatusCompleted
 			result.Duration = time.Since(start)
+
+			// Extract PR URL from agent output
+			if url := ExtractPRURL(impl.Raw); url != "" {
+				result.OutputType = "PR"
+				result.OutputRef = url
+				o.log(result, "info", "PR found", map[string]any{"url": url})
+			} else if url := ExtractPRURL(impl.Summary); url != "" {
+				result.OutputType = "PR"
+				result.OutputRef = url
+				o.log(result, "info", "PR found", map[string]any{"url": url})
+			}
+
 			o.log(result, "info", "task completed", map[string]any{"duration": result.Duration.String()})
 			return result, nil
 		}
@@ -577,6 +592,19 @@ Description: %s
 
 Set "passed" to true ONLY if the implementation is correct and complete.
 `, task.ID, task.Title, task.Description, impl.Summary, impl.FilesModified)
+}
+
+// prURLPattern matches standard GitHub pull request URLs.
+var prURLPattern = regexp.MustCompile(`https://github\.com/[^/\s]+/[^/\s]+/pull/\d+`)
+
+// ExtractPRURL scans text for GitHub PR URLs and returns the last match.
+// Returns empty string if no PR URL is found.
+func ExtractPRURL(text string) string {
+	matches := prURLPattern.FindAllString(text, -1)
+	if len(matches) == 0 {
+		return ""
+	}
+	return matches[len(matches)-1]
 }
 
 // inferReviewPassed attempts to detect pass/fail from unstructured text.

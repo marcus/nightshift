@@ -465,3 +465,148 @@ func TestBuildPrompts(t *testing.T) {
 		t.Error("review prompt should mention review")
 	}
 }
+
+func TestExtractPRURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "single PR URL",
+			input: "Created PR: https://github.com/owner/repo/pull/42",
+			want:  "https://github.com/owner/repo/pull/42",
+		},
+		{
+			name:  "multiple PR URLs returns last",
+			input: "See https://github.com/owner/repo/pull/1 and https://github.com/owner/repo/pull/99",
+			want:  "https://github.com/owner/repo/pull/99",
+		},
+		{
+			name:  "no PR URL",
+			input: "No pull request was created",
+			want:  "",
+		},
+		{
+			name:  "URL embedded in text",
+			input: "Successfully opened https://github.com/acme/widgets/pull/123 for review.",
+			want:  "https://github.com/acme/widgets/pull/123",
+		},
+		{
+			name:  "empty string",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "URL with large PR number",
+			input: "https://github.com/org/project/pull/99999",
+			want:  "https://github.com/org/project/pull/99999",
+		},
+		{
+			name:  "non-PR github URL ignored",
+			input: "See https://github.com/owner/repo/issues/5",
+			want:  "",
+		},
+		{
+			name:  "PR URL in multiline output",
+			input: "Done.\n\nPR: https://github.com/foo/bar/pull/7\n\nPlease review.",
+			want:  "https://github.com/foo/bar/pull/7",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ExtractPRURL(tt.input)
+			if got != tt.want {
+				t.Errorf("ExtractPRURL() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRunTaskExtractsPRURL(t *testing.T) {
+	// Setup mock: plan, implement (with PR URL in raw output), review (pass)
+	planResp := jsonResponse(PlanOutput{
+		Steps:       []string{"step1"},
+		Files:       []string{"file1.go"},
+		Description: "test plan",
+	})
+
+	implData := ImplementOutput{
+		FilesModified: []string{"file1.go"},
+		Summary:       "opened PR",
+	}
+	implJSON, _ := json.Marshal(implData)
+	implResp := agents.ExecuteResult{
+		Output:   "Created https://github.com/owner/repo/pull/42 for review",
+		JSON:     implJSON,
+		ExitCode: 0,
+	}
+
+	reviewResp := jsonResponse(ReviewOutput{
+		Passed:   true,
+		Feedback: "looks good",
+	})
+
+	agent := newMockAgent(planResp, implResp, reviewResp)
+	o := New(WithAgent(agent))
+
+	task := &tasks.Task{
+		ID:          "pr-test",
+		Title:       "PR Extraction Test",
+		Description: "test PR URL extraction",
+	}
+
+	result, err := o.RunTask(context.Background(), task, "/work")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.Status != StatusCompleted {
+		t.Fatalf("status = %s, want %s", result.Status, StatusCompleted)
+	}
+	if result.OutputType != "PR" {
+		t.Errorf("OutputType = %q, want %q", result.OutputType, "PR")
+	}
+	if result.OutputRef != "https://github.com/owner/repo/pull/42" {
+		t.Errorf("OutputRef = %q, want %q", result.OutputRef, "https://github.com/owner/repo/pull/42")
+	}
+}
+
+func TestRunTaskNoPRURL(t *testing.T) {
+	// Setup mock: plan, implement (no PR URL), review (pass)
+	planResp := jsonResponse(PlanOutput{
+		Steps:       []string{"step1"},
+		Files:       []string{"file1.go"},
+		Description: "test plan",
+	})
+	implResp := jsonResponse(ImplementOutput{
+		FilesModified: []string{"file1.go"},
+		Summary:       "implemented changes without a PR",
+	})
+	reviewResp := jsonResponse(ReviewOutput{
+		Passed:   true,
+		Feedback: "looks good",
+	})
+
+	agent := newMockAgent(planResp, implResp, reviewResp)
+	o := New(WithAgent(agent))
+
+	task := &tasks.Task{
+		ID:          "no-pr-test",
+		Title:       "No PR Test",
+		Description: "test no PR URL",
+	}
+
+	result, err := o.RunTask(context.Background(), task, "/work")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.OutputType != "" {
+		t.Errorf("OutputType = %q, want empty", result.OutputType)
+	}
+	if result.OutputRef != "" {
+		t.Errorf("OutputRef = %q, want empty", result.OutputRef)
+	}
+}

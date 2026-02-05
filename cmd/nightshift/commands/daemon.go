@@ -406,6 +406,8 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 						TaskType:   string(scoredTask.Definition.Type),
 						Title:      scoredTask.Definition.Name,
 						Status:     "completed",
+						OutputType: result.OutputType,
+						OutputRef:  result.OutputRef,
 						TokensUsed: maxTok,
 						Duration:   result.Duration,
 					})
