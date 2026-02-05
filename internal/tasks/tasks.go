@@ -759,6 +759,20 @@ func AllDefinitions() []TaskDefinition {
 	return defs
 }
 
+// AllDefinitionsSorted returns all registered task definitions sorted by
+// Category first, then by Name within each category. This provides stable,
+// deterministic ordering for CLI output.
+func AllDefinitionsSorted() []TaskDefinition {
+	defs := AllDefinitions()
+	slices.SortFunc(defs, func(a, b TaskDefinition) int {
+		if c := cmp.Compare(a.Category, b.Category); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Name, b.Name)
+	})
+	return defs
+}
+
 // Task represents a unit of work for an AI agent.
 type Task struct {
 	ID          string
