@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/marcus/nightshift/internal/config"
 	"github.com/marcus/nightshift/internal/db"
 	"github.com/marcus/nightshift/internal/providers"
+	"github.com/marcus/nightshift/internal/snapshots"
 	"github.com/marcus/nightshift/internal/trends"
 )
 
@@ -92,8 +92,9 @@ func runBudget(filterProvider string) error {
 	fmt.Println()
 
 	// Print status for each provider
+	snapCollector := snapshots.NewCollector(database, nil, nil, nil, weekStartDayFromConfig(cfg))
 	for _, provName := range providerList {
-		if err := printProviderBudget(mgr, cfg, provName, codex, cal); err != nil {
+		if err := printProviderBudget(mgr, cfg, provName, cal, snapCollector); err != nil {
 			fmt.Printf("%s: error: %v\n\n", provName, err)
 			continue
 		}
@@ -103,7 +104,7 @@ func runBudget(filterProvider string) error {
 	return nil
 }
 
-func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName string, codex *providers.Codex, source budget.BudgetSource) error {
+func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName string, source budget.BudgetSource, snapCollector *snapshots.Collector) error {
 	result, err := mgr.CalculateAllowance(provName)
 	if err != nil {
 		return err
@@ -219,11 +220,13 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 		}
 	}
 
-	// Show reset time for Codex
-	if provName == "codex" && codex != nil {
-		resetTime, err := codex.GetResetTime(result.Mode)
-		if err == nil && !resetTime.IsZero() {
-			fmt.Printf("  Resets at:    %s\n", formatResetTime(resetTime))
+	// Show reset times from latest snapshot
+	if snapCollector != nil {
+		if latest, err := snapCollector.GetLatest(provName, 1); err == nil && len(latest) > 0 {
+			resetLine := formatResetLine(latest[0].SessionResetTime, latest[0].WeeklyResetTime)
+			if resetLine != "" {
+				fmt.Printf("  Resets:       %s\n", resetLine)
+			}
 		}
 	}
 
@@ -259,24 +262,17 @@ func formatBudgetMeta(estimate budget.BudgetEstimate) string {
 	return " (" + strings.Join(parts, ", ") + ")"
 }
 
-func formatResetTime(t time.Time) string {
-	now := time.Now()
-	duration := t.Sub(now)
-
-	if duration <= 0 {
-		return "now"
+// formatResetLine builds the "Resets:" display from scraped reset time strings.
+// Returns empty string if no reset times are available.
+func formatResetLine(sessionReset, weeklyReset string) string {
+	var parts []string
+	if sessionReset != "" {
+		parts = append(parts, "session "+sessionReset)
 	}
-
-	// Show relative time
-	if duration < time.Hour {
-		return fmt.Sprintf("in %d min (%s)", int(duration.Minutes()), t.Format("15:04"))
+	if weeklyReset != "" {
+		parts = append(parts, "week "+weeklyReset)
 	}
-	if duration < 24*time.Hour {
-		return fmt.Sprintf("in %dh %dm (%s)", int(duration.Hours()), int(duration.Minutes())%60, t.Format("15:04"))
-	}
-
-	days := int(duration.Hours() / 24)
-	return fmt.Sprintf("in %d days (%s)", days, t.Format("Jan 2 15:04"))
+	return strings.Join(parts, " · ")
 }
 
 func progressBar(percent float64, width int) string {
