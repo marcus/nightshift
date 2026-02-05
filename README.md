@@ -1,4 +1,4 @@
-# Night Shift
+# Nightshift
 
 > Wake up to a cleaner codebase
 
@@ -59,7 +59,7 @@ If you prefer API-based usage, you can authenticate those CLIs with API keys ins
 
 ## Configuration
 
-Night Shift uses a YAML config file (`nightshift.yaml`) to define:
+Nightshift uses a YAML config file (`nightshift.yaml`) to define:
 
 - Token budget limits
 - Target repositories

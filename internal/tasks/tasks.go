@@ -2,7 +2,11 @@
 // Tasks can come from GitHub issues, local files, or inline definitions.
 package tasks
 
-import "fmt"
+import (
+	"cmp"
+	"fmt"
+	"slices"
+)
 
 // CostTier represents the estimated token cost for a task.
 type CostTier int
