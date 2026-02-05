@@ -541,11 +541,36 @@ func renderReportOverview(styles reportStyles, runs []reportRun, opts reportOpti
 	var b strings.Builder
 
 	agg := aggregateRuns(runs)
-	summaryLines := []string{
-		fmt.Sprintf("%s %d", styles.Label.Render("Completed:"), agg.completed),
-		fmt.Sprintf("%s %d", styles.Label.Render("Failed:"), agg.failed),
-		fmt.Sprintf("%s %d", styles.Label.Render("Skipped:"), agg.skipped),
+
+	// Tasks line: "Tasks: N completed · X% success" with failed/skipped only when > 0
+	total := agg.completed + agg.failed + agg.skipped
+	tasksLine := fmt.Sprintf("%s %d completed", styles.Label.Render("Tasks:"), agg.completed)
+	if agg.failed > 0 {
+		tasksLine += fmt.Sprintf(" · %s", styles.Error.Render(fmt.Sprintf("%d failed", agg.failed)))
 	}
+	if agg.skipped > 0 {
+		tasksLine += fmt.Sprintf(" · %s", styles.Warn.Render(fmt.Sprintf("%d skipped", agg.skipped)))
+	}
+	if total > 0 {
+		rate := float64(agg.completed) / float64(total) * 100
+		tasksLine += fmt.Sprintf(" · %.0f%% success", rate)
+	}
+
+	summaryLines := []string{tasksLine}
+
+	// Duration line with project count
+	if agg.totalDuration > 0 {
+		durationLine := fmt.Sprintf("%s %s", styles.Label.Render("Duration:"), formatDuration(agg.totalDuration))
+		if agg.projectCount > 0 {
+			projectWord := "project"
+			if agg.projectCount > 1 {
+				projectWord = "projects"
+			}
+			durationLine += fmt.Sprintf(" across %d %s", agg.projectCount, projectWord)
+		}
+		summaryLines = append(summaryLines, durationLine)
+	}
+
 	if agg.hasBudget {
 		summaryLines = append(summaryLines, fmt.Sprintf("%s %s used / %s start",
 			styles.Label.Render("Budget:"),
@@ -816,21 +841,24 @@ func renderReportBudget(styles reportStyles, runs []reportRun) string {
 }
 
 type aggregateSummary struct {
-	completed    int
-	failed       int
-	skipped      int
-	tokensUsed   int
-	budgetStart  int
-	outputCounts map[string]int
-	hasBudget    bool
-	outputs      []string
-	prCount      int
+	completed     int
+	failed        int
+	skipped       int
+	tokensUsed    int
+	budgetStart   int
+	outputCounts  map[string]int
+	hasBudget     bool
+	outputs       []string
+	prCount       int
+	totalDuration time.Duration
+	projectCount  int
 }
 
 func aggregateRuns(runs []reportRun) aggregateSummary {
 	agg := aggregateSummary{
 		outputCounts: make(map[string]int),
 	}
+	allProjects := make(map[string]struct{})
 	for _, run := range runs {
 		if run.results == nil {
 			continue
@@ -840,6 +868,7 @@ func aggregateRuns(runs []reportRun) aggregateSummary {
 		agg.failed += summary.Failed
 		agg.skipped += summary.Skipped
 		agg.tokensUsed += summary.TokensUsed
+		agg.totalDuration += summary.Duration
 		if summary.BudgetStart > 0 {
 			agg.budgetStart += summary.BudgetStart
 			agg.hasBudget = true
@@ -849,10 +878,14 @@ func aggregateRuns(runs []reportRun) aggregateSummary {
 				agg.prCount++
 			}
 		}
+		for name := range summary.Projects {
+			allProjects[name] = struct{}{}
+		}
 		for _, output := range summary.Outputs {
 			agg.outputCounts[output]++
 		}
 	}
+	agg.projectCount = len(allProjects)
 
 	if len(agg.outputCounts) > 0 {
 		outputs := make([]string, 0, len(agg.outputCounts))
