@@ -3,7 +3,9 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestValidate_CronAndInterval(t *testing.T) {
@@ -314,6 +316,81 @@ logging:
 	// Global value should still be present for non-overridden fields
 	if cfg.Budget.Mode != "daily" {
 		t.Errorf("Budget.Mode = %q, want daily (from global)", cfg.Budget.Mode)
+	}
+}
+
+func TestGetTaskInterval_Override(t *testing.T) {
+	cfg := &Config{
+		Tasks: TasksConfig{
+			Intervals: map[string]string{
+				"lint": "30m",
+				"docs": "2h",
+			},
+		},
+	}
+
+	if got := cfg.GetTaskInterval("lint"); got != 30*time.Minute {
+		t.Errorf("GetTaskInterval(lint) = %v, want 30m", got)
+	}
+	if got := cfg.GetTaskInterval("docs"); got != 2*time.Hour {
+		t.Errorf("GetTaskInterval(docs) = %v, want 2h", got)
+	}
+}
+
+func TestGetTaskInterval_NotSet(t *testing.T) {
+	cfg := &Config{
+		Tasks: TasksConfig{
+			Intervals: map[string]string{
+				"lint": "30m",
+			},
+		},
+	}
+
+	if got := cfg.GetTaskInterval("security"); got != 0 {
+		t.Errorf("GetTaskInterval(security) = %v, want 0", got)
+	}
+
+	// Also test with nil map
+	cfgNil := &Config{}
+	if got := cfgNil.GetTaskInterval("lint"); got != 0 {
+		t.Errorf("GetTaskInterval(lint) with nil map = %v, want 0", got)
+	}
+}
+
+func TestValidate_InvalidTaskInterval(t *testing.T) {
+	cfg := &Config{
+		Tasks: TasksConfig{
+			Intervals: map[string]string{
+				"lint": "not-a-duration",
+			},
+		},
+	}
+
+	err := Validate(cfg)
+	if err == nil {
+		t.Fatal("expected error for invalid interval duration, got nil")
+	}
+	if !strings.Contains(err.Error(), "tasks.intervals") {
+		t.Errorf("error should mention tasks.intervals, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "not-a-duration") {
+		t.Errorf("error should mention the bad value, got: %v", err)
+	}
+}
+
+func TestValidate_ValidTaskInterval(t *testing.T) {
+	cfg := &Config{
+		Tasks: TasksConfig{
+			Intervals: map[string]string{
+				"lint": "30m",
+				"docs": "2h30m",
+			},
+		},
+	}
+
+	err := Validate(cfg)
+	if err != nil {
+		t.Errorf("expected nil for valid intervals, got %v", err)
 	}
 }
 

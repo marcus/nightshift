@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"testing"
+	"time"
 )
 
 func TestCostTierString(t *testing.T) {
@@ -274,6 +275,55 @@ func TestRegistryCompleteness(t *testing.T) {
 	for _, tt := range taskTypes {
 		if _, err := GetDefinition(tt); err != nil {
 			t.Errorf("Task type %q not in registry: %v", tt, err)
+		}
+	}
+}
+
+func TestAllDefinitionsHaveDefaultInterval(t *testing.T) {
+	for _, def := range AllDefinitions() {
+		if def.DefaultInterval == 0 {
+			t.Errorf("Task %q (%s) has zero DefaultInterval", def.Type, def.Name)
+		}
+	}
+}
+
+func TestDefaultIntervalForCategory(t *testing.T) {
+	tests := []struct {
+		cat  TaskCategory
+		want time.Duration
+	}{
+		{CategoryPR, 168 * time.Hour},
+		{CategoryAnalysis, 72 * time.Hour},
+		{CategoryOptions, 168 * time.Hour},
+		{CategorySafe, 336 * time.Hour},
+		{CategoryMap, 168 * time.Hour},
+		{CategoryEmergency, 720 * time.Hour},
+		{TaskCategory(99), 168 * time.Hour},
+	}
+	for _, tt := range tests {
+		if got := DefaultIntervalForCategory(tt.cat); got != tt.want {
+			t.Errorf("DefaultIntervalForCategory(%d) = %v, want %v", tt.cat, got, tt.want)
+		}
+	}
+}
+
+func TestSpecificDefaultIntervalOverrides(t *testing.T) {
+	overrides := map[TaskType]time.Duration{
+		TaskLintFix:         24 * time.Hour,
+		TaskCommitNormalize: 24 * time.Hour,
+		TaskBugFinder:       72 * time.Hour,
+		TaskSecurityFootgun: 72 * time.Hour,
+		TaskPIIScanner:      72 * time.Hour,
+		TaskTestGap:         72 * time.Hour,
+		TaskDeadCode:        72 * time.Hour,
+	}
+	for tt, want := range overrides {
+		def, err := GetDefinition(tt)
+		if err != nil {
+			t.Fatalf("GetDefinition(%q) error: %v", tt, err)
+		}
+		if def.DefaultInterval != want {
+			t.Errorf("Task %q DefaultInterval = %v, want %v", tt, def.DefaultInterval, want)
 		}
 	}
 }

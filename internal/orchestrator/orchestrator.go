@@ -7,6 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/marcus/nightshift/internal/agents"
@@ -297,10 +300,21 @@ func (o *Orchestrator) implement(ctx context.Context, task *tasks.Task, plan *Pl
 	ctx, cancel := context.WithTimeout(ctx, o.config.AgentTimeout)
 	defer cancel()
 
+	files := plan.Files
+	if len(files) > 0 {
+		filtered, skipped := filterExistingFiles(plan.Files, workDir)
+		if len(skipped) > 0 {
+			o.logger.WarnCtx("plan referenced missing files", map[string]any{
+				"skipped": skipped,
+			})
+		}
+		files = filtered
+	}
+
 	execResult, err := o.agent.Execute(ctx, agents.ExecuteOptions{
 		Prompt:  prompt,
 		WorkDir: workDir,
-		Files:   plan.Files,
+		Files:   files,
 		Timeout: o.config.AgentTimeout,
 	})
 	if err != nil {
@@ -325,6 +339,58 @@ func (o *Orchestrator) implement(ctx context.Context, task *tasks.Task, plan *Pl
 	return impl, nil
 }
 
+func filterExistingFiles(files []string, workDir string) ([]string, []string) {
+	existing := make([]string, 0, len(files))
+	skipped := make([]string, 0)
+	seen := make(map[string]struct{}, len(files))
+	absWorkDir := ""
+	if workDir != "" {
+		if abs, err := filepath.Abs(workDir); err == nil {
+			absWorkDir = abs
+		}
+	}
+
+	for _, path := range files {
+		if path == "" {
+			continue
+		}
+
+		resolved := path
+		if !filepath.IsAbs(path) && workDir != "" {
+			resolved = filepath.Join(workDir, path)
+		}
+		if abs, err := filepath.Abs(resolved); err == nil {
+			resolved = abs
+		}
+
+		if absWorkDir != "" {
+			rel, err := filepath.Rel(absWorkDir, resolved)
+			if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				skipped = append(skipped, path)
+				continue
+			}
+		}
+
+		if _, ok := seen[resolved]; ok {
+			continue
+		}
+		seen[resolved] = struct{}{}
+
+		info, err := os.Stat(resolved)
+		if err != nil {
+			skipped = append(skipped, path)
+			continue
+		}
+		if info.IsDir() {
+			skipped = append(skipped, path)
+			continue
+		}
+		existing = append(existing, resolved)
+	}
+
+	return existing, skipped
+}
+
 // review spawns the review agent to check the implementation.
 func (o *Orchestrator) review(ctx context.Context, task *tasks.Task, impl *ImplementOutput, workDir string) (*ReviewOutput, error) {
 	prompt := o.buildReviewPrompt(task, impl)
@@ -332,10 +398,21 @@ func (o *Orchestrator) review(ctx context.Context, task *tasks.Task, impl *Imple
 	ctx, cancel := context.WithTimeout(ctx, o.config.AgentTimeout)
 	defer cancel()
 
+	files := impl.FilesModified
+	if len(files) > 0 {
+		filtered, skipped := filterExistingFiles(impl.FilesModified, workDir)
+		if len(skipped) > 0 {
+			o.logger.WarnCtx("implementation referenced missing files", map[string]any{
+				"skipped": skipped,
+			})
+		}
+		files = filtered
+	}
+
 	execResult, err := o.agent.Execute(ctx, agents.ExecuteOptions{
 		Prompt:  prompt,
 		WorkDir: workDir,
-		Files:   impl.FilesModified,
+		Files:   files,
 		Timeout: o.config.AgentTimeout,
 	})
 	if err != nil {
@@ -424,11 +501,12 @@ Title: %s
 Description: %s
 
 ## Instructions
-0. Work on a new branch and plan to submit a PR. Never work directly on the primary branch.
-1. Analyze the task requirements
-2. Identify files that need to be modified
-3. Create step-by-step implementation plan
-4. Output your plan as JSON:
+0. You are running autonomously. If the task is broad or ambiguous, choose a concrete, minimal scope that delivers value and state any assumptions in the description.
+1. Work on a new branch and plan to submit a PR. Never work directly on the primary branch.
+2. Analyze the task requirements
+3. Identify files that need to be modified
+4. Create step-by-step implementation plan
+5. Output only valid JSON (no markdown, no extra text). The output is read by a machine. Use this schema:
 
 {
   "steps": ["step1", "step2", ...],

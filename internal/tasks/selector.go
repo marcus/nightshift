@@ -3,6 +3,7 @@ package tasks
 
 import (
 	"sort"
+	"time"
 
 	"github.com/marcus/nightshift/internal/config"
 	"github.com/marcus/nightshift/internal/state"
@@ -111,6 +112,54 @@ func (s *Selector) FilterUnassigned(tasks []TaskDefinition, project string) []Ta
 	return filtered
 }
 
+// effectiveInterval returns the interval for a task, preferring config override.
+func (s *Selector) effectiveInterval(def TaskDefinition) time.Duration {
+	if d := s.cfg.GetTaskInterval(string(def.Type)); d > 0 {
+		return d
+	}
+	return def.DefaultInterval
+}
+
+// FilterByCooldown returns tasks whose cooldown period has elapsed.
+// Tasks that have never run or have no interval (<=0) are always included.
+func (s *Selector) FilterByCooldown(tasks []TaskDefinition, project string) []TaskDefinition {
+	filtered := make([]TaskDefinition, 0, len(tasks))
+	for _, t := range tasks {
+		interval := s.effectiveInterval(t)
+		if interval <= 0 {
+			filtered = append(filtered, t)
+			continue
+		}
+		lastRun := s.state.LastTaskRun(project, string(t.Type))
+		if lastRun.IsZero() || time.Since(lastRun) >= interval {
+			filtered = append(filtered, t)
+		}
+	}
+	return filtered
+}
+
+// IsOnCooldown returns whether a task is on cooldown for a project.
+// Returns (onCooldown, remainingTime, totalInterval).
+func (s *Selector) IsOnCooldown(taskType TaskType, project string) (bool, time.Duration, time.Duration) {
+	def, err := GetDefinition(taskType)
+	if err != nil {
+		return false, 0, 0
+	}
+	interval := s.effectiveInterval(def)
+	if interval <= 0 {
+		return false, 0, 0
+	}
+	lastRun := s.state.LastTaskRun(project, string(taskType))
+	if lastRun.IsZero() {
+		return false, 0, interval
+	}
+	elapsed := time.Since(lastRun)
+	if elapsed >= interval {
+		return false, 0, interval
+	}
+	return true, interval - elapsed, interval
+}
+
 // SelectNext returns the best task for the given budget and project.
 // Returns nil if no suitable task is found.
 func (s *Selector) SelectNext(budget int64, project string) *ScoredTask {
@@ -125,6 +174,9 @@ func (s *Selector) SelectNext(budget int64, project string) *ScoredTask {
 
 	// Filter: unassigned tasks
 	tasks = s.FilterUnassigned(tasks, project)
+
+	// Filter: tasks not on cooldown
+	tasks = s.FilterByCooldown(tasks, project)
 
 	if len(tasks) == 0 {
 		return nil
@@ -189,6 +241,9 @@ func (s *Selector) SelectTopN(budget int64, project string, n int) []ScoredTask 
 
 	// Filter: unassigned tasks
 	tasks = s.FilterUnassigned(tasks, project)
+
+	// Filter: tasks not on cooldown
+	tasks = s.FilterByCooldown(tasks, project)
 
 	if len(tasks) == 0 {
 		return nil

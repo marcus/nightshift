@@ -3,6 +3,7 @@ package tasks
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/marcus/nightshift/internal/config"
 	"github.com/marcus/nightshift/internal/db"
@@ -217,6 +218,10 @@ func TestSelectNext(t *testing.T) {
 				string(TaskLintFix):      5,
 				string(TaskDocsBackfill): 1,
 			},
+			Intervals: map[string]string{
+				string(TaskLintFix):      "1ns",
+				string(TaskDocsBackfill): "1ns",
+			},
 		},
 	}
 	sel := NewSelector(cfg, st)
@@ -291,6 +296,11 @@ func TestSelectTopN(t *testing.T) {
 				string(TaskLintFix):      10,
 				string(TaskDocsBackfill): 5,
 				string(TaskDeadCode):     1,
+			},
+			Intervals: map[string]string{
+				string(TaskLintFix):      "1ns",
+				string(TaskDocsBackfill): "1ns",
+				string(TaskDeadCode):     "1ns",
 			},
 		},
 	}
@@ -396,5 +406,165 @@ func TestSetTaskSources(t *testing.T) {
 
 	if score2-score1 < 2.9 || score2-score1 > 3.1 {
 		t.Errorf("Task source should add ~3.0 to score, got diff %f", score2-score1)
+	}
+}
+
+func TestFilterByCooldown_OnCooldown(t *testing.T) {
+	sel, st := setupTestSelector(t)
+
+	project := "/test/project"
+
+	// Record a recent run - task has 24h default interval so it's on cooldown
+	st.RecordTaskRun(project, string(TaskLintFix))
+
+	tasks := []TaskDefinition{
+		{Type: TaskLintFix, DefaultInterval: 24 * time.Hour},
+		{Type: TaskDocsBackfill, DefaultInterval: 168 * time.Hour},
+	}
+
+	got := sel.FilterByCooldown(tasks, project)
+	// Only DocsBackfill should pass (never run), LintFix just ran
+	if len(got) != 1 {
+		t.Fatalf("FilterByCooldown() len = %d, want 1", len(got))
+	}
+	if got[0].Type != TaskDocsBackfill {
+		t.Errorf("FilterByCooldown() kept %s, want %s", got[0].Type, TaskDocsBackfill)
+	}
+}
+
+func TestFilterByCooldown_NeverRunIncluded(t *testing.T) {
+	sel, _ := setupTestSelector(t)
+
+	project := "/test/project"
+
+	tasks := []TaskDefinition{
+		{Type: TaskLintFix, DefaultInterval: 24 * time.Hour},
+		{Type: TaskBugFinder, DefaultInterval: 72 * time.Hour},
+	}
+
+	// Neither task has ever run - both should be included
+	got := sel.FilterByCooldown(tasks, project)
+	if len(got) != 2 {
+		t.Errorf("FilterByCooldown() len = %d, want 2 (never-run tasks included)", len(got))
+	}
+}
+
+func TestFilterByCooldown_ZeroIntervalIncluded(t *testing.T) {
+	sel, st := setupTestSelector(t)
+
+	project := "/test/project"
+	st.RecordTaskRun(project, string(TaskLintFix))
+
+	tasks := []TaskDefinition{
+		{Type: TaskLintFix, DefaultInterval: 0}, // No interval = always included
+	}
+
+	got := sel.FilterByCooldown(tasks, project)
+	if len(got) != 1 {
+		t.Errorf("FilterByCooldown() len = %d, want 1 (zero interval always included)", len(got))
+	}
+}
+
+func TestFilterByCooldown_ConfigOverride(t *testing.T) {
+	st := newTestState(t)
+
+	// Override lint-fix interval to 1 nanosecond (effectively always off cooldown)
+	cfg := &config.Config{
+		Tasks: config.TasksConfig{
+			Intervals: map[string]string{
+				string(TaskLintFix): "1ns",
+			},
+		},
+	}
+	sel := NewSelector(cfg, st)
+
+	project := "/test/project"
+	st.RecordTaskRun(project, string(TaskLintFix))
+
+	// Small sleep to ensure 1ns has passed
+	time.Sleep(time.Microsecond)
+
+	tasks := []TaskDefinition{
+		{Type: TaskLintFix, DefaultInterval: 24 * time.Hour},
+	}
+
+	got := sel.FilterByCooldown(tasks, project)
+	if len(got) != 1 {
+		t.Errorf("FilterByCooldown() with 1ns config override: len = %d, want 1", len(got))
+	}
+}
+
+func TestIsOnCooldown(t *testing.T) {
+	sel, st := setupTestSelector(t)
+	project := "/test/project"
+
+	// Never run - not on cooldown
+	onCooldown, remaining, interval := sel.IsOnCooldown(TaskLintFix, project)
+	if onCooldown {
+		t.Error("IsOnCooldown() = true for never-run task, want false")
+	}
+	if remaining != 0 {
+		t.Errorf("IsOnCooldown() remaining = %v, want 0 for never-run", remaining)
+	}
+	if interval != 24*time.Hour {
+		t.Errorf("IsOnCooldown() interval = %v, want 24h", interval)
+	}
+
+	// Record run - should be on cooldown now
+	st.RecordTaskRun(project, string(TaskLintFix))
+	onCooldown, remaining, interval = sel.IsOnCooldown(TaskLintFix, project)
+	if !onCooldown {
+		t.Error("IsOnCooldown() = false for just-run task, want true")
+	}
+	if remaining <= 0 || remaining > 24*time.Hour {
+		t.Errorf("IsOnCooldown() remaining = %v, want >0 and <=24h", remaining)
+	}
+	if interval != 24*time.Hour {
+		t.Errorf("IsOnCooldown() interval = %v, want 24h", interval)
+	}
+}
+
+func TestIsOnCooldown_UnknownTask(t *testing.T) {
+	sel, _ := setupTestSelector(t)
+	project := "/test/project"
+
+	onCooldown, remaining, interval := sel.IsOnCooldown("nonexistent-task", project)
+	if onCooldown {
+		t.Error("IsOnCooldown() = true for unknown task, want false")
+	}
+	if remaining != 0 || interval != 0 {
+		t.Errorf("IsOnCooldown() = (_, %v, %v) for unknown task, want (_, 0, 0)", remaining, interval)
+	}
+}
+
+func TestSelectNextRespectssCooldown(t *testing.T) {
+	st := newTestState(t)
+
+	cfg := &config.Config{
+		Tasks: config.TasksConfig{
+			Enabled: []string{
+				string(TaskLintFix),
+				string(TaskDocsBackfill),
+			},
+			Priorities: map[string]int{
+				string(TaskLintFix):      10,
+				string(TaskDocsBackfill): 1,
+			},
+		},
+	}
+	sel := NewSelector(cfg, st)
+
+	project := "/test/project"
+
+	// Record lint-fix run (puts it on 24h cooldown)
+	st.RecordTaskRun(project, string(TaskLintFix))
+
+	// SelectNext should skip lint-fix (on cooldown) and return docs-backfill
+	task := sel.SelectNext(100_000, project)
+	if task == nil {
+		t.Fatal("SelectNext() returned nil")
+	}
+	if task.Definition.Type != TaskDocsBackfill {
+		t.Errorf("SelectNext() = %s, want %s (lint-fix on cooldown)", task.Definition.Type, TaskDocsBackfill)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/spf13/viper"
 )
@@ -85,9 +86,10 @@ type ProjectConfig struct {
 
 // TasksConfig defines task selection settings.
 type TasksConfig struct {
-	Enabled    []string       `mapstructure:"enabled"`    // Enabled task types
-	Priorities map[string]int `mapstructure:"priorities"` // Priority per task type
-	Disabled   []string       `mapstructure:"disabled"`   // Explicitly disabled tasks
+	Enabled    []string          `mapstructure:"enabled"`    // Enabled task types
+	Priorities map[string]int    `mapstructure:"priorities"` // Priority per task type
+	Disabled   []string          `mapstructure:"disabled"`   // Explicitly disabled tasks
+	Intervals  map[string]string `mapstructure:"intervals"`  // Per-task interval overrides (duration strings)
 }
 
 // IntegrationsConfig defines external integrations.
@@ -360,6 +362,13 @@ func Validate(cfg *Config) error {
 		}
 	}
 
+	// Task intervals validation
+	for taskType, dur := range cfg.Tasks.Intervals {
+		if _, err := time.ParseDuration(dur); err != nil {
+			return fmt.Errorf("tasks.intervals[%q]: invalid duration %q: %w", taskType, dur, err)
+		}
+	}
+
 	// Provider preference validation
 	if len(cfg.Providers.Preference) > 0 {
 		seen := map[string]bool{}
@@ -414,6 +423,20 @@ func (c *Config) IsTaskEnabled(task string) bool {
 	}
 	// Check if in enabled list
 	return slices.Contains(c.Tasks.Enabled, task)
+}
+
+// GetTaskInterval returns the configured interval override for a task type.
+// Returns 0 if no override is set (caller should fall back to TaskDefinition.DefaultInterval).
+func (c *Config) GetTaskInterval(taskType string) time.Duration {
+	if c.Tasks.Intervals != nil {
+		if raw, ok := c.Tasks.Intervals[taskType]; ok {
+			d, err := time.ParseDuration(raw)
+			if err == nil {
+				return d
+			}
+		}
+	}
+	return 0
 }
 
 // GetTaskPriority returns the priority for a task (higher = more important).
