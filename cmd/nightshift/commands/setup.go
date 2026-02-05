@@ -14,12 +14,14 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/marcus/nightshift/internal/config"
 	"github.com/marcus/nightshift/internal/db"
 	"github.com/marcus/nightshift/internal/providers"
+	"github.com/marcus/nightshift/internal/reporting"
 	"github.com/marcus/nightshift/internal/scheduler"
 	"github.com/marcus/nightshift/internal/setup"
 	"github.com/marcus/nightshift/internal/snapshots"
@@ -132,6 +134,15 @@ type previewMsg struct {
 	output string
 	err    error
 }
+
+var (
+	styleHeader = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("69"))
+	styleDim    = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	styleOk     = lipgloss.NewStyle().Foreground(lipgloss.Color("42"))
+	styleWarn   = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+	styleNote   = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+	styleAccent = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
+)
 
 func newSetupModel() (*setupModel, error) {
 	cfg, err := config.Load()
@@ -254,8 +265,10 @@ func (m *setupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *setupModel) View() string {
 	var b strings.Builder
-	b.WriteString("Nightshift Setup\n")
-	b.WriteString("================\n\n")
+	b.WriteString(styleHeader.Render("Nightshift Setup"))
+	b.WriteString("\n")
+	b.WriteString(styleDim.Render("================"))
+	b.WriteString("\n\n")
 
 	switch m.step {
 	case stepWelcome:
@@ -264,7 +277,7 @@ func (m *setupModel) View() string {
 		b.WriteString(renderEnvChecks(m.cfg))
 		b.WriteString("\nPress Enter to continue.\n")
 	case stepConfig:
-		b.WriteString("Global config:\n")
+		b.WriteString(styleAccent.Render("Global config\n"))
 		b.WriteString(fmt.Sprintf("  %s\n", m.configPath))
 		if m.configExist {
 			b.WriteString("  Status: found (will update in place)\n")
@@ -274,7 +287,7 @@ func (m *setupModel) View() string {
 		b.WriteString("\nThis wizard only writes the global config. Per-project configs are optional.\n")
 		b.WriteString("\nPress Enter to continue.\n")
 	case stepProjects:
-		b.WriteString("Projects (global config)\n")
+		b.WriteString(styleAccent.Render("Projects (global config)\n"))
 		b.WriteString("Use ↑/↓ to navigate, 'a' to add, 'd' to delete.\n")
 		if m.projectEditing {
 			b.WriteString("\nAdd project path:\n")
@@ -302,7 +315,8 @@ func (m *setupModel) View() string {
 		}
 		b.WriteString("\nPress Enter to continue.\n")
 	case stepBudget:
-		b.WriteString("Budget defaults (edit with e)\n")
+		b.WriteString(styleAccent.Render("Budget defaults\n"))
+		b.WriteString("Edit with e.\n")
 		b.WriteString("Use ↑/↓ to select a field.\n\n")
 		renderBudgetFields(&b, m)
 		if m.budgetEditing {
@@ -319,7 +333,7 @@ func (m *setupModel) View() string {
 		}
 		b.WriteString("\nPress Enter to continue.\n")
 	case stepTaskPreset:
-		b.WriteString("Task presets (derived from registry)\n")
+		b.WriteString(styleAccent.Render("Task presets (derived from registry)\n"))
 		b.WriteString("Use ↑/↓ to select, Enter to continue.\n\n")
 		presets := []setup.Preset{setup.PresetBalanced, setup.PresetSafe, setup.PresetAggressive}
 		for i, preset := range presets {
@@ -334,7 +348,8 @@ func (m *setupModel) View() string {
 			b.WriteString(fmt.Sprintf(" %s %s\n", cursor, label))
 		}
 	case stepTaskSelect:
-		b.WriteString("Tasks (space to toggle, ↑/↓ to move)\n\n")
+		b.WriteString(styleAccent.Render("Tasks\n"))
+		b.WriteString("Space to toggle, ↑/↓ to move.\n\n")
 		for i, item := range m.taskItems {
 			cursor := " "
 			if i == m.taskCursor {
@@ -348,9 +363,14 @@ func (m *setupModel) View() string {
 		}
 		b.WriteString("\nPress Enter to continue.\n")
 	case stepSchedule:
-		b.WriteString("Schedule\n")
-		b.WriteString("Use ↑/↓ to select, e to edit.\n\n")
+		b.WriteString(styleAccent.Render("Schedule\n"))
+		b.WriteString("Use ↑/↓ to select, e to edit. We’ll explain each field.\n\n")
 		renderScheduleFields(&b, m)
+		if help := scheduleFieldHelp(m.scheduleCursor, m.scheduleMode); help != "" {
+			b.WriteString("\n")
+			b.WriteString(styleNote.Render(help))
+			b.WriteString("\n")
+		}
 		if m.scheduleEditing {
 			b.WriteString("\nEdit value:\n")
 			b.WriteString(m.scheduleInput.View() + "\n")
@@ -365,7 +385,9 @@ func (m *setupModel) View() string {
 		}
 		b.WriteString("\nPress Enter to continue.\n")
 	case stepSnapshot:
-		b.WriteString("Running snapshot (required)...\n")
+		b.WriteString(styleAccent.Render("Snapshot step\n"))
+		b.WriteString("We’ll take a quick usage snapshot so Nightshift can set safe budgets.\n")
+		b.WriteString("No tasks run yet. This just reads local usage (and optional tmux scrape).\n\n")
 		if m.snapshotRunning {
 			b.WriteString(m.spinner.View() + "\n")
 		} else {
@@ -374,10 +396,14 @@ func (m *setupModel) View() string {
 			} else {
 				b.WriteString(m.snapshotOutput + "\n")
 			}
+			b.WriteString(styleNote.Render("If an estimate looks off, run `nightshift budget snapshot --provider codex` and `nightshift budget calibrate` later. Setup doesn’t change your budget math."))
+			b.WriteString("\n")
 			b.WriteString("\nPress Enter to continue.\n")
 		}
 	case stepPreview:
-		b.WriteString("Previewing next run...\n")
+		b.WriteString(styleAccent.Render("Preview step\n"))
+		b.WriteString("Next up: we’ll preview the first scheduled run and show each plan prompt.\n")
+		b.WriteString("Prompts are shortened for readability (use `nightshift preview --long` for full text).\n\n")
 		if m.previewRunning {
 			b.WriteString(m.spinner.View() + "\n")
 		} else {
@@ -389,7 +415,7 @@ func (m *setupModel) View() string {
 			b.WriteString("\nPress Enter to continue.\n")
 		}
 	case stepDaemon:
-		b.WriteString("Daemon setup\n\n")
+		b.WriteString(styleAccent.Render("Daemon setup\n\n"))
 		b.WriteString(fmt.Sprintf("Service: %s\n", m.serviceType))
 		if m.serviceState.installed {
 			b.WriteString("Status: installed\n")
@@ -411,8 +437,12 @@ func (m *setupModel) View() string {
 		}
 		b.WriteString("\nPress Enter to apply.\n")
 	case stepFinish:
-		b.WriteString("Setup complete.\n")
-		b.WriteString("Nightshift is configured and ready to run.\n")
+		b.WriteString(styleAccent.Render("Setup complete\n"))
+		b.WriteString("Nightshift is configured and ready to run.\n\n")
+		b.WriteString("What to expect:\n")
+		b.WriteString(fmt.Sprintf("  Summary report: %s\n", reporting.DefaultSummaryPath(time.Now())))
+		b.WriteString("  CLI status: `nightshift status --today` or `nightshift logs`\n")
+		b.WriteString("  Safety: Nightshift never writes to your primary branch. Expect PRs or branches.\n")
 		b.WriteString("\nPress Enter to exit.\n")
 	}
 
@@ -856,27 +886,27 @@ func (m *setupModel) applyDaemonAction(action string) error {
 func renderEnvChecks(cfg *config.Config) string {
 	var b strings.Builder
 	if _, err := execLookPath("nightshift"); err != nil {
-		b.WriteString("  FAIL: nightshift not found in PATH\n")
+		b.WriteString(fmt.Sprintf("  %s %s\n", styleWarn.Render("Heads up:"), "nightshift not found in PATH yet. Setup will still work, but the daemon needs it in PATH."))
 	} else {
-		b.WriteString("  OK: nightshift in PATH\n")
+		b.WriteString(fmt.Sprintf("  %s %s\n", styleOk.Render("OK:"), "nightshift is in PATH"))
 	}
 	if _, err := execLookPath("tmux"); err != nil {
-		b.WriteString("  WARN: tmux not found (calibration will be local-only)\n")
+		b.WriteString(fmt.Sprintf("  %s %s\n", styleWarn.Render("Note:"), "tmux not found (calibration will be local-only)"))
 	} else {
-		b.WriteString("  OK: tmux available\n")
+		b.WriteString(fmt.Sprintf("  %s %s\n", styleOk.Render("OK:"), "tmux available"))
 	}
 	if cfg.Providers.Claude.Enabled {
 		if _, err := os.Stat(cfg.ExpandedProviderPath("claude")); err != nil {
-			b.WriteString("  WARN: Claude data path not found\n")
+			b.WriteString(fmt.Sprintf("  %s %s\n", styleWarn.Render("Note:"), "Claude data path not found"))
 		} else {
-			b.WriteString("  OK: Claude data path\n")
+			b.WriteString(fmt.Sprintf("  %s %s\n", styleOk.Render("OK:"), "Claude data path found"))
 		}
 	}
 	if cfg.Providers.Codex.Enabled {
 		if _, err := os.Stat(cfg.ExpandedProviderPath("codex")); err != nil {
-			b.WriteString("  WARN: Codex data path not found\n")
+			b.WriteString(fmt.Sprintf("  %s %s\n", styleWarn.Render("Note:"), "Codex data path not found"))
 		} else {
-			b.WriteString("  OK: Codex data path\n")
+			b.WriteString(fmt.Sprintf("  %s %s\n", styleOk.Render("OK:"), "Codex data path found"))
 		}
 	}
 	return b.String()
@@ -923,6 +953,26 @@ func renderScheduleFields(b *strings.Builder, m *setupModel) {
 			end := computeWindowEnd(start, interval, m.scheduleCycles)
 			b.WriteString(fmt.Sprintf("   Window end (computed): %s\n", end))
 		}
+	}
+}
+
+func scheduleFieldHelp(cursor int, mode string) string {
+	switch cursor {
+	case 0:
+		return "Start time: when Nightshift becomes eligible to run each night (local time)."
+	case 1:
+		return "Cycles: how many runs to attempt inside the nightly window."
+	case 2:
+		return "Interval: spacing between runs (e.g., 30m = every 30 minutes)."
+	case 3:
+		return "Mode: interval uses Start/Cycles/Interval; cron uses a single cron expression."
+	case 4:
+		if mode == "cron" {
+			return "Cron: advanced schedule (e.g., \"0 2 * * *\" = 2:00 AM daily)."
+		}
+		return "Cron: only used when mode is set to cron."
+	default:
+		return ""
 	}
 }
 

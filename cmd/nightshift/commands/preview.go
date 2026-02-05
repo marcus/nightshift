@@ -173,7 +173,8 @@ func renderPreview(w io.Writer, cfg *config.Config, database *db.DB, projects []
 				prompt := orch.PlanPrompt(taskInstance)
 
 				fmt.Fprintf(w, "    %d. %s (%s)\n", idx+1, scored.Definition.Name, scored.Definition.Type)
-				fmt.Fprintf(w, "       Prompt (plan): %s\n", renderPromptPreview(prompt, longPrompt))
+				fmt.Fprintf(w, "       Prompt preview:\n")
+				fmt.Fprintf(w, "       %s\n", renderPromptPreview(prompt, longPrompt))
 
 				if writeDir != "" {
 					filename := fmt.Sprintf("run-%02d-%s-%s-plan.txt", i+1, sanitizeFileName(filepath.Base(project)), scored.Definition.Type)
@@ -184,6 +185,7 @@ func renderPreview(w io.Writer, cfg *config.Config, database *db.DB, projects []
 						fmt.Fprintf(w, "       Prompt file: %s\n", fullPath)
 					}
 				}
+				fmt.Fprintln(w)
 			}
 		}
 
