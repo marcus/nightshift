@@ -123,6 +123,16 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 	}
 	weeklyBudget := estimate.WeeklyTokens
 
+	// Resolve config values for the equation display
+	maxPercent := cfg.Budget.MaxPercent
+	if maxPercent <= 0 {
+		maxPercent = config.DefaultMaxPercent
+	}
+	reservePercent := cfg.Budget.ReservePercent
+	if reservePercent < 0 {
+		reservePercent = config.DefaultReservePercent
+	}
+
 	// Provider name header
 	fmt.Printf("[%s]\n", provName)
 
@@ -135,13 +145,33 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 		fmt.Printf("  Mode:         %s\n", result.Mode)
 		fmt.Printf("  Weekly:       %s tokens%s\n", formatTokens64(weeklyBudget), formatBudgetMeta(estimate))
 		fmt.Printf("  Daily:        %s tokens\n", formatTokens64(dailyBudget))
-		fmt.Printf("  Used today:   %s (%.1f%%)\n", formatTokens64(usedTokens), result.UsedPercent)
+
+		// Used today with low-data warning
+		usedLine := fmt.Sprintf("  Used today:   %s (%.1f%%)", formatTokens64(usedTokens), result.UsedPercent)
+		if result.UsedPercent == 0 && (estimate.Confidence == "low" || estimate.Confidence == "medium") {
+			usedLine += fmt.Sprintf("  [limited data — %d samples]", estimate.SampleCount)
+		}
+		fmt.Println(usedLine)
+
 		fmt.Printf("  Remaining:    %s tokens\n", formatTokens64(remaining))
 		if result.PredictedUsage > 0 {
 			fmt.Printf("  Daytime:      %s tokens reserved\n", formatTokens64(result.PredictedUsage))
 		}
 		fmt.Printf("  Reserve:      %s tokens\n", formatTokens64(result.ReserveAmount))
-		fmt.Printf("  Nightshift:   %s tokens available\n", formatTokens64(result.Allowance))
+
+		// Nightshift equation: remaining * maxPercent% = preReserve - reserve [- daytime] = available
+		preReserve := remaining * int64(maxPercent) / 100
+		reserve := dailyBudget * int64(reservePercent) / 100
+		if result.PredictedUsage > 0 {
+			fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve − %s daytime = %s available\n",
+				formatTokens64(remaining), maxPercent, formatTokens64(preReserve),
+				formatTokens64(reserve), formatTokens64(result.PredictedUsage),
+				formatTokens64(result.Allowance))
+		} else {
+			fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve = %s available\n",
+				formatTokens64(remaining), maxPercent, formatTokens64(preReserve),
+				formatTokens64(reserve), formatTokens64(result.Allowance))
+		}
 	} else {
 		// Weekly mode
 		usedTokens := int64(float64(weeklyBudget) * result.UsedPercent / 100)
@@ -149,7 +179,14 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 
 		fmt.Printf("  Mode:         %s\n", result.Mode)
 		fmt.Printf("  Weekly:       %s tokens%s\n", formatTokens64(weeklyBudget), formatBudgetMeta(estimate))
-		fmt.Printf("  Used:         %s (%.1f%%)\n", formatTokens64(usedTokens), result.UsedPercent)
+
+		// Used with low-data warning
+		usedLine := fmt.Sprintf("  Used:         %s (%.1f%%)", formatTokens64(usedTokens), result.UsedPercent)
+		if result.UsedPercent == 0 && (estimate.Confidence == "low" || estimate.Confidence == "medium") {
+			usedLine += fmt.Sprintf("  [limited data — %d samples]", estimate.SampleCount)
+		}
+		fmt.Println(usedLine)
+
 		fmt.Printf("  Remaining:    %s tokens\n", formatTokens64(remaining))
 		fmt.Printf("  Days left:    %d\n", result.RemainingDays)
 		if result.PredictedUsage > 0 {
@@ -161,7 +198,25 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 		}
 
 		fmt.Printf("  Reserve:      %s tokens\n", formatTokens64(result.ReserveAmount))
-		fmt.Printf("  Nightshift:   %s tokens available\n", formatTokens64(result.Allowance))
+
+		// Nightshift equation: remaining/days * maxPercent% = preReserve - reserve [- daytime] = available
+		days := result.RemainingDays
+		if days <= 0 {
+			days = 1
+		}
+		perDay := remaining / int64(days)
+		preReserve := perDay * int64(maxPercent) / 100
+		reserve := result.ReserveAmount
+		if result.PredictedUsage > 0 {
+			fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve − %s daytime = %s available\n",
+				formatTokens64(perDay), maxPercent, formatTokens64(preReserve),
+				formatTokens64(reserve), formatTokens64(result.PredictedUsage),
+				formatTokens64(result.Allowance))
+		} else {
+			fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve = %s available\n",
+				formatTokens64(perDay), maxPercent, formatTokens64(preReserve),
+				formatTokens64(reserve), formatTokens64(result.Allowance))
+		}
 	}
 
 	// Show reset time for Codex
@@ -172,8 +227,8 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 		}
 	}
 
-	// Progress bar
-	fmt.Printf("  Progress:     %s\n", progressBar(result.UsedPercent, 30))
+	// Budget used bar
+	fmt.Printf("  Budget used:  %s\n", progressBar(result.UsedPercent, 30))
 
 	return nil
 }
