@@ -76,7 +76,16 @@ By default, shows a polished overview of what happened during the last night.`,
 			return err
 		}
 
+		periodExplicit := cmd.Flags().Changed("period")
 		filtered := filterReportRuns(runs, rng, opts)
+		if len(filtered) == 0 && !periodExplicit && opts.since == "" && opts.until == "" {
+			// Default period returned nothing — fall back to most recent run(s)
+			fallbackRange := reportRange{label: "Last run"}
+			filtered = filterReportRuns(runs, fallbackRange, reportOptions{period: "last-run", runs: opts.runs})
+			if len(filtered) > 0 {
+				rng = fallbackRange
+			}
+		}
 		if len(filtered) == 0 {
 			fmt.Println("No run reports found for the selected period.")
 			if rng.label != "" {
@@ -583,52 +592,65 @@ func renderReportOverview(styles reportStyles, runs []reportRun, opts reportOpti
 		b.WriteString(styles.Card.Render(strings.Join(runLines, "\n")))
 		b.WriteString("\n")
 
-		if len(summary.Outputs) > 0 {
-			outputs := limitItems(summary.Outputs, opts.maxItems)
-			b.WriteString(styles.Accent.Render("Highlights"))
-			b.WriteString("\n")
-			for _, item := range outputs {
-				b.WriteString("  ")
-				b.WriteString(styles.OK.Render("- " + item))
-				b.WriteString("\n")
+		// Build task list grouped by status: completed, failed, skipped
+		var ordered []reporting.TaskResult
+		for _, t := range summary.Tasks {
+			if t.Status == "completed" {
+				ordered = append(ordered, t)
 			}
-			if len(outputs) < len(summary.Outputs) {
-				b.WriteString("  ")
-				b.WriteString(styles.Muted.Render(fmt.Sprintf("...and %d more", len(summary.Outputs)-len(outputs))))
-				b.WriteString("\n")
+		}
+		for _, t := range summary.Tasks {
+			if t.Status == "failed" {
+				ordered = append(ordered, t)
+			}
+		}
+		for _, t := range summary.Tasks {
+			if t.Status != "completed" && t.Status != "failed" {
+				ordered = append(ordered, t)
 			}
 		}
 
-		if len(summary.Failures) > 0 {
-			failures := limitItems(summary.Failures, opts.maxItems)
-			b.WriteString(styles.Warn.Render("Failures"))
-			b.WriteString("\n")
-			for _, item := range failures {
-				b.WriteString("  ")
-				b.WriteString(styles.Error.Render("- " + item))
-				b.WriteString("\n")
-			}
-			if len(failures) < len(summary.Failures) {
-				b.WriteString("  ")
-				b.WriteString(styles.Muted.Render(fmt.Sprintf("...and %d more", len(summary.Failures)-len(failures))))
-				b.WriteString("\n")
-			}
+		shown := len(ordered)
+		if opts.maxItems > 0 && shown > opts.maxItems {
+			shown = opts.maxItems
 		}
-
-		if len(summary.Skips) > 0 {
-			skips := limitItems(summary.Skips, opts.maxItems)
-			b.WriteString(styles.Warn.Render("Skipped"))
+		for idx, task := range ordered {
+			if idx >= shown {
+				break
+			}
+			var icon string
+			switch task.Status {
+			case "completed":
+				icon = styles.OK.Render("\u2713")
+			case "failed":
+				icon = styles.Error.Render("\u2717")
+			default:
+				icon = styles.Warn.Render("~")
+			}
+			project := projectLabel(task.Project)
+			line := fmt.Sprintf(" %s  %-30s", icon, task.Title)
+			if project != "" {
+				line += fmt.Sprintf("  %s", styles.Muted.Render(project))
+			}
+			line += fmt.Sprintf("  %s", styles.Muted.Render("("+task.TaskType+")"))
+			if task.Duration > 0 {
+				line += fmt.Sprintf("  %s", formatDuration(task.Duration))
+			}
+			if task.TokensUsed > 0 {
+				line += fmt.Sprintf("  %s", styles.Muted.Render(formatTokensCompact(task.TokensUsed)+" tok"))
+			}
+			if task.OutputRef != "" {
+				line += fmt.Sprintf("  %s", styles.Accent.Render(task.OutputRef))
+			}
+			if task.SkipReason != "" && task.Status != "completed" {
+				line += fmt.Sprintf("  %s", styles.Warn.Render(task.SkipReason))
+			}
+			b.WriteString(line)
 			b.WriteString("\n")
-			for _, item := range skips {
-				b.WriteString("  ")
-				b.WriteString(styles.Muted.Render("- " + item))
-				b.WriteString("\n")
-			}
-			if len(skips) < len(summary.Skips) {
-				b.WriteString("  ")
-				b.WriteString(styles.Muted.Render(fmt.Sprintf("...and %d more", len(summary.Skips)-len(skips))))
-				b.WriteString("\n")
-			}
+		}
+		if shown < len(ordered) {
+			b.WriteString(styles.Muted.Render(fmt.Sprintf("  ...and %d more", len(ordered)-shown)))
+			b.WriteString("\n")
 		}
 
 		if opts.showPaths {

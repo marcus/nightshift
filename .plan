@@ -1,0 +1,41 @@
+{
+  "steps": [
+    "Create branch docs/backfill-missing-godoc from main",
+    "Add package doc comment to internal/db/db.go: Package db provides a SQLite database wrapper for persistent state storage",
+    "Add package doc comment to internal/snapshots/collector.go: Package snapshots collects and stores provider usage snapshots",
+    "Add package doc comment to internal/calibrator/calibrator.go: Package calibrator infers subscription budgets from usage snapshots",
+    "Add package doc comment to internal/tmux/tmux.go: Package tmux manages tmux sessions and scrapes usage data from provider UIs",
+    "Add package doc comment to internal/trends/analyzer.go: Package trends analyzes historical usage patterns to predict token availability",
+    "Add package doc comment to internal/setup/presets.go: Package setup provides interactive first-run configuration and task presets",
+    "Add doc comments for exported types in internal/setup/presets.go: Preset, RepoSignals, PresetTasks",
+    "Add doc comments for String() methods on CostTier, RiskLevel, TaskCategory in internal/tasks/tasks.go",
+    "Add doc comments for String() methods on DaemonStatus, TaskStatus in internal/ui/ui.go",
+    "Add doc comments for Name()/Enabled() methods on AgentsMDReader, ClaudeMDReader, GitHubReader, TDReader in internal/integrations/",
+    "Add doc comment for HintType.String() in internal/integrations/integrations.go",
+    "Add doc comment for ReaderError.Error() in internal/integrations/integrations.go",
+    "Add doc comment for CredentialError.Error() in internal/security/credentials.go",
+    "Add doc comments for ScrapeClaudeUsage/ScrapeCodexUsage on tmuxScraper in cmd/nightshift/commands/daemon.go",
+    "Add doc comments for Init/Update/View methods on setupModel in cmd/nightshift/commands/setup.go",
+    "Run go build ./... and go vet ./... to verify no regressions",
+    "Commit changes and open PR"
+  ],
+  "files": [
+    "internal/db/db.go",
+    "internal/snapshots/collector.go",
+    "internal/calibrator/calibrator.go",
+    "internal/tmux/tmux.go",
+    "internal/trends/analyzer.go",
+    "internal/setup/presets.go",
+    "internal/tasks/tasks.go",
+    "internal/ui/ui.go",
+    "internal/integrations/agentsmd.go",
+    "internal/integrations/claudemd.go",
+    "internal/integrations/github.go",
+    "internal/integrations/td.go",
+    "internal/integrations/integrations.go",
+    "internal/security/credentials.go",
+    "cmd/nightshift/commands/daemon.go",
+    "cmd/nightshift/commands/setup.go"
+  ],
+  "description": "Add missing Go doc comments to 6 packages (package-level docs) and ~25 exported symbols (String/Name/Enabled/Error/Init/Update/View methods). Scope is limited to godoc-style comments on exported symbols that currently lack them. No code changes, only comment additions."
+}
