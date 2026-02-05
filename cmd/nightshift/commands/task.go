@@ -181,7 +181,11 @@ func runTaskRun(cmd *cobra.Command, args []string) error {
 
 	// Resolve project path
 	if projectPath == "" {
-		projectPath, _ = os.Getwd()
+		var wdErr error
+		projectPath, wdErr = os.Getwd()
+		if wdErr != nil {
+			return fmt.Errorf("get working directory: %w", wdErr)
+		}
 	}
 
 	// Build the task
@@ -222,11 +226,12 @@ func runTaskRun(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Println("Running...")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigCh)
 	go func() {
 		<-sigCh
 		fmt.Println("\ninterrupt received, stopping...")
