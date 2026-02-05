@@ -9,7 +9,7 @@ Nightshift is a Go CLI tool that runs overnight to perform AI-powered maintenanc
 - **Budget-aware execution**: Never exceed configured limits; default max 75% of daily budget
 - **Multi-project support**: Manage one or many repositories
 - **Configurable tasks**: From automated PRs to analysis reports
-- **Great DX**: Delightful CLI experience with bubbletea/lipgloss
+- **Great DX**: Delightful CLI experience
 - **Morning surprise**: Like a gift waiting when you wake up
 
 ## Architecture

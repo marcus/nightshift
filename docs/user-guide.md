@@ -511,26 +511,6 @@ After each run, Nightshift generates a summary at:
 - Consider removing dead code in library
 ```
 
-### Interactive TUI
-
-Launch the terminal UI for real-time monitoring:
-
-```bash
-nightshift tui
-```
-
-The TUI shows three panels:
-- **Status**: Daemon state, current task, budget usage
-- **Tasks**: Recent/queued tasks with status indicators
-- **Logs**: Scrollable log viewer
-
-Navigation:
-- `Tab` / `Shift+Tab`: Switch panels
-- `j`/`k` or arrows: Scroll
-- `q`: Quit
-
----
-
 ## Integrations
 
 ### claude.md / agents.md

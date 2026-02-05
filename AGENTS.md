@@ -23,7 +23,6 @@ Nightshift is a CLI tool that orchestrates AI coding agents (Claude Code, Codex)
 - `internal/providers/` - AI agent backends (Claude, Codex)
 - `internal/tasks/` - Task definitions and queue
 - `internal/orchestrator/` - Agent coordination
-- `internal/ui/` - Terminal UI (bubbletea)
 
 ## Commands
 

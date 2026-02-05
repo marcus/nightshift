@@ -14,7 +14,7 @@ While we take precautions, LLMs are still LLMs — review outputs before merging
 - **Budget-aware**: Uses remaining daily allotment, never exceeds configurable max (default 75%)
 - **Multi-project support**: Works across multiple repos
 - **Configurable tasks**: From auto-PRs to analysis reports
-- **Great DX**: Built with bubbletea/lipgloss for a delightful CLI experience
+- **Great DX**: Thoughtful CLI defaults with clear output and reports
 
 ## Installation
 
@@ -67,9 +67,6 @@ nightshift setup
 
 # Check environment and config health
 nightshift doctor
-
-# Launch the TUI
-nightshift tui
 
 # Budget status and calibration
 nightshift budget --provider claude
