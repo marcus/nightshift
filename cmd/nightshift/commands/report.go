@@ -553,6 +553,14 @@ func renderReportOverview(styles reportStyles, runs []reportRun, opts reportOpti
 			formatTokensCompact(agg.budgetStart),
 		))
 	}
+	if agg.prCount > 0 {
+		prLabel := "PR created"
+		if agg.prCount > 1 {
+			prLabel = "PRs created"
+		}
+		prStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
+		summaryLines = append(summaryLines, prStyle.Render(fmt.Sprintf("\u2192 %d %s", agg.prCount, prLabel)))
+	}
 	if len(agg.outputs) > 0 {
 		summaryLines = append(summaryLines, fmt.Sprintf("%s %s", styles.Label.Render("Outputs:"), strings.Join(agg.outputs, ", ")))
 	}
@@ -640,7 +648,7 @@ func renderReportOverview(styles reportStyles, runs []reportRun, opts reportOpti
 				line += fmt.Sprintf("  %s", styles.Muted.Render(formatTokensCompact(task.TokensUsed)+" tok"))
 			}
 			if task.OutputRef != "" {
-				line += fmt.Sprintf("  %s", styles.Accent.Render(task.OutputRef))
+				line += fmt.Sprintf("  %s", formatOutputRef(styles, task))
 			}
 			if task.SkipReason != "" && task.Status != "completed" {
 				line += fmt.Sprintf("  %s", styles.Warn.Render(task.SkipReason))
@@ -672,12 +680,6 @@ func renderReportOverview(styles reportStyles, runs []reportRun, opts reportOpti
 	return b.String()
 }
 
-func limitItems(items []string, max int) []string {
-	if max <= 0 || len(items) <= max {
-		return items
-	}
-	return items[:max]
-}
 
 func renderReportTasks(styles reportStyles, runs []reportRun) string {
 	var b strings.Builder
@@ -822,6 +824,7 @@ type aggregateSummary struct {
 	outputCounts map[string]int
 	hasBudget    bool
 	outputs      []string
+	prCount      int
 }
 
 func aggregateRuns(runs []reportRun) aggregateSummary {
@@ -840,6 +843,11 @@ func aggregateRuns(runs []reportRun) aggregateSummary {
 		if summary.BudgetStart > 0 {
 			agg.budgetStart += summary.BudgetStart
 			agg.hasBudget = true
+		}
+		for _, task := range run.results.Tasks {
+			if strings.EqualFold(task.OutputType, "pr") && task.OutputRef != "" {
+				agg.prCount++
+			}
 		}
 		for _, output := range summary.Outputs {
 			agg.outputCounts[output]++
@@ -916,6 +924,38 @@ func formatProjectSummary(projects map[string]int) string {
 		parts = append(parts, fmt.Sprintf("%s (%d)", item.name, item.count))
 	}
 	return strings.Join(parts, ", ")
+}
+
+// formatOutputRef formats a task's OutputRef for display in the report.
+// PR-type outputs get bold accent styling and a "-> PR:" prefix.
+// Other typed outputs show "-> {Type}: {Ref}".
+// Untyped outputs show "-> {Ref}".
+func formatOutputRef(styles reportStyles, task reporting.TaskResult) string {
+	if task.OutputRef == "" {
+		return ""
+	}
+
+	ref := task.OutputRef
+	outputType := strings.TrimSpace(task.OutputType)
+	isPR := strings.EqualFold(outputType, "pr")
+
+	// For PR links, use bold accent and wrap as terminal hyperlink if it's a URL
+	if isPR {
+		display := ref
+		if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
+			display = termenv.Hyperlink(ref, ref)
+		}
+		prStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("81"))
+		return prStyle.Render("\u2192 PR: " + display)
+	}
+
+	// Typed non-PR output
+	if outputType != "" {
+		return styles.Accent.Render(fmt.Sprintf("\u2192 %s: %s", outputType, ref))
+	}
+
+	// Untyped output
+	return styles.Accent.Render("\u2192 " + ref)
 }
 
 func formatTaskDetail(task reporting.TaskResult) string {
