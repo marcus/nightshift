@@ -51,6 +51,12 @@ nightshift --help
 
 ### 1. Initialize Configuration
 
+For an interactive global setup (recommended):
+
+```bash
+nightshift setup
+```
+
 Create a project config in your repository:
 
 ```bash

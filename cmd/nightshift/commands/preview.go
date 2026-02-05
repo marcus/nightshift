@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/marcus/nightshift/internal/budget"
 	"github.com/marcus/nightshift/internal/calibrator"
+	"github.com/marcus/nightshift/internal/config"
 	"github.com/marcus/nightshift/internal/db"
 	"github.com/marcus/nightshift/internal/orchestrator"
 	"github.com/marcus/nightshift/internal/providers"
@@ -61,17 +63,25 @@ func runPreview(cmd *cobra.Command, args []string) error {
 	}
 	defer database.Close()
 
-	st, err := state.New(database)
-	if err != nil {
-		return fmt.Errorf("init state: %w", err)
-	}
-
 	projects, err := resolveProjects(cfg, projectPath)
 	if err != nil {
 		return fmt.Errorf("resolve projects: %w", err)
 	}
+
+	return renderPreview(cmd.OutOrStdout(), cfg, database, projects, taskFilter, runs, longPrompt, writeDir)
+}
+
+func renderPreview(w io.Writer, cfg *config.Config, database *db.DB, projects []string, taskFilter string, runs int, longPrompt bool, writeDir string) error {
+	if runs <= 0 {
+		return fmt.Errorf("runs must be positive")
+	}
 	if len(projects) == 0 {
 		return fmt.Errorf("no projects configured")
+	}
+
+	st, err := state.New(database)
+	if err != nil {
+		return fmt.Errorf("init state: %w", err)
 	}
 
 	sched, err := scheduler.NewFromConfig(&cfg.Schedule)
@@ -99,38 +109,43 @@ func runPreview(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Printf("Previewing next %d run(s). Assumes current state and usage; no tasks are executed.\n\n", runs)
+	provider, err := previewProvider(cfg)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(w, "Previewing next %d run(s). Assumes current state and usage; no tasks are executed.\n\n", runs)
 
 	for i, runAt := range nextRuns {
-		fmt.Printf("Run %d: %s\n", i+1, runAt.Format("2006-01-02 15:04"))
+		fmt.Fprintf(w, "Run %d: %s\n", i+1, runAt.Format("2006-01-02 15:04"))
 
 		for _, project := range projects {
 			if taskFilter == "" && st.WasProcessedToday(project) {
-				fmt.Printf("  %s: skipped (already processed today)\n", project)
+				fmt.Fprintf(w, "  %s: skipped (already processed today)\n", project)
 				continue
 			}
 
-			allowance, err := budgetMgr.CalculateAllowance("claude")
+			allowance, err := budgetMgr.CalculateAllowance(provider)
 			if err != nil {
-				fmt.Printf("  %s: budget error: %v\n", project, err)
+				fmt.Fprintf(w, "  %s: budget error: %v\n", project, err)
 				continue
 			}
 			if allowance.Allowance <= 0 {
-				fmt.Printf("  %s: budget exhausted\n", project)
+				fmt.Fprintf(w, "  %s: budget exhausted\n", project)
 				continue
 			}
 
 			selected, err := previewSelectTasks(selector, project, taskFilter, allowance.Allowance)
 			if err != nil {
-				fmt.Printf("  %s: %v\n", project, err)
+				fmt.Fprintf(w, "  %s: %v\n", project, err)
 				continue
 			}
 			if len(selected) == 0 {
-				fmt.Printf("  %s: no tasks available within budget\n", project)
+				fmt.Fprintf(w, "  %s: no tasks available within budget\n", project)
 				continue
 			}
 
-			fmt.Printf("  %s:\n", project)
+			fmt.Fprintf(w, "  %s:\n", project)
 			for idx, scored := range selected {
 				taskInstance := &tasks.Task{
 					ID:          fmt.Sprintf("%s:%s", scored.Definition.Type, project),
@@ -141,26 +156,36 @@ func runPreview(cmd *cobra.Command, args []string) error {
 				}
 				prompt := orch.PlanPrompt(taskInstance)
 
-				fmt.Printf("    %d. %s (%s)\n", idx+1, scored.Definition.Name, scored.Definition.Type)
-				fmt.Printf("       Prompt (plan): %s\n", renderPromptPreview(prompt, longPrompt))
+				fmt.Fprintf(w, "    %d. %s (%s)\n", idx+1, scored.Definition.Name, scored.Definition.Type)
+				fmt.Fprintf(w, "       Prompt (plan): %s\n", renderPromptPreview(prompt, longPrompt))
 
 				if writeDir != "" {
 					filename := fmt.Sprintf("run-%02d-%s-%s-plan.txt", i+1, sanitizeFileName(filepath.Base(project)), scored.Definition.Type)
 					fullPath := filepath.Join(writeDir, filename)
 					if err := os.WriteFile(fullPath, []byte(prompt), 0644); err != nil {
-						fmt.Printf("       Prompt file: error writing (%v)\n", err)
+						fmt.Fprintf(w, "       Prompt file: error writing (%v)\n", err)
 					} else {
-						fmt.Printf("       Prompt file: %s\n", fullPath)
+						fmt.Fprintf(w, "       Prompt file: %s\n", fullPath)
 					}
 				}
 			}
 		}
 
-		fmt.Println()
+		fmt.Fprintln(w)
 	}
 
-	fmt.Println("Note: Only the plan prompt is deterministic. Implement/review prompts are generated after plan output.")
+	fmt.Fprintln(w, "Note: Only the plan prompt is deterministic. Implement/review prompts are generated after plan output.")
 	return nil
+}
+
+func previewProvider(cfg *config.Config) (string, error) {
+	if cfg.Providers.Claude.Enabled {
+		return "claude", nil
+	}
+	if cfg.Providers.Codex.Enabled {
+		return "codex", nil
+	}
+	return "", fmt.Errorf("no providers enabled for preview")
 }
 
 func previewSelectTasks(selector *tasks.Selector, projectPath, taskFilter string, allowance int64) ([]tasks.ScoredTask, error) {

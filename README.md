@@ -30,6 +30,9 @@ go install github.com/marcus/nightshift/cmd/nightshift@latest
 ## Quick Start
 
 ```bash
+# Interactive setup (global config + snapshot + daemon)
+nightshift setup
+
 # Initialize config in current directory
 nightshift init
 
@@ -47,6 +50,9 @@ nightshift status
 nightshift preview -n 3
 nightshift preview --long
 nightshift preview --write ./nightshift-prompts
+
+# Guided global setup
+nightshift setup
 
 # Check environment and config health
 nightshift doctor
@@ -106,12 +112,14 @@ If you prefer API-based usage, you can authenticate those CLIs with API keys ins
 
 ## Configuration
 
-Nightshift uses a YAML config file (`nightshift.yaml`) to define:
+Nightshift uses YAML config files to define:
 
 - Token budget limits
 - Target repositories
 - Task priorities
 - Schedule preferences
+
+Run `nightshift setup` to create/update the global config at `~/.config/nightshift/config.yaml`.
 
 See [SPEC.md](docs/SPEC.md) for detailed configuration options.
 
