@@ -8,7 +8,7 @@ A Go CLI that runs overnight to perform AI-powered maintenance tasks on your cod
 
 ## Features
 
-- **Budget-aware**: Uses remaining daily allotment, never exceeds configurable max (default 10%)
+- **Budget-aware**: Uses remaining daily allotment, never exceeds configurable max (default 75%)
 - **Multi-project support**: Works across multiple repos
 - **Configurable tasks**: From auto-PRs to analysis reports
 - **Great DX**: Built with bubbletea/lipgloss for a delightful CLI experience
@@ -123,7 +123,7 @@ schedule:
 
 budget:
   mode: daily
-  max_percent: 10
+  max_percent: 75
   reserve_percent: 5
   billing_mode: subscription
   calibrate_enabled: true

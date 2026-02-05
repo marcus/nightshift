@@ -6,7 +6,7 @@ Nightshift is a Go CLI tool that runs overnight to perform AI-powered maintenanc
 
 ### Goals
 
-- **Budget-aware execution**: Never exceed configured limits; default max 10% of daily budget
+- **Budget-aware execution**: Never exceed configured limits; default max 75% of daily budget
 - **Multi-project support**: Manage one or many repositories
 - **Configurable tasks**: From automated PRs to analysis reports
 - **Great DX**: Delightful CLI experience with bubbletea/lipgloss
@@ -74,14 +74,14 @@ schedule:
 #
 # How budget modes work:
 # - daily: Each night uses up to max_percent of that day's budget (weekly/7).
-#          Example: 10% daily = use up to 10% of your daily allotment each night.
+#          Example: 75% daily = use up to 75% of your daily allotment each night.
 # - weekly: Each night uses up to max_percent of the REMAINING weekly budget.
-#           Example: 10% weekly on day 1 = 10% of full week. On day 7 = 10% of what's left.
+#           Example: 75% weekly on day 1 = 75% of full week. On day 7 = 75% of what's left.
 #           With aggressive_end_of_week, this ramps up as the week ends to avoid waste.
 #
 budget:
   mode: daily                  # daily | weekly (see explanation above)
-  max_percent: 10              # Max % of budget to use per run (default: 10)
+  max_percent: 75              # Max % of budget to use per run (default: 75)
   aggressive_end_of_week: false # Weekly mode: ramp up spending in last 2 days
   reserve_percent: 5           # Always keep this % in reserve (never touch)
   weekly_tokens: 700000        # Fallback weekly budget (used if provider doesn't expose limits)
@@ -552,7 +552,7 @@ Generated at end of each night's run:
 
 - Read-only mode by default for first run
 - Require explicit `--enable-writes` for first time
-- Max 10% budget prevents runaway costs
+- Max 75% budget prevents runaway costs
 - No auto-push to remote repositories
 
 ## Future Considerations

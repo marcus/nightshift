@@ -32,6 +32,6 @@ integrations:
 # schedule:
 #   cron: "0 3 * * *"            # Different time for this project
 
-# Optional: Override budget for this project
-# budget:
-#   max_percent: 5               # Lower budget for this project
+# Override budget for this project
+budget:
+  max_percent: 80

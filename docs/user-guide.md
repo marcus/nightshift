@@ -125,7 +125,7 @@ schedule:
 # Budget controls
 budget:
   mode: daily                  # daily | weekly
-  max_percent: 10              # Max % of budget per run
+  max_percent: 75              # Max % of budget per run
   reserve_percent: 5           # Always keep this % in reserve
 
 # Enable/disable task types
@@ -146,7 +146,7 @@ Budget controls apply globally unless overridden per provider.
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `budget.mode` | string | `daily` | `daily` or `weekly` usage model. |
-| `budget.max_percent` | int | `10` | Max % of budget per run. |
+| `budget.max_percent` | int | `75` | Max % of budget per run. |
 | `budget.reserve_percent` | int | `5` | Always keep this % in reserve. |
 | `budget.billing_mode` | string | `subscription` | `subscription` or `api`. |
 | `budget.calibrate_enabled` | bool | `true` | Enable subscription calibration via snapshots. |
@@ -571,7 +571,7 @@ Nightshift includes safety features:
 | Feature | Default | Override |
 |---------|---------|----------|
 | Read-only first run | Yes | `--enable-writes` |
-| Max budget per run | 10% | `budget.max_percent` |
+| Max budget per run | 75% | `budget.max_percent` |
 | Auto-push to remote | No | Manual only |
 | Reserve budget | 5% | `budget.reserve_percent` |
 

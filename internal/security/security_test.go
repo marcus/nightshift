@@ -17,8 +17,8 @@ func TestDefaultConfig(t *testing.T) {
 		t.Error("expected EnableWrites to be false by default")
 	}
 
-	if cfg.MaxBudgetPercent != 10 {
-		t.Errorf("expected MaxBudgetPercent 10, got %d", cfg.MaxBudgetPercent)
+	if cfg.MaxBudgetPercent != 75 {
+		t.Errorf("expected MaxBudgetPercent 75, got %d", cfg.MaxBudgetPercent)
 	}
 
 	if cfg.AllowGitPush {

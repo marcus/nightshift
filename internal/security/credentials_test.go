@@ -105,7 +105,7 @@ func TestCredentialManager_CheckConfigForCredentials(t *testing.T) {
 	}{
 		{
 			name:    "clean config",
-			content: "schedule:\n  cron: '0 2 * * *'\nbudget:\n  max_percent: 10",
+			content: "schedule:\n  cron: '0 2 * * *'\nbudget:\n  max_percent: 75",
 			wantErr: false,
 		},
 		{

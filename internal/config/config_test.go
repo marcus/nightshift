@@ -275,7 +275,7 @@ func TestLoadFromPaths_MergeConfigs(t *testing.T) {
 	globalContent := `
 budget:
   mode: daily
-  max_percent: 10
+  max_percent: 75
 logging:
   level: info
 `

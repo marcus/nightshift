@@ -25,7 +25,7 @@ const (
 type Config struct {
 	Mode              SafetyMode // Operating mode
 	EnableWrites      bool       // Allow write operations
-	MaxBudgetPercent  int        // Max budget per run (default 10%)
+	MaxBudgetPercent  int        // Max budget per run (default 75%)
 	AllowGitPush      bool       // Allow pushing to remote repos
 	AllowNetworkAgent bool       // Allow network access for agents
 	AuditLogPath      string     // Path for audit logs
@@ -38,7 +38,7 @@ func DefaultConfig() Config {
 	return Config{
 		Mode:              ModeReadOnly,
 		EnableWrites:      false,
-		MaxBudgetPercent:  10,
+		MaxBudgetPercent:  75,
 		AllowGitPush:      false,
 		AllowNetworkAgent: false,
 		AuditLogPath:      filepath.Join(home, ".local", "share", "nightshift", "audit"),

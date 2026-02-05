@@ -121,7 +121,7 @@ type ReportingConfig struct {
 // Default values for configuration.
 const (
 	DefaultBudgetMode        = "daily"
-	DefaultMaxPercent        = 10
+	DefaultMaxPercent        = 75
 	DefaultReservePercent    = 5
 	DefaultWeeklyTokens      = 700000
 	DefaultBillingMode       = "subscription"
