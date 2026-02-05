@@ -66,7 +66,7 @@ func TestTakeSnapshotInsertsClaude(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	collector := NewCollector(database, fakeClaude{weekly: 700, daily: 120}, nil, fakeScraper{claudePct: 50}, time.Monday)
 
@@ -112,7 +112,7 @@ func TestTakeSnapshotCodexWithTokenData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	codex := fakeCodex{weeklyTokens: 35000, dailyTokens: 5000}
 	collector := NewCollector(database, nil, codex, fakeScraper{codexPct: 42}, time.Monday)
@@ -149,7 +149,7 @@ func TestTakeSnapshotCodexNoTokenData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	collector := NewCollector(database, nil, fakeCodex{}, fakeScraper{codexPct: 42}, time.Monday)
 
@@ -209,7 +209,7 @@ func TestTakeSnapshotStoresResetTimes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	scraper := fakeScraper{
 		claudePct:        50,
@@ -249,7 +249,7 @@ func TestTakeSnapshotCodexResetTimes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	scraper := fakeScraper{
 		codexPct:         42,
@@ -280,7 +280,7 @@ func TestTakeSnapshotEmptyResetTimes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	// scraper with no reset times
 	collector := NewCollector(database, fakeClaude{weekly: 100, daily: 10}, nil, fakeScraper{claudePct: 25}, time.Monday)
@@ -313,7 +313,7 @@ func TestPruneSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	collector := NewCollector(database, fakeClaude{}, nil, nil, time.Monday)
 

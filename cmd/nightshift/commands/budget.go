@@ -43,7 +43,7 @@ func runBudget(filterProvider string) error {
 	if err != nil {
 		return fmt.Errorf("opening db: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	// Initialize providers
 	var claude *providers.Claude

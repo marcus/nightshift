@@ -17,7 +17,7 @@ func TestImportLegacyStateSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	legacyPath := filepath.Join(home, ".local", "share", "nightshift", "state", legacyStateFile)
 	if err := os.MkdirAll(filepath.Dir(legacyPath), 0755); err != nil {
@@ -90,7 +90,7 @@ func TestImportLegacyStateSkipsWhenDataExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	if _, err := database.SQL().Exec(`INSERT INTO projects (path, last_run, run_count) VALUES (?, ?, ?)`, "/tmp/project", time.Now(), 1); err != nil {
 		t.Fatalf("seed project: %v", err)
@@ -127,7 +127,7 @@ func TestImportLegacyStateParseFailureKeepsFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	legacyPath := filepath.Join(home, ".local", "share", "nightshift", "state", legacyStateFile)
 	if err := os.MkdirAll(filepath.Dir(legacyPath), 0755); err != nil {

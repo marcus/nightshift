@@ -40,7 +40,7 @@ func TestAgentsMDReader_Read_NoFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	r := &AgentsMDReader{enabled: true}
 	result, err := r.Read(context.Background(), tmpDir)
@@ -57,7 +57,7 @@ func TestAgentsMDReader_Read_Success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	content := `# Agent Configuration
 
@@ -85,6 +85,7 @@ func TestAgentsMDReader_Read_Success(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
+		return
 	}
 
 	// Check metadata
@@ -121,7 +122,7 @@ func TestAgentsMDReader_Read_LowercaseFilename(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	content := "# Agents"
 	if err := os.WriteFile(filepath.Join(tmpDir, "agents.md"), []byte(content), 0644); err != nil {

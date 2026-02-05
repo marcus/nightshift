@@ -78,7 +78,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("open db: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	st, err := state.New(database)
 	if err != nil {

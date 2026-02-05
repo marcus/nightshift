@@ -280,7 +280,7 @@ func (s *State) ListAssigned() []AssignedTask {
 		log.Printf("state: list assigned: %v", err)
 		return nil
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	tasks := make([]AssignedTask, 0)
 	for rows.Next() {
@@ -329,7 +329,7 @@ func (s *State) GetProjectState(projectPath string) *ProjectState {
 		log.Printf("state: load task history: %v", err)
 		return state
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var taskType string
@@ -433,13 +433,13 @@ func (s *State) AddRunRecord(record RunRecord) {
 		record.Error,
 	)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		log.Printf("state: insert run_history: %v", err)
 		return
 	}
 
 	if _, err := tx.Exec(`DELETE FROM run_history WHERE id NOT IN (SELECT id FROM run_history ORDER BY start_time DESC LIMIT 100)`); err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		log.Printf("state: prune run_history: %v", err)
 		return
 	}
@@ -470,7 +470,7 @@ func (s *State) GetRunHistory(n int) []RunRecord {
 		log.Printf("state: get run history: %v", err)
 		return nil
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := make([]RunRecord, 0)
 	for rows.Next() {
@@ -519,7 +519,7 @@ func (s *State) GetTodayRuns() []RunRecord {
 		log.Printf("state: get today runs: %v", err)
 		return nil
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	result := make([]RunRecord, 0)
 	for rows.Next() {
@@ -571,9 +571,10 @@ func (s *State) GetTodaySummary() TodaySummary {
 		summary.TotalRuns++
 		summary.TotalTokens += run.TokensUsed
 
-		if run.Status == "success" {
+		switch run.Status {
+		case "success":
 			summary.SuccessfulRuns++
-		} else if run.Status == "failed" {
+		case "failed":
 			summary.FailedRuns++
 		}
 

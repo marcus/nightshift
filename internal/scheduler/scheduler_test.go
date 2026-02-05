@@ -378,7 +378,7 @@ func TestScheduler_NextRun_Cron(t *testing.T) {
 	if err := s.Start(ctx); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
-	defer s.Stop()
+	defer func() { _ = s.Stop() }()
 
 	nextRun := s.NextRun()
 	if nextRun.IsZero() {
@@ -403,7 +403,7 @@ func TestScheduler_NextRun_Interval(t *testing.T) {
 	if err := s.Start(ctx); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
-	defer s.Stop()
+	defer func() { _ = s.Stop() }()
 
 	nextRun := s.NextRun()
 	if nextRun.IsZero() {

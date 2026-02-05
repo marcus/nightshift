@@ -60,6 +60,7 @@ func TestNew(t *testing.T) {
 	o := New()
 	if o == nil {
 		t.Fatal("New() returned nil")
+		return
 	}
 	if o.config.MaxIterations != DefaultMaxIterations {
 		t.Errorf("MaxIterations = %d, want %d", o.config.MaxIterations, DefaultMaxIterations)
@@ -334,11 +335,11 @@ func TestRunContextCancellation(t *testing.T) {
 	cancel() // Cancel immediately
 
 	result, err := o.RunTask(ctx, task, "")
-	// Should fail due to context cancellation
-	if err == nil && result.Status != StatusFailed {
-		// Context was cancelled, expect some form of failure
-		// The exact behavior depends on timing
-	}
+	// Context was cancelled, expect some form of failure.
+	// The exact behavior depends on timing, so we just verify
+	// we got a result without panicking.
+	_ = err
+	_ = result
 }
 
 // slowMockAgent simulates slow execution.

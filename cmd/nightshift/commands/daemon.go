@@ -183,7 +183,7 @@ func runDaemonLoop(cfg *config.Config) error {
 	if err := writePidFile(); err != nil {
 		return fmt.Errorf("write pid file: %w", err)
 	}
-	defer removePidFile()
+	defer func() { _ = removePidFile() }()
 
 	log.Info("daemon starting")
 
@@ -191,7 +191,7 @@ func runDaemonLoop(cfg *config.Config) error {
 	if err != nil {
 		return fmt.Errorf("open db: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	// Set up context with signal handling for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -575,7 +575,7 @@ func runDaemonStop(cmd *cobra.Command, args []string) error {
 	if !running {
 		// Check if PID file exists but process is dead
 		if _, err := readPidFile(); err == nil {
-			removePidFile()
+			_ = removePidFile()
 			fmt.Println("daemon not running (stale pid file removed)")
 			return nil
 		}
@@ -605,13 +605,13 @@ func runDaemonStop(cmd *cobra.Command, args []string) error {
 		case <-timeout:
 			// Force kill if still running
 			fmt.Println("daemon did not stop, sending SIGKILL")
-			process.Signal(syscall.SIGKILL)
-			removePidFile()
+			_ = process.Signal(syscall.SIGKILL)
+			_ = removePidFile()
 			return nil
 		case <-tick.C:
 			if !isProcessRunning(pid) {
 				fmt.Println("daemon stopped")
-				removePidFile()
+				_ = removePidFile()
 				return nil
 			}
 		}

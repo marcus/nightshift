@@ -84,7 +84,7 @@ func runBudgetSnapshot(cmd *cobra.Command, filterProvider string, localOnly bool
 	if err != nil {
 		return fmt.Errorf("opening db: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	providerList, err := resolveProviderList(cfg, filterProvider)
 	if err != nil {
@@ -287,7 +287,7 @@ func runBudgetHistory(filterProvider string, n int) error {
 	if err != nil {
 		return fmt.Errorf("opening db: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	providerList, err := resolveProviderList(cfg, filterProvider)
 	if err != nil {
@@ -330,7 +330,7 @@ func runBudgetCalibrate(filterProvider string) error {
 	if err != nil {
 		return fmt.Errorf("opening db: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	providerList, err := resolveProviderList(cfg, filterProvider)
 	if err != nil {
@@ -366,7 +366,7 @@ func runBudgetCalibrate(filterProvider string) error {
 
 func printSnapshotTable(history []snapshots.Snapshot) {
 	writer := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(writer, "Time\tLocal\tDaily\tPct\tInferred\tResets")
+	_, _ = fmt.Fprintln(writer, "Time\tLocal\tDaily\tPct\tInferred\tResets")
 	for _, snapshot := range history {
 		pct := "-"
 		if snapshot.ScrapedPct != nil {
@@ -380,7 +380,7 @@ func printSnapshotTable(history []snapshots.Snapshot) {
 		if resets == "" {
 			resets = "-"
 		}
-		fmt.Fprintf(
+		_, _ = fmt.Fprintf(
 			writer,
 			"%s\t%s\t%s\t%s\t%s\t%s\n",
 			snapshot.Timestamp.Format("Jan 02 15:04"),
@@ -391,5 +391,5 @@ func printSnapshotTable(history []snapshots.Snapshot) {
 			resets,
 		)
 	}
-	writer.Flush()
+	_ = writer.Flush()
 }

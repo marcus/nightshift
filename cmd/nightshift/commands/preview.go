@@ -72,7 +72,7 @@ func runPreview(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("open db: %w", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	projects, err := resolveProjects(cfg, projectPath)
 	if err != nil {

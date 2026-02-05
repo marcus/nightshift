@@ -60,7 +60,7 @@ func TestNew(t *testing.T) {
 				return
 			}
 			if err == nil && logger != nil {
-				logger.Close()
+				_ = logger.Close()
 			}
 		})
 	}
@@ -77,7 +77,7 @@ func TestLoggerMethods(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create logger: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	// Test all log methods
 	logger.Debug("debug msg")
@@ -113,7 +113,7 @@ func TestWithComponent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create logger: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	componentLogger := logger.WithComponent("test_component")
 	if componentLogger.component != "test_component" {
@@ -149,7 +149,7 @@ func TestLogRotation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create logger: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	// Wait for cleanup goroutine
 	time.Sleep(100 * time.Millisecond)

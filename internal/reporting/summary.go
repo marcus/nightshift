@@ -20,26 +20,27 @@ import (
 
 // TaskResult represents a completed or skipped task in the run.
 type TaskResult struct {
-	Project     string `json:"project"`
-	TaskType    string `json:"task_type"`
-	Title       string `json:"title"`
-	Status      string `json:"status"` // completed, failed, skipped
-	OutputType  string `json:"output_type,omitempty"` // PR, Report, Analysis, etc.
-	OutputRef   string `json:"output_ref,omitempty"`  // PR number, report path, etc.
-	TokensUsed  int    `json:"tokens_used"`
-	SkipReason  string `json:"skip_reason,omitempty"` // e.g., "insufficient budget"
-	Duration    time.Duration `json:"duration,omitempty"`
+	Project    string        `json:"project"`
+	TaskType   string        `json:"task_type"`
+	Title      string        `json:"title"`
+	Status     string        `json:"status"`                // completed, failed, skipped
+	OutputType string        `json:"output_type,omitempty"` // PR, Report, Analysis, etc.
+	OutputRef  string        `json:"output_ref,omitempty"`  // PR number, report path, etc.
+	TokensUsed int           `json:"tokens_used"`
+	SkipReason string        `json:"skip_reason,omitempty"` // e.g., "insufficient budget"
+	Duration   time.Duration `json:"duration,omitempty"`
 }
 
 // RunResults holds all results from a nightshift run.
 type RunResults struct {
-	Date          time.Time     `json:"date"`
-	StartBudget   int           `json:"start_budget"`
-	UsedBudget    int           `json:"used_budget"`
-	RemainingBudget int         `json:"remaining_budget"`
-	Tasks         []TaskResult  `json:"tasks"`
-	StartTime     time.Time     `json:"start_time"`
-	EndTime       time.Time     `json:"end_time"`
+	Date            time.Time    `json:"date"`
+	StartBudget     int          `json:"start_budget"`
+	UsedBudget      int          `json:"used_budget"`
+	RemainingBudget int          `json:"remaining_budget"`
+	Tasks           []TaskResult `json:"tasks"`
+	StartTime       time.Time    `json:"start_time"`
+	EndTime         time.Time    `json:"end_time"`
+	LogPath         string       `json:"log_path,omitempty"`
 }
 
 // Summary represents a generated morning summary.
@@ -378,7 +379,7 @@ func (g *Generator) sendSlack(summary *Summary, webhookURL string) error {
 	if err != nil {
 		return fmt.Errorf("posting to slack: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("slack returned status %d", resp.StatusCode)

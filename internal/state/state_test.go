@@ -162,7 +162,7 @@ func TestPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db1: %v", err)
 	}
-	defer db1.Close()
+	defer func() { _ = db1.Close() }()
 
 	s1, err := New(db1)
 	if err != nil {
@@ -182,7 +182,7 @@ func TestPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db2: %v", err)
 	}
-	defer db2.Close()
+	defer func() { _ = db2.Close() }()
 
 	s2, err := New(db2)
 	if err != nil {

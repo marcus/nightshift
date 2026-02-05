@@ -39,22 +39,22 @@ func Open(dbPath string) (*DB, error) {
 	}
 
 	if err := sqlDB.Ping(); err != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 		return nil, fmt.Errorf("ping db: %w", err)
 	}
 
 	if err := applyPragmas(sqlDB); err != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 		return nil, err
 	}
 
 	if err := Migrate(sqlDB); err != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 		return nil, err
 	}
 
 	if err := importLegacyState(sqlDB); err != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 		return nil, err
 	}
 

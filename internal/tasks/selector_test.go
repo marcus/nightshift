@@ -235,6 +235,7 @@ func TestSelectNext(t *testing.T) {
 	task := sel.SelectNext(100_000, project)
 	if task == nil {
 		t.Fatal("SelectNext() returned nil")
+		return
 	}
 	if task.Definition.Type != TaskLintFix {
 		t.Errorf("SelectNext() = %s, want %s", task.Definition.Type, TaskLintFix)
@@ -267,6 +268,7 @@ func TestSelectAndAssign(t *testing.T) {
 	task1 := sel.SelectAndAssign(100_000, project)
 	if task1 == nil {
 		t.Fatal("First SelectAndAssign() returned nil")
+		return
 	}
 
 	// Verify task is now assigned
@@ -358,6 +360,7 @@ func TestStalenessAffectsSelection(t *testing.T) {
 	task := sel.SelectNext(100_000, project)
 	if task == nil {
 		t.Fatal("SelectNext() returned nil")
+		return
 	}
 	// docs-backfill should win due to staleness bonus (never run = +3.0)
 	if task.Definition.Type != TaskDocsBackfill {
@@ -563,6 +566,7 @@ func TestSelectNextRespectssCooldown(t *testing.T) {
 	task := sel.SelectNext(100_000, project)
 	if task == nil {
 		t.Fatal("SelectNext() returned nil")
+		return
 	}
 	if task.Definition.Type != TaskDocsBackfill {
 		t.Errorf("SelectNext() = %s, want %s (lint-fix on cooldown)", task.Definition.Type, TaskDocsBackfill)

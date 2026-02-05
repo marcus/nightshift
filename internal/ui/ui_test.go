@@ -11,6 +11,7 @@ func TestNew(t *testing.T) {
 	m := New()
 	if m == nil {
 		t.Fatal("New() returned nil")
+		return
 	}
 
 	if m.width != 80 {

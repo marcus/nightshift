@@ -14,7 +14,7 @@ func TestOpenCreatesSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	tables := []string{
 		"schema_version",
@@ -48,7 +48,7 @@ func TestOpenIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reopen db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	var count int
 	row := database.SQL().QueryRow(`SELECT COUNT(*) FROM schema_version`)
@@ -89,7 +89,7 @@ func TestMigrationVersioning(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reopen db: %v", err)
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	version, err := CurrentVersion(database.SQL())
 	if err != nil {
@@ -112,7 +112,7 @@ func TestCurrentVersionFresh(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open raw db: %v", err)
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	if _, err := sqlDB.Exec(`CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, applied_at DATETIME)`); err != nil {
 		t.Fatalf("create schema_version: %v", err)

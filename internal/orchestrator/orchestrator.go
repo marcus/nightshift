@@ -470,9 +470,7 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 		}
 
 		// Check budget before running
-		if o.budget != nil {
-			// TODO: Implement budget check based on task cost estimate
-		}
+		// TODO: Implement budget check based on task cost estimate
 
 		result, err := o.RunTask(ctx, task, o.config.WorkDir)
 		if err != nil {

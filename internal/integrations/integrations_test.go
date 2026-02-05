@@ -20,6 +20,7 @@ func TestNewManager(t *testing.T) {
 	m := NewManager(cfg)
 	if m == nil {
 		t.Fatal("NewManager returned nil")
+		return
 	}
 	if len(m.readers) != 4 {
 		t.Errorf("expected 4 readers, got %d", len(m.readers))
@@ -59,7 +60,7 @@ func TestManagerReadAll(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Write a claude.md file
 	claudeMD := `# Project
@@ -89,6 +90,7 @@ This is a test project.
 
 	if result == nil {
 		t.Fatal("ReadAll returned nil result")
+		return
 	}
 
 	// Should have claude.md result

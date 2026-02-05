@@ -70,9 +70,10 @@ const (
 type setupModel struct {
 	step setupStep
 
-	cfg         *config.Config
-	configPath  string
-	configExist bool
+	cfg             *config.Config
+	configPath      string
+	configExist     bool
+	includePathStep bool
 
 	projects       []string
 	projectCursor  int
@@ -209,12 +210,14 @@ func newSetupModel() (*setupModel, error) {
 	taskItems := makeTaskItems(cfg, projects, preset)
 	_, err = execLookPath("nightshift")
 	nightshiftInPath := err == nil
+	includePathStep := !nightshiftInPath
 
 	model := &setupModel{
 		step:             stepWelcome,
 		cfg:              cfg,
 		configPath:       configPath,
 		configExist:      configExist,
+		includePathStep:  includePathStep,
 		projects:         projects,
 		projectInput:     projectInput,
 		budgetInput:      budgetInput,
@@ -234,7 +237,7 @@ func newSetupModel() (*setupModel, error) {
 }
 
 func (m *setupModel) Init() tea.Cmd {
-	return spinner.Tick
+	return m.spinner.Tick
 }
 
 func (m *setupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -307,6 +310,8 @@ func (m *setupModel) View() string {
 	b.WriteString(styleHeader.Render("Nightshift Setup"))
 	b.WriteString("\n")
 	b.WriteString(styleDim.Render("================"))
+	b.WriteString("\n")
+	b.WriteString(renderSetupStepper(m))
 	b.WriteString("\n\n")
 
 	switch m.step {
@@ -457,8 +462,8 @@ func (m *setupModel) View() string {
 	case stepPreview:
 		b.WriteString(styleAccent.Render("Preview step"))
 		b.WriteString("\n")
-		b.WriteString("Next up: we’ll preview the first scheduled run with the summary view.\n")
-		b.WriteString("Prompts are shortened for readability (use `nightshift preview --long` for full text).\n\n")
+		b.WriteString("Next up: we’ll preview the first scheduled run with a compact task list.\n")
+		b.WriteString("Use `nightshift preview --long` later if you want full prompt text.\n\n")
 		if m.previewRunning {
 			b.WriteString(m.spinner.View() + "\n")
 		} else {
@@ -1107,9 +1112,7 @@ func (m *setupModel) applyDaemonAction(action string) error {
 	case "Stop daemon":
 		return runDaemonStop(nil, nil)
 	case "Remove service":
-		if err := runDaemonStop(nil, nil); err != nil {
-			// ignore if not running
-		}
+		_ = runDaemonStop(nil, nil) // ignore if not running
 		return uninstallService(m.serviceType)
 	default:
 		return nil
@@ -1345,7 +1348,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	out, err := os.Create(dst)
 	if err != nil {
@@ -1408,7 +1411,7 @@ func renderBudgetFields(b *strings.Builder, m *setupModel) {
 		if i == m.budgetCursor {
 			cursor = ">"
 		}
-		b.WriteString(fmt.Sprintf(" %s %s\n", cursor, field))
+		fmt.Fprintf(b, " %s %s\n", cursor, field)
 	}
 }
 
@@ -1443,7 +1446,7 @@ func renderSafetyFields(b *strings.Builder, m *setupModel) {
 		if !item.available {
 			status = fmt.Sprintf("%s (provider disabled)", state)
 		}
-		b.WriteString(fmt.Sprintf(" %s [%s] %s\n", cursor, status, item.label))
+		fmt.Fprintf(b, " %s [%s] %s\n", cursor, status, item.label)
 	}
 	b.WriteString(styleNote.Render("Tip: leave these OFF if you want the CLI to ask for approvals."))
 	b.WriteString("\n")
@@ -1462,14 +1465,14 @@ func renderScheduleFields(b *strings.Builder, m *setupModel) {
 		if i == m.scheduleCursor {
 			cursor = ">"
 		}
-		b.WriteString(fmt.Sprintf(" %s %s\n", cursor, field))
+		fmt.Fprintf(b, " %s %s\n", cursor, field)
 	}
 	if m.scheduleMode == "interval" {
 		start, errStart := scheduler.ParseTimeOfDay(m.scheduleStart)
 		interval, errInterval := time.ParseDuration(m.scheduleInterval)
 		if errStart == nil && errInterval == nil {
 			end := computeWindowEnd(start, interval, m.scheduleCycles)
-			b.WriteString(fmt.Sprintf("   Window end (computed): %s\n", end))
+			fmt.Fprintf(b, "   Window end (computed): %s\n", end)
 		}
 	}
 }
@@ -1521,7 +1524,7 @@ func runSnapshot(cfg *config.Config) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	scraper := snapshots.UsageScraper(nil)
 	if cfg.Budget.CalibrateEnabled && strings.ToLower(cfg.Budget.BillingMode) != "api" {
@@ -1578,23 +1581,90 @@ func formatSnapshotLine(snapshot snapshots.Snapshot) string {
 
 func runPreviewCmd(cfg *config.Config, projects []string) tea.Cmd {
 	return func() tea.Msg {
-		output, err := buildPreviewOutput(cfg, projects, 1, false, "")
+		output, err := buildSetupPreviewOutput(cfg, projects)
 		return previewMsg{output: output, err: err}
 	}
 }
 
-func buildPreviewOutput(cfg *config.Config, projects []string, runs int, longPrompt bool, writeDir string) (string, error) {
+func buildSetupPreviewOutput(cfg *config.Config, projects []string) (string, error) {
 	database, err := db.Open(cfg.ExpandedDBPath())
 	if err != nil {
 		return "", err
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
-	result, err := buildPreviewResult(cfg, database, projects, "", runs, writeDir, nil, false)
+	result, err := buildPreviewResult(cfg, database, projects, "", 1, "", nil, false)
 	if err != nil {
 		return "", err
 	}
-	return renderPreviewText(result, previewTextOptions{LongPrompt: longPrompt, Explain: false}), nil
+	return renderSetupPreviewText(result), nil
+}
+
+type setupStepInfo struct {
+	step  setupStep
+	label string
+}
+
+func renderSetupStepper(m *setupModel) string {
+	steps := setupSteps(m.includePathStep)
+	stepIndex := 0
+	stepLabel := ""
+	for i, info := range steps {
+		if info.step == m.step {
+			stepIndex = i
+			stepLabel = info.label
+			break
+		}
+	}
+
+	total := len(steps)
+	current := stepIndex + 1
+	line := fmt.Sprintf("%s  %s", styleNote.Render(fmt.Sprintf("Step %d of %d", current, total)), styleAccent.Render(stepLabel))
+	bar := renderSetupProgressBar(current, total, 28)
+	return line + "\n" + bar
+}
+
+func setupSteps(includePathStep bool) []setupStepInfo {
+	steps := []setupStepInfo{
+		{step: stepWelcome, label: "Welcome"},
+		{step: stepConfig, label: "Global config"},
+		{step: stepProjects, label: "Projects"},
+		{step: stepBudget, label: "Budget"},
+		{step: stepSafety, label: "Safety"},
+		{step: stepTaskPreset, label: "Task presets"},
+		{step: stepTaskSelect, label: "Task selection"},
+		{step: stepSchedule, label: "Schedule"},
+		{step: stepSnapshot, label: "Snapshot"},
+		{step: stepPreview, label: "Preview"},
+	}
+	if includePathStep {
+		steps = append(steps, setupStepInfo{step: stepPath, label: "PATH"})
+	}
+	steps = append(steps,
+		setupStepInfo{step: stepDaemon, label: "Daemon"},
+		setupStepInfo{step: stepFinish, label: "Finish"},
+	)
+	return steps
+}
+
+func renderSetupProgressBar(current, total, width int) string {
+	if total <= 0 || width <= 0 {
+		return ""
+	}
+	if current < 1 {
+		current = 1
+	}
+	if current > total {
+		current = total
+	}
+	filled := (width*current + total - 1) / total
+	if filled > width {
+		filled = width
+	}
+	empty := width - filled
+	filledPart := styleOk.Render(strings.Repeat("=", filled))
+	emptyPart := styleDim.Render(strings.Repeat("-", empty))
+	return "[" + filledPart + emptyPart + "]"
 }
 
 func computeWindowEnd(start scheduler.TimeOfDay, interval time.Duration, cycles int) scheduler.TimeOfDay {

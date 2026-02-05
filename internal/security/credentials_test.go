@@ -12,13 +12,13 @@ func TestCredentialManager_ValidateRequired(t *testing.T) {
 	origAnthropic := os.Getenv(EnvAnthropicKey)
 	origOpenAI := os.Getenv(EnvOpenAIKey)
 	defer func() {
-		os.Setenv(EnvAnthropicKey, origAnthropic)
-		os.Setenv(EnvOpenAIKey, origOpenAI)
+		_ = os.Setenv(EnvAnthropicKey, origAnthropic)
+		_ = os.Setenv(EnvOpenAIKey, origOpenAI)
 	}()
 
 	// Clear both
-	os.Unsetenv(EnvAnthropicKey)
-	os.Unsetenv(EnvOpenAIKey)
+	_ = os.Unsetenv(EnvAnthropicKey)
+	_ = os.Unsetenv(EnvOpenAIKey)
 
 	// Should fail with no keys
 	if err := cm.ValidateRequired(); err == nil {
@@ -26,15 +26,15 @@ func TestCredentialManager_ValidateRequired(t *testing.T) {
 	}
 
 	// Set Anthropic key
-	os.Setenv(EnvAnthropicKey, "sk-ant-test")
+	_ = os.Setenv(EnvAnthropicKey, "sk-ant-test")
 
 	if err := cm.ValidateRequired(); err != nil {
 		t.Errorf("expected success with Anthropic key, got: %v", err)
 	}
 
 	// Clear and set OpenAI only
-	os.Unsetenv(EnvAnthropicKey)
-	os.Setenv(EnvOpenAIKey, "sk-test")
+	_ = os.Unsetenv(EnvAnthropicKey)
+	_ = os.Setenv(EnvOpenAIKey, "sk-test")
 
 	if err := cm.ValidateRequired(); err != nil {
 		t.Errorf("expected success with OpenAI key, got: %v", err)
@@ -48,13 +48,13 @@ func TestCredentialManager_ValidateAll(t *testing.T) {
 	origAnthropic := os.Getenv(EnvAnthropicKey)
 	origOpenAI := os.Getenv(EnvOpenAIKey)
 	defer func() {
-		os.Setenv(EnvAnthropicKey, origAnthropic)
-		os.Setenv(EnvOpenAIKey, origOpenAI)
+		_ = os.Setenv(EnvAnthropicKey, origAnthropic)
+		_ = os.Setenv(EnvOpenAIKey, origOpenAI)
 	}()
 
 	// Set test values
-	os.Setenv(EnvAnthropicKey, "sk-ant-testkey12345")
-	os.Setenv(EnvOpenAIKey, "sk-openai-testkey999")
+	_ = os.Setenv(EnvAnthropicKey, "sk-ant-testkey12345")
+	_ = os.Setenv(EnvOpenAIKey, "sk-openai-testkey999")
 
 	statuses := cm.ValidateAll()
 
@@ -79,12 +79,12 @@ func TestCredentialManager_HasKeys(t *testing.T) {
 	origAnthropic := os.Getenv(EnvAnthropicKey)
 	origOpenAI := os.Getenv(EnvOpenAIKey)
 	defer func() {
-		os.Setenv(EnvAnthropicKey, origAnthropic)
-		os.Setenv(EnvOpenAIKey, origOpenAI)
+		_ = os.Setenv(EnvAnthropicKey, origAnthropic)
+		_ = os.Setenv(EnvOpenAIKey, origOpenAI)
 	}()
 
-	os.Setenv(EnvAnthropicKey, "test")
-	os.Unsetenv(EnvOpenAIKey)
+	_ = os.Setenv(EnvAnthropicKey, "test")
+	_ = os.Unsetenv(EnvOpenAIKey)
 
 	if !cm.HasAnthropicKey() {
 		t.Error("expected HasAnthropicKey to return true")

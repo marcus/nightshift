@@ -229,6 +229,7 @@ func TestClaudeAgent_Execute_BinaryNotFound(t *testing.T) {
 	}
 	if result == nil {
 		t.Fatal("expected result even on error")
+		return
 	}
 	if result.Error == "" {
 		t.Error("expected error message in result")

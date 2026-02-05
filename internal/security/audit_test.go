@@ -14,7 +14,7 @@ func TestNewAuditLogger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAuditLogger failed: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	if logger.sessionID == "" {
 		t.Error("expected session ID to be set")
@@ -32,7 +32,7 @@ func TestAuditLogger_Log(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAuditLogger failed: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	event := AuditEvent{
 		EventType: AuditAgentStart,
@@ -91,7 +91,7 @@ func TestAuditLogger_LogOperation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAuditLogger failed: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	op := Operation{
 		Type:   OpFileWrite,
@@ -124,7 +124,7 @@ func TestAuditLogger_LogAgentStart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAuditLogger failed: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	if err := logger.LogAgentStart("claude", "task-1", "/project"); err != nil {
 		t.Fatalf("LogAgentStart failed: %v", err)
@@ -153,7 +153,7 @@ func TestAuditLogger_LogAgentComplete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAuditLogger failed: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	duration := 5 * time.Second
 	tokensUsed := 1500
@@ -191,7 +191,7 @@ func TestAuditLogger_LogAgentError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAuditLogger failed: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	testErr := &CredentialError{Credential: "test", Message: "test error"}
 
@@ -222,7 +222,7 @@ func TestAuditLogger_LogFileModification(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAuditLogger failed: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	if err := logger.LogFileModification(AuditFileWrite, "/path/to/file.go", "claude", "task-1"); err != nil {
 		t.Fatalf("LogFileModification failed: %v", err)
@@ -248,7 +248,7 @@ func TestAuditLogger_LogGitOperation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAuditLogger failed: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	metadata := map[string]string{
 		"commit_hash": "abc123",
@@ -285,7 +285,7 @@ func TestAuditLogger_LogSecurityCheck(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAuditLogger failed: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	// Test allowed
 	if err := logger.LogSecurityCheck("write_access", "/path", "allowed", true); err != nil {
@@ -320,10 +320,10 @@ func TestAuditLogger_GetLogFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAuditLogger failed: %v", err)
 	}
-	defer logger.Close()
+	defer func() { _ = logger.Close() }()
 
 	// Write something
-	logger.Log(AuditEvent{EventType: AuditAgentStart})
+	_ = logger.Log(AuditEvent{EventType: AuditAgentStart})
 
 	files, err := logger.GetLogFiles()
 	if err != nil {
@@ -351,12 +351,12 @@ func TestReadEvents(t *testing.T) {
 
 	// Write multiple events
 	for i := 0; i < 5; i++ {
-		logger.Log(AuditEvent{
+		_ = logger.Log(AuditEvent{
 			EventType: AuditAgentStart,
 			TaskID:    "task-" + string(rune('0'+i)),
 		})
 	}
-	logger.Close()
+	_ = logger.Close()
 
 	files, _ := logger.GetLogFiles()
 	events, err := ReadEvents(files[0])
@@ -384,7 +384,7 @@ func TestReadEvents_MalformedJSON(t *testing.T) {
 	content := `{"valid": "json"}
 not valid json
 {"also": "valid"}`
-	os.WriteFile(path, []byte(content), 0644)
+	_ = os.WriteFile(path, []byte(content), 0644)
 
 	events, err := ReadEvents(path)
 	if err != nil {

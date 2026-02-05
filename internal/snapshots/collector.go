@@ -216,7 +216,7 @@ func (c *Collector) GetLatest(provider string, n int) ([]Snapshot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query latest snapshots: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var snapshots []Snapshot
 	for rows.Next() {
@@ -246,7 +246,7 @@ func (c *Collector) GetSinceWeekStart(provider string) ([]Snapshot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query week snapshots: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var snapshots []Snapshot
 	for rows.Next() {
@@ -280,7 +280,7 @@ func (c *Collector) GetHourlyAverages(provider string, lookbackDays int) ([]Hour
 	if err != nil {
 		return nil, fmt.Errorf("query hourly averages: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	averages := make([]HourlyAverage, 0)
 	for rows.Next() {

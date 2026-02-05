@@ -532,8 +532,8 @@ func parseScheduleTime(cfg *config.Config) (hour, minute int) {
 	// Parse cron: minute hour day month dow
 	parts := strings.Fields(cfg.Schedule.Cron)
 	if len(parts) >= 2 {
-		fmt.Sscanf(parts[0], "%d", &minute)
-		fmt.Sscanf(parts[1], "%d", &hour)
+		_, _ = fmt.Sscanf(parts[0], "%d", &minute)
+		_, _ = fmt.Sscanf(parts[1], "%d", &hour)
 	}
 
 	return

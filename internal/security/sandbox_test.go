@@ -32,7 +32,7 @@ func TestNewSandbox(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSandbox failed: %v", err)
 	}
-	defer sandbox.Cleanup()
+	defer func() { _ = sandbox.Cleanup() }()
 
 	if sandbox.TempDir() == "" {
 		t.Error("expected temp dir to be set")
@@ -52,7 +52,7 @@ func TestSandbox_Execute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSandbox failed: %v", err)
 	}
-	defer sandbox.Cleanup()
+	defer func() { _ = sandbox.Cleanup() }()
 
 	ctx := context.Background()
 
@@ -79,15 +79,13 @@ func TestSandbox_ExecuteWithTimeout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSandbox failed: %v", err)
 	}
-	defer sandbox.Cleanup()
+	defer func() { _ = sandbox.Cleanup() }()
 
 	ctx := context.Background()
 
 	// Command that takes too long
 	result, err := sandbox.Execute(ctx, "sleep", "10")
-	if err != nil {
-		// This is expected for timeout
-	}
+	_ = err // expected for timeout
 
 	// Should not succeed
 	if result != nil && result.Success() {
@@ -102,7 +100,7 @@ func TestSandbox_ExecuteCommandNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSandbox failed: %v", err)
 	}
-	defer sandbox.Cleanup()
+	defer func() { _ = sandbox.Cleanup() }()
 
 	ctx := context.Background()
 
@@ -121,7 +119,7 @@ func TestSandbox_ValidatePath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSandbox failed: %v", err)
 	}
-	defer sandbox.Cleanup()
+	defer func() { _ = sandbox.Cleanup() }()
 
 	tests := []struct {
 		path    string
@@ -151,13 +149,13 @@ func TestSandbox_CreateTempFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSandbox failed: %v", err)
 	}
-	defer sandbox.Cleanup()
+	defer func() { _ = sandbox.Cleanup() }()
 
 	f, err := sandbox.CreateTempFile("test-*.txt")
 	if err != nil {
 		t.Fatalf("CreateTempFile failed: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Verify file is in sandbox temp dir
 	if !strings.HasPrefix(f.Name(), sandbox.TempDir()) {
@@ -172,7 +170,7 @@ func TestSandbox_CreateTempDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSandbox failed: %v", err)
 	}
-	defer sandbox.Cleanup()
+	defer func() { _ = sandbox.Cleanup() }()
 
 	dir, err := sandbox.CreateTempDir("subdir-*")
 	if err != nil {
@@ -240,7 +238,7 @@ func TestSandbox_CleanupDisabled(t *testing.T) {
 	}
 
 	// Manual cleanup for test
-	os.RemoveAll(tempDir)
+	_ = os.RemoveAll(tempDir)
 }
 
 func TestSandbox_BuildEnvironment(t *testing.T) {
@@ -253,7 +251,7 @@ func TestSandbox_BuildEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSandbox failed: %v", err)
 	}
-	defer sandbox.Cleanup()
+	defer func() { _ = sandbox.Cleanup() }()
 
 	env := sandbox.buildEnvironment()
 
@@ -295,7 +293,7 @@ func TestSandbox_IsActive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSandbox failed: %v", err)
 	}
-	defer sandbox.Cleanup()
+	defer func() { _ = sandbox.Cleanup() }()
 
 	if sandbox.IsActive() {
 		t.Error("expected sandbox to not be active initially")
@@ -306,7 +304,7 @@ func TestSandbox_IsActive(t *testing.T) {
 	done := make(chan struct{})
 
 	go func() {
-		sandbox.Execute(ctx, "sleep", "1")
+		_, _ = sandbox.Execute(ctx, "sleep", "1")
 		close(done)
 	}()
 
@@ -339,7 +337,7 @@ func TestNewSandboxedAgent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSandboxedAgent failed: %v", err)
 	}
-	defer agent.Close()
+	defer func() { _ = agent.Close() }()
 
 	if agent.Sandbox() == nil {
 		t.Error("expected sandbox to be initialized")

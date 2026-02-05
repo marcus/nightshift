@@ -38,7 +38,7 @@ func TestNewManager(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewManager failed: %v", err)
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	if m.credentials == nil {
 		t.Error("expected credentials manager to be initialized")
@@ -60,7 +60,7 @@ func TestIsFirstRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewManager failed: %v", err)
 	}
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	// First run should return true
 	if !m.IsFirstRun() {
@@ -130,16 +130,16 @@ func TestValidateWriteAccess(t *testing.T) {
 
 			// Create first run file if not first run
 			if !tt.firstRun {
-				os.MkdirAll(filepath.Dir(firstRunFile), 0755)
+				_ = os.MkdirAll(filepath.Dir(firstRunFile), 0755)
 				f, _ := os.Create(firstRunFile)
-				f.Close()
+				_ = f.Close()
 			}
 
 			m, err := NewManager(cfg)
 			if err != nil {
 				t.Fatalf("NewManager failed: %v", err)
 			}
-			defer m.Close()
+			defer func() { _ = m.Close() }()
 
 			err = m.ValidateWriteAccess()
 			if (err != nil) != tt.wantErr {
@@ -160,7 +160,7 @@ func TestValidateGitPush(t *testing.T) {
 	}
 
 	m1, _ := NewManager(cfg)
-	defer m1.Close()
+	defer func() { _ = m1.Close() }()
 
 	if err := m1.ValidateGitPush(); err == nil {
 		t.Error("expected error when push not allowed")
@@ -172,7 +172,7 @@ func TestValidateGitPush(t *testing.T) {
 	cfg.FirstRunFile = filepath.Join(tmpDir, ".first_run2")
 
 	m2, _ := NewManager(cfg)
-	defer m2.Close()
+	defer func() { _ = m2.Close() }()
 
 	if err := m2.ValidateGitPush(); err != nil {
 		t.Errorf("expected no error when push allowed, got: %v", err)
@@ -188,7 +188,7 @@ func TestValidateBudgetSpend(t *testing.T) {
 	}
 
 	m, _ := NewManager(cfg)
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	// Under budget
 	if err := m.ValidateBudgetSpend(5); err != nil {
@@ -215,7 +215,7 @@ func TestSetMode(t *testing.T) {
 	}
 
 	m, _ := NewManager(cfg)
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	if m.Config().Mode != ModeReadOnly {
 		t.Error("expected initial mode to be read-only")
@@ -238,12 +238,12 @@ func TestEnableWrites(t *testing.T) {
 	}
 
 	// Mark not first run
-	os.MkdirAll(filepath.Dir(cfg.FirstRunFile), 0755)
+	_ = os.MkdirAll(filepath.Dir(cfg.FirstRunFile), 0755)
 	f, _ := os.Create(cfg.FirstRunFile)
-	f.Close()
+	_ = f.Close()
 
 	m, _ := NewManager(cfg)
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	// Should fail initially in read-only mode
 	if err := m.ValidateWriteAccess(); err == nil {

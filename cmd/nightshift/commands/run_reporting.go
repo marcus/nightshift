@@ -50,6 +50,7 @@ func (r *runReport) finalize(cfg *config.Config, log *logging.Logger) {
 	if cfg.ExpandedLogPath() != "" {
 		logPath = filepath.Join(cfg.ExpandedLogPath(), fmt.Sprintf("nightshift-%s.log", r.results.StartTime.Format("2006-01-02")))
 	}
+	r.results.LogPath = logPath
 
 	if cfg.Reporting.MorningSummary {
 		gen := reporting.NewGenerator(cfg)
@@ -67,10 +68,17 @@ func (r *runReport) finalize(cfg *config.Config, log *logging.Logger) {
 	}
 
 	reportPath := reporting.DefaultRunReportPath(r.results.EndTime)
-	if err := reporting.SaveRunReport(r.results, reportPath, logPath); err != nil {
+	if err := reporting.SaveRunReport(r.results, reportPath, r.results.LogPath); err != nil {
 		log.Warnf("run report save: %v", err)
 	} else {
 		log.Infof("run report saved: %s", reportPath)
+	}
+
+	resultsPath := reporting.DefaultRunResultsPath(r.results.EndTime)
+	if err := reporting.SaveRunResults(r.results, resultsPath); err != nil {
+		log.Warnf("run results save: %v", err)
+	} else {
+		log.Infof("run results saved: %s", resultsPath)
 	}
 }
 

@@ -32,7 +32,7 @@ Shows the last N runs (default: 5) or today's activity summary.`,
 		if err != nil {
 			return fmt.Errorf("opening db: %w", err)
 		}
-		defer database.Close()
+		defer func() { _ = database.Close() }()
 
 		st, err := state.New(database)
 		if err != nil {

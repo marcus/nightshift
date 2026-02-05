@@ -172,7 +172,7 @@ func ParseSessionJSONL(path string) (*TokenUsage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening session file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	total := &TokenUsage{}
 	reader := bufio.NewReaderSize(file, 64*1024)

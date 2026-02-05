@@ -17,9 +17,9 @@ func TestExpandGlobPatterns(t *testing.T) {
 	proj1 := filepath.Join(tmpDir, "proj1")
 	proj2 := filepath.Join(tmpDir, "proj2")
 	archived := filepath.Join(tmpDir, "archived")
-	os.Mkdir(proj1, 0755)
-	os.Mkdir(proj2, 0755)
-	os.Mkdir(archived, 0755)
+	_ = os.Mkdir(proj1, 0755)
+	_ = os.Mkdir(proj2, 0755)
+	_ = os.Mkdir(archived, 0755)
 
 	tests := []struct {
 		name     string
@@ -231,6 +231,7 @@ func TestSelectNext(t *testing.T) {
 	next := SelectNext(projects, s)
 	if next == nil {
 		t.Fatal("expected a project, got nil")
+		return
 	}
 	if next.Path != "/high" {
 		t.Errorf("expected /high, got %s", next.Path)
@@ -261,7 +262,7 @@ func TestIsProjectPath(t *testing.T) {
 	}
 
 	// Add .git
-	os.Mkdir(filepath.Join(tmpDir, ".git"), 0755)
+	_ = os.Mkdir(filepath.Join(tmpDir, ".git"), 0755)
 	if !IsProjectPath(tmpDir) {
 		t.Error("dir with .git should be a project")
 	}
@@ -274,13 +275,13 @@ func TestDiscoverProjectsInDir(t *testing.T) {
 	proj1 := filepath.Join(tmpDir, "proj1")
 	proj2 := filepath.Join(tmpDir, "proj2")
 	notProj := filepath.Join(tmpDir, "not-a-project")
-	os.Mkdir(proj1, 0755)
-	os.Mkdir(proj2, 0755)
-	os.Mkdir(notProj, 0755)
+	_ = os.Mkdir(proj1, 0755)
+	_ = os.Mkdir(proj2, 0755)
+	_ = os.Mkdir(notProj, 0755)
 
 	// Make proj1 and proj2 look like projects
-	os.WriteFile(filepath.Join(proj1, "go.mod"), []byte("module proj1"), 0644)
-	os.WriteFile(filepath.Join(proj2, "package.json"), []byte("{}"), 0644)
+	_ = os.WriteFile(filepath.Join(proj1, "go.mod"), []byte("module proj1"), 0644)
+	_ = os.WriteFile(filepath.Join(proj2, "package.json"), []byte("{}"), 0644)
 
 	projects, err := DiscoverProjectsInDir(tmpDir)
 	if err != nil {
@@ -298,8 +299,8 @@ func TestResolverDiscoverProjects(t *testing.T) {
 	// Create project directories
 	proj1 := filepath.Join(tmpDir, "proj1")
 	proj2 := filepath.Join(tmpDir, "proj2")
-	os.Mkdir(proj1, 0755)
-	os.Mkdir(proj2, 0755)
+	_ = os.Mkdir(proj1, 0755)
+	_ = os.Mkdir(proj2, 0755)
 
 	cfg := &config.Config{
 		Projects: []config.ProjectConfig{
@@ -323,9 +324,9 @@ func TestResolverWithGlobPattern(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create project directories
-	os.Mkdir(filepath.Join(tmpDir, "proj1"), 0755)
-	os.Mkdir(filepath.Join(tmpDir, "proj2"), 0755)
-	os.Mkdir(filepath.Join(tmpDir, "archived"), 0755)
+	_ = os.Mkdir(filepath.Join(tmpDir, "proj1"), 0755)
+	_ = os.Mkdir(filepath.Join(tmpDir, "proj2"), 0755)
+	_ = os.Mkdir(filepath.Join(tmpDir, "archived"), 0755)
 
 	cfg := &config.Config{
 		Projects: []config.ProjectConfig{

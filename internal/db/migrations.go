@@ -110,12 +110,12 @@ func Migrate(db *sql.DB) error {
 		}
 
 		if _, err := tx.Exec(migration.SQL); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return fmt.Errorf("apply migration %d: %w", migration.Version, err)
 		}
 
 		if _, err := tx.Exec(`INSERT INTO schema_version (version, applied_at) VALUES (?, CURRENT_TIMESTAMP)`, migration.Version); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return fmt.Errorf("record migration %d: %w", migration.Version, err)
 		}
 

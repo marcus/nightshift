@@ -39,7 +39,7 @@ func ScrapeClaudeUsage(ctx context.Context) (UsageResult, error) {
 	if err := session.Start(ctx); err != nil {
 		return UsageResult{}, err
 	}
-	defer session.Kill(context.Background())
+	defer func() { _ = session.Kill(context.Background()) }()
 
 	// Launch Claude Code
 	if err := session.SendKeys(ctx, "claude", "Enter"); err != nil {
@@ -116,7 +116,7 @@ func ScrapeCodexUsage(ctx context.Context) (UsageResult, error) {
 	if err := session.Start(ctx); err != nil {
 		return UsageResult{}, err
 	}
-	defer session.Kill(context.Background())
+	defer func() { _ = session.Kill(context.Background()) }()
 
 	// Launch Codex
 	if err := session.SendKeys(ctx, "codex", "Enter"); err != nil {

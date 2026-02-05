@@ -106,7 +106,7 @@ func (c *Calibrator) Calibrate(provider string) (CalibrationResult, error) {
 	variance := variance(filtered)
 	cv := coefficientOfVariation(median, variance)
 
-	confidence := "low"
+	var confidence string
 	sampleCount := len(filtered)
 	switch {
 	case sampleCount == 0:
@@ -185,7 +185,7 @@ func (c *Calibrator) loadClaudeWeeklySamples(provider string) ([]float64, error)
 	if err != nil {
 		return nil, fmt.Errorf("query snapshots: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	values := make([]float64, 0)
 	for rows.Next() {
@@ -227,7 +227,7 @@ func (c *Calibrator) loadCodexWeeklySamples() ([]float64, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query codex snapshots: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	values := make([]float64, 0)
 	for rows.Next() {

@@ -415,13 +415,6 @@ func (w *Window) Contains(t time.Time) bool {
 	return currentMins >= startMins && currentMins < endMins
 }
 
-// nextWindowStart returns the next time the window starts after t.
-func (s *Scheduler) nextWindowStart(t time.Time) time.Time {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.nextWindowStartLocked(t)
-}
-
 // nextWindowStartLocked returns the next time the window starts after t.
 // Must be called while holding the lock.
 func (s *Scheduler) nextWindowStartLocked(t time.Time) time.Time {

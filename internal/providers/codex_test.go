@@ -49,6 +49,7 @@ func TestCodexParseSessionJSONL_WithRateLimits(t *testing.T) {
 
 	if limits == nil {
 		t.Fatal("expected non-nil rate limits")
+		return
 	}
 
 	// Should have the most recent values (second rate_limits entry)
@@ -138,6 +139,7 @@ func TestCodexParseSessionJSONL_MalformedLines(t *testing.T) {
 
 	if limits == nil || limits.Primary == nil {
 		t.Fatal("expected rate limits despite malformed lines")
+		return
 	}
 	if limits.Primary.UsedPercent != 20.0 {
 		t.Errorf("Primary.UsedPercent = %.1f, want 20.0", limits.Primary.UsedPercent)
@@ -204,7 +206,7 @@ func TestCodexFindMostRecentSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	pastTime := time.Now().Add(-time.Hour)
-	os.Chtimes(older, pastTime, pastTime)
+	_ = os.Chtimes(older, pastTime, pastTime)
 
 	if err := os.WriteFile(newer, []byte("{}"), 0644); err != nil {
 		t.Fatal(err)
@@ -258,6 +260,7 @@ func TestCodexGetRateLimits(t *testing.T) {
 
 	if limits == nil {
 		t.Fatal("expected non-nil rate limits")
+		return
 	}
 	if limits.Primary.UsedPercent != 34.0 {
 		t.Errorf("Primary.UsedPercent = %.1f, want 34.0", limits.Primary.UsedPercent)
@@ -776,6 +779,7 @@ func TestCodexParseSessionTokenUsage(t *testing.T) {
 
 	if usage == nil {
 		t.Fatal("expected non-nil token usage")
+		return
 	}
 	// Returns delta between last and first events
 	if usage.InputTokens != 1000 {
@@ -857,7 +861,7 @@ func TestCodexFindMostRecentSessionWithData(t *testing.T) {
 		t.Fatal(err)
 	}
 	pastTime := time.Now().Add(-time.Hour)
-	os.Chtimes(withData, pastTime, pastTime)
+	_ = os.Chtimes(withData, pastTime, pastTime)
 
 	// Create newer stub session WITHOUT token data
 	stub := filepath.Join(sessionsDir, "stub.jsonl")
@@ -972,6 +976,7 @@ func TestCodexGetTodayTokenUsage(t *testing.T) {
 
 	if usage == nil {
 		t.Fatal("expected non-nil token usage")
+		return
 	}
 
 	// Session 1 delta: input=2000, cached=1600, output=400, reasoning=100
@@ -1109,6 +1114,7 @@ func TestCodexGetWeeklyTokenUsage(t *testing.T) {
 	}
 	if usage == nil {
 		t.Fatal("expected non-nil weekly usage")
+		return
 	}
 
 	// 3 sessions * 450 billable = 1350
@@ -1217,6 +1223,7 @@ func TestCodexParseSessionJSONL_LargeLines(t *testing.T) {
 
 	if limits == nil {
 		t.Fatal("expected non-nil rate limits despite large line")
+		return
 	}
 	if limits.Primary.UsedPercent != 34.0 {
 		t.Errorf("Primary.UsedPercent = %.1f, want 34.0", limits.Primary.UsedPercent)

@@ -108,9 +108,7 @@ type Model struct {
 	logScroll  int
 
 	// Progress
-	progressMsg   string
-	progressPct   int
-	progressTick  int
+	progressTick int
 
 	// Styles
 	styles *Styles
@@ -775,7 +773,7 @@ func (m *Model) Run() error {
 func (m *Model) RunWithProgram() (*tea.Program, error) {
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	go func() {
-		p.Run()
+		_, _ = p.Run()
 	}()
 	return p, nil
 }

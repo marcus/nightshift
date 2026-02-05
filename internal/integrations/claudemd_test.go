@@ -40,7 +40,7 @@ func TestClaudeMDReader_Read_NoFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	r := &ClaudeMDReader{enabled: true}
 	result, err := r.Read(context.Background(), tmpDir)
@@ -57,7 +57,7 @@ func TestClaudeMDReader_Read_Success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	content := `# My Project
 
@@ -82,6 +82,7 @@ A test project.
 	}
 	if result == nil {
 		t.Fatal("expected non-nil result")
+		return
 	}
 
 	// Check context includes content
@@ -105,7 +106,7 @@ func TestClaudeMDReader_Read_CaseSensitive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	content := "# Test"
 	// Write CLAUDE.md (uppercase)

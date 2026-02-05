@@ -109,10 +109,10 @@ func runTaskList(cmd *cobra.Command, args []string) error {
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "TYPE\tNAME\tCATEGORY\tCOST\tTOKENS\tRISK")
+	_, _ = fmt.Fprintln(w, "TYPE\tNAME\tCATEGORY\tCOST\tTOKENS\tRISK")
 	for _, d := range defs {
 		min, max := d.EstimatedTokens()
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s-%s\t%s\n",
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s-%s\t%s\n",
 			d.Type,
 			d.Name,
 			categoryShort(d.Category),
@@ -122,7 +122,7 @@ func runTaskList(cmd *cobra.Command, args []string) error {
 			d.RiskLevel,
 		)
 	}
-	w.Flush()
+	_ = w.Flush()
 	fmt.Printf("\n%d task(s)\n", len(defs))
 	return nil
 }

@@ -15,6 +15,7 @@ func TestNewGenerator(t *testing.T) {
 	gen := NewGenerator(cfg)
 	if gen == nil {
 		t.Fatal("NewGenerator returned nil")
+		return
 	}
 	if gen.cfg != cfg {
 		t.Error("Generator config not set correctly")
@@ -189,7 +190,7 @@ func TestSave(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	path := filepath.Join(tmpDir, "summaries", "test-summary.md")
 

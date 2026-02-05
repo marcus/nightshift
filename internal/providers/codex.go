@@ -109,7 +109,7 @@ func (c *Codex) ParseSessionJSONL(path string) (*CodexRateLimits, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening codex session: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var latest *CodexRateLimits
 	reader := bufio.NewReaderSize(file, 64*1024)
@@ -383,7 +383,7 @@ func (c *Codex) ParseSessionTokenUsage(path string) (*CodexTokenUsage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening codex session: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	var first, latest *CodexTokenUsage
 	eventCount := 0

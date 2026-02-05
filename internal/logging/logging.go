@@ -60,7 +60,7 @@ func Init(cfg Config) error {
 
 	// Close previous global logger if exists
 	if globalLogger != nil && globalLogger.file != nil {
-		globalLogger.file.Close()
+		_ = globalLogger.file.Close()
 	}
 
 	globalLogger = logger
@@ -180,7 +180,7 @@ func (l *Logger) cleanOldLogs(retentionDays int) {
 		}
 
 		if logDate.Before(cutoff) {
-			os.Remove(filepath.Join(l.logDir, name))
+			_ = os.Remove(filepath.Join(l.logDir, name))
 		}
 	}
 }

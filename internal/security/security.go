@@ -180,7 +180,7 @@ func (m *Manager) Close() error {
 func (m *Manager) CheckPreExecution(op Operation) error {
 	// Log operation attempt
 	if m.audit != nil {
-		m.audit.LogOperation(op)
+		_ = m.audit.LogOperation(op)
 	}
 
 	// Check credentials

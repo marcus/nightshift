@@ -75,7 +75,7 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		printDoctorResults(results)
 		return fmt.Errorf("db open failed")
 	}
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 	add("db", statusOK, cfg.ExpandedDBPath())
 
 	if _, err := state.New(database); err != nil {

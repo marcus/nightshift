@@ -10,7 +10,7 @@ import (
 
 func TestBuildProfileAverages(t *testing.T) {
 	database := openTrendDB(t)
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	base := time.Date(2024, 1, 10, 10, 0, 0, 0, time.UTC)
 	insertSnapshot(t, database, "claude", base, 100)
@@ -38,7 +38,7 @@ func TestBuildProfileAverages(t *testing.T) {
 
 func TestPredictDaytimeUsage(t *testing.T) {
 	database := openTrendDB(t)
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	now := time.Date(2024, 1, 12, 12, 30, 0, 0, time.UTC)
 	insertSnapshot(t, database, "codex", now.AddDate(0, 0, -1).Add(-4*time.Hour), 100)
@@ -58,7 +58,7 @@ func TestPredictDaytimeUsage(t *testing.T) {
 
 func TestPredictDaytimeUsageCapsDailyBudget(t *testing.T) {
 	database := openTrendDB(t)
-	defer database.Close()
+	defer func() { _ = database.Close() }()
 
 	now := time.Date(2024, 1, 12, 10, 0, 0, 0, time.UTC)
 	insertSnapshot(t, database, "codex", now.AddDate(0, 0, -1).Add(-2*time.Hour), 100)

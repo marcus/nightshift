@@ -89,6 +89,7 @@ func TestStatsCache_GetDailyStat(t *testing.T) {
 	stat := stats.GetDailyStat("2026-02-03")
 	if stat == nil {
 		t.Fatal("expected non-nil stat for 2026-02-03")
+		return
 	}
 	if stat.MessageCount != 42 {
 		t.Errorf("MessageCount = %d, want 42", stat.MessageCount)
@@ -119,6 +120,7 @@ func TestStatsCache_GetDailyStat_ActivityOnly(t *testing.T) {
 	stat := stats.GetDailyStat("2026-02-03")
 	if stat == nil {
 		t.Fatal("expected non-nil stat with activity only")
+		return
 	}
 	if stat.MessageCount != 10 {
 		t.Errorf("MessageCount = %d, want 10", stat.MessageCount)
@@ -137,6 +139,7 @@ func TestStatsCache_GetDailyStat_TokensOnly(t *testing.T) {
 	stat := stats.GetDailyStat("2026-02-03")
 	if stat == nil {
 		t.Fatal("expected non-nil stat with tokens only")
+		return
 	}
 	if stat.MessageCount != 0 {
 		t.Errorf("MessageCount = %d, want 0", stat.MessageCount)
@@ -432,6 +435,7 @@ func TestClaudeProvider_GetDailyStats(t *testing.T) {
 	}
 	if stat == nil {
 		t.Fatal("expected non-nil stat")
+		return
 	}
 	if stat.MessageCount != 42 {
 		t.Errorf("MessageCount = %d, want 42", stat.MessageCount)

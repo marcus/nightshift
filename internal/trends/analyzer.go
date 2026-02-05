@@ -99,7 +99,7 @@ func (a *Analyzer) getHourlyAverages(provider string, lookbackDays int) ([]hourl
 	if err != nil {
 		return nil, fmt.Errorf("query hourly averages: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	values := make([]hourlyAverage, 0)
 	for rows.Next() {
