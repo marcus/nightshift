@@ -112,8 +112,12 @@ func runTaskList(cmd *cobra.Command, args []string) error {
 	_, _ = fmt.Fprintln(w, "TYPE\tNAME\tCATEGORY\tCOST\tTOKENS\tRISK")
 	for _, d := range defs {
 		min, max := d.EstimatedTokens()
+		typeStr := string(d.Type)
+		if tasks.IsCustom(d.Type) {
+			typeStr += " [custom]"
+		}
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s-%s\t%s\n",
-			d.Type,
+			typeStr,
 			d.Name,
 			categoryShort(d.Category),
 			costShort(d.CostTier),
@@ -159,6 +163,9 @@ func runTaskShow(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Cost:        %s\n", def.CostTier)
 	fmt.Printf("Tokens:      %s - %s\n", formatK(min), formatK(max))
 	fmt.Printf("Risk:        %s\n", def.RiskLevel)
+	if tasks.IsCustom(def.Type) {
+		fmt.Printf("Custom:      yes\n")
+	}
 	fmt.Printf("Description: %s\n", def.Description)
 	fmt.Println()
 	fmt.Println("--- Planning Prompt ---")
@@ -395,6 +402,7 @@ type taskListEntry struct {
 	MinTokens   int    `json:"min_tokens"`
 	MaxTokens   int    `json:"max_tokens"`
 	Risk        string `json:"risk"`
+	Custom      bool   `json:"custom"`
 }
 
 func printTaskListJSON(defs []tasks.TaskDefinition) error {
@@ -410,6 +418,7 @@ func printTaskListJSON(defs []tasks.TaskDefinition) error {
 			MinTokens:   min,
 			MaxTokens:   max,
 			Risk:        d.RiskLevel.String(),
+			Custom:      tasks.IsCustom(d.Type),
 		}
 	}
 	enc := json.NewEncoder(os.Stdout)
@@ -426,6 +435,7 @@ type taskShowEntry struct {
 	MinTokens   int    `json:"min_tokens"`
 	MaxTokens   int    `json:"max_tokens"`
 	Risk        string `json:"risk"`
+	Custom      bool   `json:"custom"`
 	Prompt      string `json:"prompt"`
 }
 
@@ -440,6 +450,7 @@ func printTaskShowJSON(def tasks.TaskDefinition, prompt string) error {
 		MinTokens:   min,
 		MaxTokens:   max,
 		Risk:        def.RiskLevel.String(),
+		Custom:      tasks.IsCustom(def.Type),
 		Prompt:      prompt,
 	}
 	enc := json.NewEncoder(os.Stdout)
