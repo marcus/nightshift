@@ -180,6 +180,16 @@ tasks:
     security: 2
     docs: 3
   disabled: []                   # Explicitly disabled tasks
+  # custom:                        # User-defined custom tasks
+  #   - type: my-review
+  #     name: "My Code Review"
+  #     description: |
+  #       Review open PRs and check for security issues.
+  #       Create issues for anything that needs follow-up.
+  #     category: analysis         # pr | analysis | options | safe | map | emergency
+  #     cost_tier: medium          # low | medium | high | very-high
+  #     risk_level: low            # low | medium | high
+  #     interval: "48h"            # Min time between runs
 
 # Integration points
 integrations:
@@ -225,6 +235,16 @@ tasks:
     security: 2
     docs: 3
   disabled: []                   # Explicitly disabled tasks
+  # custom:                        # User-defined custom tasks
+  #   - type: my-review
+  #     name: "My Code Review"
+  #     description: |
+  #       Review open PRs and check for security issues.
+  #       Create issues for anything that needs follow-up.
+  #     category: analysis         # pr | analysis | options | safe | map | emergency
+  #     cost_tier: medium          # low | medium | high | very-high
+  #     risk_level: low            # low | medium | high
+  #     interval: "48h"            # Min time between runs
 
 # Integration points
 integrations:
