@@ -86,10 +86,22 @@ type ProjectConfig struct {
 
 // TasksConfig defines task selection settings.
 type TasksConfig struct {
-	Enabled    []string          `mapstructure:"enabled"`    // Enabled task types
-	Priorities map[string]int    `mapstructure:"priorities"` // Priority per task type
-	Disabled   []string          `mapstructure:"disabled"`   // Explicitly disabled tasks
-	Intervals  map[string]string `mapstructure:"intervals"`  // Per-task interval overrides (duration strings)
+	Enabled    []string           `mapstructure:"enabled"`    // Enabled task types
+	Priorities map[string]int     `mapstructure:"priorities"` // Priority per task type
+	Disabled   []string           `mapstructure:"disabled"`   // Explicitly disabled tasks
+	Intervals  map[string]string  `mapstructure:"intervals"`  // Per-task interval overrides (duration strings)
+	Custom     []CustomTaskConfig `mapstructure:"custom"`     // User-defined custom tasks
+}
+
+// CustomTaskConfig defines a user-defined custom task.
+type CustomTaskConfig struct {
+	Type        string `mapstructure:"type"`        // Task type slug, e.g. "my-review"
+	Name        string `mapstructure:"name"`        // Human-readable name
+	Description string `mapstructure:"description"` // Agent prompt text
+	Category    string `mapstructure:"category"`    // One of: pr, analysis, options, safe, map, emergency
+	CostTier    string `mapstructure:"cost_tier"`   // One of: low, medium, high, very-high
+	RiskLevel   string `mapstructure:"risk_level"`  // One of: low, medium, high
+	Interval    string `mapstructure:"interval"`    // Duration string, e.g. "48h"
 }
 
 // IntegrationsConfig defines external integrations.
@@ -422,6 +434,11 @@ func (c *Config) IsTaskEnabled(task string) bool {
 		return true
 	}
 	// Check if in enabled list
+	return slices.Contains(c.Tasks.Enabled, task)
+}
+
+// IsTaskExplicitlyEnabled returns true if the task is in the explicit Enabled list.
+func (c *Config) IsTaskExplicitlyEnabled(task string) bool {
 	return slices.Contains(c.Tasks.Enabled, task)
 }
 
