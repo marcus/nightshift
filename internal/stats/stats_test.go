@@ -290,8 +290,8 @@ func TestCompute_PRDetection(t *testing.T) {
 			{Status: "completed", OutputType: "PR", OutputRef: "https://github.com/org/repo/pull/1"},
 			{Status: "completed", OutputType: "pr", OutputRef: "https://github.com/org/repo/pull/2"},
 			{Status: "completed", OutputType: "PR", OutputRef: "https://github.com/org/repo/pull/1"}, // duplicate URL
-			{Status: "completed", OutputType: "Report", OutputRef: "/tmp/report.md"},                  // not a PR
-			{Status: "completed", OutputType: "PR", OutputRef: ""},                                    // empty ref
+			{Status: "completed", OutputType: "Report", OutputRef: "/tmp/report.md"},                 // not a PR
+			{Status: "completed", OutputType: "PR", OutputRef: ""},                                   // empty ref
 		},
 	}
 	writeReport(t, dir, 0, r)
@@ -485,7 +485,7 @@ func TestCompute_BudgetProjection(t *testing.T) {
 	database := openTestDB(t)
 
 	sqlDB := database.SQL()
-	now := time.Now()
+	now := time.Date(2026, 2, 5, 10, 0, 0, 0, time.UTC)
 
 	// Insert snapshots with inferred_budget and local_daily
 	for i := 0; i < 5; i++ {
@@ -501,6 +501,7 @@ func TestCompute_BudgetProjection(t *testing.T) {
 	}
 
 	s := New(database, t.TempDir())
+	s.nowFunc = func() time.Time { return now }
 	result, err := s.Compute()
 	if err != nil {
 		t.Fatalf("compute: %v", err)
@@ -523,12 +524,33 @@ func TestCompute_BudgetProjection(t *testing.T) {
 	if bp.AvgDailyUsage != 2000 {
 		t.Errorf("AvgDailyUsage = %d, want 2000", bp.AvgDailyUsage)
 	}
+	if bp.AvgHourlyUsage <= 0 {
+		t.Errorf("AvgHourlyUsage = %f, want > 0", bp.AvgHourlyUsage)
+	}
+	if bp.RemainingTokens != 300000 {
+		t.Errorf("RemainingTokens = %d, want 300000", bp.RemainingTokens)
+	}
 	if bp.Source != "calibrated" {
 		t.Errorf("Source = %s, want calibrated", bp.Source)
 	}
 	// EstDaysRemaining = (500000 * 0.60) / 2000 = 150
 	if bp.EstDaysRemaining != 150 {
 		t.Errorf("EstDaysRemaining = %d, want 150", bp.EstDaysRemaining)
+	}
+	if bp.ResetAt == nil {
+		t.Fatalf("ResetAt is nil")
+	}
+	if bp.TimeUntilResetSec <= 0 {
+		t.Errorf("TimeUntilResetSec = %d, want > 0", bp.TimeUntilResetSec)
+	}
+	if bp.WillExhaustBeforeReset == nil {
+		t.Fatalf("WillExhaustBeforeReset is nil")
+	}
+	if *bp.WillExhaustBeforeReset {
+		t.Errorf("WillExhaustBeforeReset = true, want false")
+	}
+	if len(result.BudgetProjections) != 1 {
+		t.Errorf("len(BudgetProjections) = %d, want 1", len(result.BudgetProjections))
 	}
 }
 
@@ -541,6 +563,9 @@ func TestCompute_BudgetProjection_NoSnapshots(t *testing.T) {
 	}
 	if result.BudgetProjection != nil {
 		t.Errorf("BudgetProjection = %+v, want nil", result.BudgetProjection)
+	}
+	if len(result.BudgetProjections) != 0 {
+		t.Errorf("len(BudgetProjections) = %d, want 0", len(result.BudgetProjections))
 	}
 }
 
@@ -566,6 +591,58 @@ func TestCompute_BudgetProjection_NoLocalDaily(t *testing.T) {
 	}
 	if result.BudgetProjection != nil {
 		t.Errorf("BudgetProjection should be nil when no local_daily > 0")
+	}
+	if len(result.BudgetProjections) != 0 {
+		t.Errorf("len(BudgetProjections) = %d, want 0", len(result.BudgetProjections))
+	}
+}
+
+func TestCompute_BudgetProjection_MultipleProviders(t *testing.T) {
+	database := openTestDB(t)
+	sqlDB := database.SQL()
+	now := time.Date(2026, 2, 6, 12, 0, 0, 0, time.UTC)
+
+	insert := func(provider string, daily int64, pct float64, budget int64) {
+		t.Helper()
+		for i := 0; i < 3; i++ {
+			ts := now.Add(-time.Duration(i) * 24 * time.Hour)
+			_, err := sqlDB.Exec(
+				`INSERT INTO snapshots (provider, timestamp, week_start, local_tokens, local_daily, scraped_pct, inferred_budget, day_of_week, hour_of_day, week_number, year)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				provider, ts, ts.Format("2006-01-02"), 1000, daily, pct, budget, int(ts.Weekday()), ts.Hour(), 1, ts.Year(),
+			)
+			if err != nil {
+				t.Fatalf("insert %s snapshot %d: %v", provider, i, err)
+			}
+		}
+	}
+
+	insert("claude", 2000, 40.0, 500000)
+	insert("codex", 3000, 25.0, 700000)
+
+	s := New(database, t.TempDir())
+	s.nowFunc = func() time.Time { return now }
+	result, err := s.Compute()
+	if err != nil {
+		t.Fatalf("compute: %v", err)
+	}
+
+	if len(result.BudgetProjections) != 2 {
+		t.Fatalf("len(BudgetProjections) = %d, want 2", len(result.BudgetProjections))
+	}
+
+	found := map[string]BudgetProjection{}
+	for _, p := range result.BudgetProjections {
+		found[p.Provider] = p
+	}
+	if _, ok := found["claude"]; !ok {
+		t.Fatalf("missing claude projection")
+	}
+	if _, ok := found["codex"]; !ok {
+		t.Fatalf("missing codex projection")
+	}
+	if result.BudgetProjection == nil {
+		t.Fatalf("BudgetProjection legacy field should be set")
 	}
 }
 
@@ -699,8 +776,22 @@ func TestStatsResult_JSONRoundTrip(t *testing.T) {
 			WeeklyBudget:     500000,
 			CurrentUsedPct:   40.0,
 			AvgDailyUsage:    2000,
+			AvgHourlyUsage:   83.33,
+			RemainingTokens:  300000,
 			EstDaysRemaining: 150,
 			Source:           "calibrated",
+		},
+		BudgetProjections: []BudgetProjection{
+			{
+				Provider:         "claude",
+				WeeklyBudget:     500000,
+				CurrentUsedPct:   40.0,
+				AvgDailyUsage:    2000,
+				AvgHourlyUsage:   83.33,
+				RemainingTokens:  300000,
+				EstDaysRemaining: 150,
+				Source:           "calibrated",
+			},
 		},
 	}
 
@@ -725,5 +816,8 @@ func TestStatsResult_JSONRoundTrip(t *testing.T) {
 	}
 	if decoded.BudgetProjection.EstDaysRemaining != 150 {
 		t.Errorf("EstDaysRemaining = %d, want 150", decoded.BudgetProjection.EstDaysRemaining)
+	}
+	if len(decoded.BudgetProjections) != 1 {
+		t.Errorf("len(BudgetProjections) = %d, want 1", len(decoded.BudgetProjections))
 	}
 }

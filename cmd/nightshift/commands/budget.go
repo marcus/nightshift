@@ -182,6 +182,9 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 					formatTokens64(remaining), maxPercent, formatTokens64(preReserve),
 					formatTokens64(reserve), formatTokens64(result.PredictedUsage),
 					formatTokens64(result.Allowance))
+				fmt.Printf("  Tonight:      %s remaining × %d%% max = %s − %s reserve = %s if daytime stays flat\n",
+					formatTokens64(remaining), maxPercent, formatTokens64(preReserve),
+					formatTokens64(reserve), formatTokens64(result.AllowanceNoDaytime))
 			} else {
 				fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve = %s available\n",
 					formatTokens64(remaining), maxPercent, formatTokens64(preReserve),
@@ -242,6 +245,9 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 					formatTokens64(perDay), maxPercent, formatTokens64(preReserve),
 					formatTokens64(reserve), formatTokens64(result.PredictedUsage),
 					formatTokens64(result.Allowance))
+				fmt.Printf("  Tonight:      %s remaining × %d%% max = %s − %s reserve = %s if daytime stays flat\n",
+					formatTokens64(perDay), maxPercent, formatTokens64(preReserve),
+					formatTokens64(reserve), formatTokens64(result.AllowanceNoDaytime))
 			} else {
 				fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve = %s available\n",
 					formatTokens64(perDay), maxPercent, formatTokens64(preReserve),

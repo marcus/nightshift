@@ -91,18 +91,19 @@ func WithTrendAnalyzer(analyzer TrendAnalyzer) Option {
 
 // AllowanceResult contains the calculated budget allowance and metadata.
 type AllowanceResult struct {
-	Allowance         int64   // Final token allowance for this run
-	WeeklyBudget      int64   // Weekly token budget used for calculation
-	BudgetBase        int64   // Base budget (daily or remaining weekly)
-	UsedPercent       float64 // Current used percentage
-	ReserveAmount     int64   // Tokens reserved
-	PredictedUsage    int64   // Predicted remaining usage today
-	Mode              string  // "daily" or "weekly"
-	RemainingDays     int     // Days until reset (weekly mode only)
-	Multiplier        float64 // End-of-week multiplier (weekly mode only)
-	BudgetSource      string  // calibrated, api, config
-	BudgetConfidence  string  // none, low, medium, high
-	BudgetSampleCount int     // number of samples used
+	Allowance          int64   // Final token allowance for this run
+	AllowanceNoDaytime int64   // Allowance before predicted daytime usage is reserved
+	WeeklyBudget       int64   // Weekly token budget used for calculation
+	BudgetBase         int64   // Base budget (daily or remaining weekly)
+	UsedPercent        float64 // Current used percentage
+	ReserveAmount      int64   // Tokens reserved
+	PredictedUsage     int64   // Predicted remaining usage today
+	Mode               string  // "daily" or "weekly"
+	RemainingDays      int     // Days until reset (weekly mode only)
+	Multiplier         float64 // End-of-week multiplier (weekly mode only)
+	BudgetSource       string  // calibrated, api, config
+	BudgetConfidence   string  // none, low, medium, high
+	BudgetSampleCount  int     // number of samples used
 }
 
 // CalculateAllowance determines how many tokens nightshift can use for this run.
@@ -150,6 +151,7 @@ func (m *Manager) CalculateAllowance(provider string) (*AllowanceResult, error) 
 
 	// Apply reserve enforcement
 	result = m.applyReserve(result, reservePercent)
+	result.AllowanceNoDaytime = result.Allowance
 	if m.trend != nil {
 		predicted, err := m.trend.PredictDaytimeUsage(provider, m.nowFunc(), weeklyBudget)
 		if err != nil {

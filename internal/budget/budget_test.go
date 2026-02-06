@@ -304,6 +304,9 @@ func TestCalculateAllowance_PredictedUsage(t *testing.T) {
 	if result.Allowance != 8000 {
 		t.Fatalf("allowance = %d, want %d", result.Allowance, 8000)
 	}
+	if result.AllowanceNoDaytime != 10000 {
+		t.Fatalf("allowance no daytime = %d, want %d", result.AllowanceNoDaytime, 10000)
+	}
 	if result.PredictedUsage != 2000 {
 		t.Fatalf("predicted usage = %d, want %d", result.PredictedUsage, 2000)
 	}

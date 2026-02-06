@@ -71,12 +71,16 @@ func renderPreviewText(result *previewResult, opts previewTextOptions) string {
 				fmt.Fprintf(b, "    - %s: budget error: %v\n", summary.name, summary.err)
 				continue
 			}
-			fmt.Fprintf(b, "    - %s: %s available (%.1f%% used, weekly=%s, source=%s)\n",
+			line := fmt.Sprintf("    - %s: %s available (%.1f%% used, weekly=%s, source=%s)",
 				summary.name,
 				formatTokens64(summary.allowance.Allowance),
 				summary.allowance.UsedPercent,
 				formatTokens64(summary.allowance.WeeklyBudget),
 				summary.allowance.BudgetSource)
+			if summary.allowance.Allowance == 0 && summary.allowance.PredictedUsage > 0 {
+				line += fmt.Sprintf(" [daytime reserve: %s]", formatTokens64(summary.allowance.PredictedUsage))
+			}
+			fmt.Fprintln(b, line)
 		}
 	}
 	if result.TaskFilter != "" {
@@ -447,14 +451,16 @@ type previewJSONConfigSource struct {
 }
 
 type previewJSONProviderBudget struct {
-	Provider     string  `json:"provider"`
-	Allowance    int64   `json:"allowance"`
-	UsedPercent  float64 `json:"used_percent"`
-	WeeklyBudget int64   `json:"weekly_budget"`
-	Source       string  `json:"source"`
-	Confidence   string  `json:"confidence,omitempty"`
-	Samples      int     `json:"samples,omitempty"`
-	Error        string  `json:"error,omitempty"`
+	Provider       string  `json:"provider"`
+	Allowance      int64   `json:"allowance"`
+	UsedPercent    float64 `json:"used_percent"`
+	WeeklyBudget   int64   `json:"weekly_budget"`
+	ReserveAmount  int64   `json:"reserve_amount,omitempty"`
+	PredictedUsage int64   `json:"predicted_usage,omitempty"`
+	Source         string  `json:"source"`
+	Confidence     string  `json:"confidence,omitempty"`
+	Samples        int     `json:"samples,omitempty"`
+	Error          string  `json:"error,omitempty"`
 }
 
 type previewJSONRun struct {
@@ -528,6 +534,8 @@ func buildPreviewJSON(result *previewResult) previewJSON {
 		entry.Allowance = summary.allowance.Allowance
 		entry.UsedPercent = summary.allowance.UsedPercent
 		entry.WeeklyBudget = summary.allowance.WeeklyBudget
+		entry.ReserveAmount = summary.allowance.ReserveAmount
+		entry.PredictedUsage = summary.allowance.PredictedUsage
 		entry.Source = summary.allowance.BudgetSource
 		entry.Confidence = summary.allowance.BudgetConfidence
 		entry.Samples = summary.allowance.BudgetSampleCount
