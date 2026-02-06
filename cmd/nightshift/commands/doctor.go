@@ -197,7 +197,7 @@ func checkProviders(cfg *config.Config, add func(string, checkStatus, string)) (
 		if pct, err := claudeProvider.GetUsedPercent(mode, int64(cfg.GetProviderBudget("claude"))); err != nil {
 			add("claude.usage", statusFail, err.Error())
 		} else {
-			add("claude.usage", statusOK, fmt.Sprintf("%.1f%% used (%s)", pct, mode))
+			add("claude.usage", statusOK, fmt.Sprintf("%.1f%% used (%s, vs config budget)", pct, mode))
 		}
 	}
 

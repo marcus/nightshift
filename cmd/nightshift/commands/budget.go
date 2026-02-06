@@ -154,30 +154,39 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 		}
 		fmt.Println(usedLine)
 
-		fmt.Printf("  Remaining:    %s tokens\n", formatTokens64(remaining))
+		if remaining >= 0 {
+			fmt.Printf("  Remaining:    %s tokens\n", formatTokens64(remaining))
+		} else {
+			fmt.Printf("  Over by:      %s tokens\n", formatTokens64(-remaining))
+		}
 
 		// Show dual-source breakdown for Codex
 		if provName == "codex" && codex != nil {
 			printCodexBreakdown(codex)
 		}
 
-		if result.PredictedUsage > 0 {
-			fmt.Printf("  Daytime:      %s tokens reserved\n", formatTokens64(result.PredictedUsage))
-		}
-		fmt.Printf("  Reserve:      %s tokens\n", formatTokens64(result.ReserveAmount))
-
-		// Nightshift equation: remaining * maxPercent% = preReserve - reserve [- daytime] = available
-		preReserve := remaining * int64(maxPercent) / 100
-		reserve := dailyBudget * int64(reservePercent) / 100
-		if result.PredictedUsage > 0 {
-			fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve − %s daytime = %s available\n",
-				formatTokens64(remaining), maxPercent, formatTokens64(preReserve),
-				formatTokens64(reserve), formatTokens64(result.PredictedUsage),
-				formatTokens64(result.Allowance))
+		if remaining <= 0 {
+			// Over budget — skip the equation, just show zero available
+			fmt.Printf("  Nightshift:   budget exceeded — 0 tokens available\n")
 		} else {
-			fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve = %s available\n",
-				formatTokens64(remaining), maxPercent, formatTokens64(preReserve),
-				formatTokens64(reserve), formatTokens64(result.Allowance))
+			if result.PredictedUsage > 0 {
+				fmt.Printf("  Daytime:      %s tokens reserved\n", formatTokens64(result.PredictedUsage))
+			}
+			fmt.Printf("  Reserve:      %s tokens\n", formatTokens64(result.ReserveAmount))
+
+			// Nightshift equation: remaining * maxPercent% = preReserve - reserve [- daytime] = available
+			preReserve := remaining * int64(maxPercent) / 100
+			reserve := dailyBudget * int64(reservePercent) / 100
+			if result.PredictedUsage > 0 {
+				fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve − %s daytime = %s available\n",
+					formatTokens64(remaining), maxPercent, formatTokens64(preReserve),
+					formatTokens64(reserve), formatTokens64(result.PredictedUsage),
+					formatTokens64(result.Allowance))
+			} else {
+				fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve = %s available\n",
+					formatTokens64(remaining), maxPercent, formatTokens64(preReserve),
+					formatTokens64(reserve), formatTokens64(result.Allowance))
+			}
 		}
 	} else {
 		// Weekly mode
@@ -194,7 +203,11 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 		}
 		fmt.Println(usedLine)
 
-		fmt.Printf("  Remaining:    %s tokens\n", formatTokens64(remaining))
+		if remaining >= 0 {
+			fmt.Printf("  Remaining:    %s tokens\n", formatTokens64(remaining))
+		} else {
+			fmt.Printf("  Over by:      %s tokens\n", formatTokens64(-remaining))
+		}
 		fmt.Printf("  Days left:    %d\n", result.RemainingDays)
 
 		// Show dual-source breakdown for Codex
@@ -202,33 +215,38 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 			printCodexBreakdown(codex)
 		}
 
-		if result.PredictedUsage > 0 {
-			fmt.Printf("  Daytime:      %s tokens reserved\n", formatTokens64(result.PredictedUsage))
-		}
-
-		if result.Multiplier > 1.0 {
-			fmt.Printf("  Multiplier:   %.1fx (end-of-week)\n", result.Multiplier)
-		}
-
-		fmt.Printf("  Reserve:      %s tokens\n", formatTokens64(result.ReserveAmount))
-
-		// Nightshift equation: remaining/days * maxPercent% = preReserve - reserve [- daytime] = available
-		days := result.RemainingDays
-		if days <= 0 {
-			days = 1
-		}
-		perDay := remaining / int64(days)
-		preReserve := perDay * int64(maxPercent) / 100
-		reserve := result.ReserveAmount
-		if result.PredictedUsage > 0 {
-			fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve − %s daytime = %s available\n",
-				formatTokens64(perDay), maxPercent, formatTokens64(preReserve),
-				formatTokens64(reserve), formatTokens64(result.PredictedUsage),
-				formatTokens64(result.Allowance))
+		if remaining <= 0 {
+			// Over budget — skip the equation, just show zero available
+			fmt.Printf("  Nightshift:   budget exceeded — 0 tokens available\n")
 		} else {
-			fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve = %s available\n",
-				formatTokens64(perDay), maxPercent, formatTokens64(preReserve),
-				formatTokens64(reserve), formatTokens64(result.Allowance))
+			if result.PredictedUsage > 0 {
+				fmt.Printf("  Daytime:      %s tokens reserved\n", formatTokens64(result.PredictedUsage))
+			}
+
+			if result.Multiplier > 1.0 {
+				fmt.Printf("  Multiplier:   %.1fx (end-of-week)\n", result.Multiplier)
+			}
+
+			fmt.Printf("  Reserve:      %s tokens\n", formatTokens64(result.ReserveAmount))
+
+			// Nightshift equation: remaining/days * maxPercent% = preReserve - reserve [- daytime] = available
+			days := result.RemainingDays
+			if days <= 0 {
+				days = 1
+			}
+			perDay := remaining / int64(days)
+			preReserve := perDay * int64(maxPercent) / 100
+			reserve := result.ReserveAmount
+			if result.PredictedUsage > 0 {
+				fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve − %s daytime = %s available\n",
+					formatTokens64(perDay), maxPercent, formatTokens64(preReserve),
+					formatTokens64(reserve), formatTokens64(result.PredictedUsage),
+					formatTokens64(result.Allowance))
+			} else {
+				fmt.Printf("  Nightshift:   %s remaining × %d%% max = %s − %s reserve = %s available\n",
+					formatTokens64(perDay), maxPercent, formatTokens64(preReserve),
+					formatTokens64(reserve), formatTokens64(result.Allowance))
+			}
 		}
 	}
 
@@ -333,14 +351,16 @@ func printCodexBreakdown(codex *providers.Codex) {
 }
 
 func progressBar(percent float64, width int) string {
-	if percent > 100 {
-		percent = 100
-	}
+	displayPercent := percent
 	if percent < 0 {
 		percent = 0
 	}
+	fillPercent := percent
+	if fillPercent > 100 {
+		fillPercent = 100
+	}
 
-	filled := int(percent * float64(width) / 100)
+	filled := int(fillPercent * float64(width) / 100)
 	empty := width - filled
 
 	bar := ""
@@ -351,5 +371,5 @@ func progressBar(percent float64, width int) string {
 		bar += "-"
 	}
 
-	return fmt.Sprintf("[%s] %.1f%%", bar, percent)
+	return fmt.Sprintf("[%s] %.1f%%", bar, displayPercent)
 }

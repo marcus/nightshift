@@ -260,7 +260,14 @@ func (m *Manager) resolveBudget(provider string) (BudgetEstimate, error) {
 }
 
 // GetUsedPercent retrieves the used percentage from the appropriate provider.
+// Uses the resolved (calibrated) budget so percentages match the displayed budget.
 func (m *Manager) GetUsedPercent(provider string) (float64, error) {
+	estimate, err := m.resolveBudget(provider)
+	if err != nil {
+		return 0, fmt.Errorf("resolving budget for %s: %w", provider, err)
+	}
+	weeklyBudget := estimate.WeeklyTokens
+
 	mode := m.cfg.Budget.Mode
 	if mode == "" {
 		mode = config.DefaultBudgetMode
@@ -271,14 +278,12 @@ func (m *Manager) GetUsedPercent(provider string) (float64, error) {
 		if m.claude == nil {
 			return 0, fmt.Errorf("claude provider not configured")
 		}
-		weeklyBudget := int64(m.cfg.GetProviderBudget(provider))
 		return m.claude.GetUsedPercent(mode, weeklyBudget)
 
 	case "codex":
 		if m.codex == nil {
 			return 0, fmt.Errorf("codex provider not configured")
 		}
-		weeklyBudget := int64(m.cfg.GetProviderBudget(provider))
 		return m.codex.GetUsedPercent(mode, weeklyBudget)
 
 	default:
