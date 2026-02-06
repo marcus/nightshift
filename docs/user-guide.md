@@ -495,6 +495,8 @@ Confidence levels:
 
 > **Note**: Calibration uses tmux to scrape usage percentages. If tmux is unavailable, snapshots are local-only and budgets fall back to config values.
 
+For cross-provider cost calibration methodology and tooling, see `docs/guides/provider-calibration.md`.
+
 ### Snapshot History
 
 ```bash

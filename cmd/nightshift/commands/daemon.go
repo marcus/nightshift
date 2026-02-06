@@ -346,6 +346,11 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 		})
 
 		// Execute each selected task
+		projectStart := time.Now()
+		projectTaskTypes := make([]string, 0, len(selectedTasks))
+		projectTokensUsed := 0
+		projectCompleted := 0
+		projectFailed := 0
 		for _, scoredTask := range selectedTasks {
 			select {
 			case <-ctx.Done():
@@ -354,6 +359,7 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 			}
 
 			tasksRun++
+			projectTaskTypes = append(projectTaskTypes, string(scoredTask.Definition.Type))
 
 			// Create task instance
 			taskInstance := &tasks.Task{
@@ -375,6 +381,7 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 
 			if err != nil {
 				tasksFailed++
+				projectFailed++
 				log.Errorf("task %s failed: %v", taskInstance.ID, err)
 				if report != nil {
 					report.addTask(reporting.TaskResult{
@@ -393,14 +400,16 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 			switch result.Status {
 			case orchestrator.StatusCompleted:
 				tasksCompleted++
+				projectCompleted++
 				st.RecordTaskRun(projectPath, string(scoredTask.Definition.Type))
 				log.InfoCtx("task completed", map[string]any{
 					"task":       taskInstance.ID,
 					"iterations": result.Iterations,
 					"duration":   result.Duration.String(),
 				})
+				_, maxTok := scoredTask.Definition.EstimatedTokens()
+				projectTokensUsed += maxTok
 				if report != nil {
-					_, maxTok := scoredTask.Definition.EstimatedTokens()
 					report.addTask(reporting.TaskResult{
 						Project:    projectPath,
 						TaskType:   string(scoredTask.Definition.Type),
@@ -414,6 +423,7 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 				}
 			case orchestrator.StatusAbandoned:
 				tasksFailed++
+				projectFailed++
 				log.Warnf("task %s abandoned: %s", taskInstance.ID, result.Error)
 				if report != nil {
 					report.addTask(reporting.TaskResult{
@@ -427,6 +437,7 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 				}
 			default:
 				tasksFailed++
+				projectFailed++
 				log.Errorf("task %s failed: %s", taskInstance.ID, result.Error)
 				if report != nil {
 					report.addTask(reporting.TaskResult{
@@ -443,6 +454,22 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 
 		// Record project run
 		st.RecordProjectRun(projectPath)
+		projectStatus := "partial"
+		if projectFailed == 0 && projectCompleted > 0 {
+			projectStatus = "success"
+		}
+		if projectCompleted == 0 && projectFailed > 0 {
+			projectStatus = "failed"
+		}
+		st.AddRunRecord(state.RunRecord{
+			StartTime:  projectStart,
+			EndTime:    time.Now(),
+			Provider:   choice.name,
+			Project:    projectPath,
+			Tasks:      projectTaskTypes,
+			TokensUsed: projectTokensUsed,
+			Status:     projectStatus,
+		})
 	}
 
 	// Summary

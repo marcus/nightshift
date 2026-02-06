@@ -291,6 +291,35 @@ func TestProjectCount(t *testing.T) {
 	}
 }
 
+func TestRunHistoryProviderPersisted(t *testing.T) {
+	s := newTestState(t)
+
+	start := time.Now().Add(-2 * time.Minute)
+	record := RunRecord{
+		ID:         "run-provider-test",
+		StartTime:  start,
+		EndTime:    start.Add(45 * time.Second),
+		Provider:   "codex",
+		Project:    "/tmp/project",
+		Tasks:      []string{"docs-backfill"},
+		TokensUsed: 50000,
+		Status:     "success",
+	}
+
+	s.AddRunRecord(record)
+
+	runs := s.GetRunHistory(1)
+	if len(runs) != 1 {
+		t.Fatalf("GetRunHistory() returned %d runs, want 1", len(runs))
+	}
+	if runs[0].Provider != "codex" {
+		t.Fatalf("run provider = %q, want %q", runs[0].Provider, "codex")
+	}
+	if runs[0].TokensUsed != 50000 {
+		t.Fatalf("run tokens = %d, want %d", runs[0].TokensUsed, 50000)
+	}
+}
+
 func newTestState(t *testing.T) *State {
 	t.Helper()
 

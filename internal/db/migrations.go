@@ -25,11 +25,20 @@ var migrations = []Migration{
 		Description: "add reset time columns to snapshots",
 		SQL:         migration002SQL,
 	},
+	{
+		Version:     3,
+		Description: "add provider column to run_history",
+		SQL:         migration003SQL,
+	},
 }
 
 const migration002SQL = `
 ALTER TABLE snapshots ADD COLUMN session_reset_time TEXT;
 ALTER TABLE snapshots ADD COLUMN weekly_reset_time TEXT;
+`
+
+const migration003SQL = `
+ALTER TABLE run_history ADD COLUMN provider TEXT NOT NULL DEFAULT '';
 `
 
 const migration001SQL = `

@@ -29,6 +29,7 @@ type RunRecord struct {
 	ID         string    `json:"id"`
 	StartTime  time.Time `json:"start_time"`
 	EndTime    time.Time `json:"end_time"`
+	Provider   string    `json:"provider,omitempty"`
 	Project    string    `json:"project"`
 	Tasks      []string  `json:"tasks"`
 	TokensUsed int       `json:"tokens_used"`
@@ -421,11 +422,12 @@ func (s *State) AddRunRecord(record RunRecord) {
 	}
 
 	_, err = tx.Exec(
-		`INSERT INTO run_history (id, start_time, end_time, project, tasks, tokens_used, status, error)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO run_history (id, start_time, end_time, provider, project, tasks, tokens_used, status, error)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		record.ID,
 		record.StartTime,
 		endTime,
+		record.Provider,
 		record.Project,
 		string(tasksJSON),
 		record.TokensUsed,
@@ -460,7 +462,7 @@ func (s *State) GetRunHistory(n int) []RunRecord {
 	}
 
 	rows, err := s.db.SQL().Query(
-		`SELECT id, start_time, end_time, project, tasks, tokens_used, status, error
+		`SELECT id, start_time, end_time, provider, project, tasks, tokens_used, status, error
 		 FROM run_history
 		 ORDER BY start_time DESC
 		 LIMIT ?`,
@@ -477,7 +479,7 @@ func (s *State) GetRunHistory(n int) []RunRecord {
 		var record RunRecord
 		var tasksJSON string
 		var endTime sql.NullTime
-		if err := rows.Scan(&record.ID, &record.StartTime, &endTime, &record.Project, &tasksJSON, &record.TokensUsed, &record.Status, &record.Error); err != nil {
+		if err := rows.Scan(&record.ID, &record.StartTime, &endTime, &record.Provider, &record.Project, &tasksJSON, &record.TokensUsed, &record.Status, &record.Error); err != nil {
 			log.Printf("state: scan run history: %v", err)
 			return result
 		}
@@ -508,7 +510,7 @@ func (s *State) GetTodayRuns() []RunRecord {
 	endOfDay := startOfDay.Add(24 * time.Hour)
 
 	rows, err := s.db.SQL().Query(
-		`SELECT id, start_time, end_time, project, tasks, tokens_used, status, error
+		`SELECT id, start_time, end_time, provider, project, tasks, tokens_used, status, error
 		 FROM run_history
 		 WHERE start_time >= ? AND start_time < ?
 		 ORDER BY start_time DESC`,
@@ -526,7 +528,7 @@ func (s *State) GetTodayRuns() []RunRecord {
 		var record RunRecord
 		var tasksJSON string
 		var endTime sql.NullTime
-		if err := rows.Scan(&record.ID, &record.StartTime, &endTime, &record.Project, &tasksJSON, &record.TokensUsed, &record.Status, &record.Error); err != nil {
+		if err := rows.Scan(&record.ID, &record.StartTime, &endTime, &record.Provider, &record.Project, &tasksJSON, &record.TokensUsed, &record.Status, &record.Error); err != nil {
 			log.Printf("state: scan today runs: %v", err)
 			return result
 		}

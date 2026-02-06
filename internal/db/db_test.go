@@ -30,6 +30,10 @@ func TestOpenCreatesSchema(t *testing.T) {
 			t.Fatalf("expected table %q to exist", table)
 		}
 	}
+
+	if !columnExists(t, database.SQL(), "run_history", "provider") {
+		t.Fatalf("expected run_history.provider column to exist")
+	}
 }
 
 func TestOpenIdempotent(t *testing.T) {
@@ -139,4 +143,35 @@ func tableExists(t *testing.T, db *sql.DB, name string) bool {
 		t.Fatalf("query sqlite_master: %v", err)
 	}
 	return got == name
+}
+
+func columnExists(t *testing.T, db *sql.DB, table, column string) bool {
+	t.Helper()
+
+	rows, err := db.Query(`PRAGMA table_info(` + table + `)`)
+	if err != nil {
+		t.Fatalf("query table_info(%s): %v", table, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var (
+		cid      int
+		name     string
+		colType  string
+		notNull  int
+		defaultV sql.NullString
+		primaryK int
+	)
+	for rows.Next() {
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultV, &primaryK); err != nil {
+			t.Fatalf("scan table_info(%s): %v", table, err)
+		}
+		if name == column {
+			return true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows table_info(%s): %v", table, err)
+	}
+	return false
 }

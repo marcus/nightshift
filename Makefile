@@ -1,4 +1,4 @@
-.PHONY: build test test-verbose test-race coverage coverage-html lint clean deps check install help
+.PHONY: build test test-verbose test-race coverage coverage-html lint clean deps check install calibrate-providers help
 
 # Binary name
 BINARY=nightshift
@@ -12,6 +12,10 @@ build:
 install:
 	go install $(PKG)
 	@echo "Installed $(BINARY) to $$(if [ -n "$$(go env GOBIN)" ]; then go env GOBIN; else echo "$$(go env GOPATH)/bin"; fi)"
+
+# Run provider calibration comparison tool
+calibrate-providers:
+	go run ./cmd/provider-calibration --repo "$$(pwd)" --codex-originator codex_cli_rs --min-user-turns 2
 
 # Run all tests
 test:
@@ -70,4 +74,5 @@ help:
 	@echo "  deps          - Download and tidy dependencies"
 	@echo "  check         - Run tests and lint"
 	@echo "  install       - Build and install to Go bin directory"
+	@echo "  calibrate-providers - Compare local Claude/Codex session usage for calibration"
 	@echo "  help          - Show this help"

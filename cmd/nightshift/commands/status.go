@@ -111,6 +111,9 @@ func printRunRecord(run state.RunRecord) {
 	if run.Project != "" {
 		fmt.Printf("  Project: %s\n", filepath.Base(run.Project))
 	}
+	if run.Provider != "" {
+		fmt.Printf("  Provider: %s\n", run.Provider)
+	}
 
 	if len(run.Tasks) > 0 {
 		fmt.Printf("  Tasks:   %s\n", strings.Join(run.Tasks, ", "))

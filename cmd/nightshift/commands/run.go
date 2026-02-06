@@ -343,6 +343,12 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 			continue
 		}
 
+		projectStart := time.Now()
+		projectTaskTypes := make([]string, 0, len(selectedTasks))
+		projectTokensUsed := 0
+		projectCompleted := 0
+		projectFailed := 0
+
 		// Execute each selected task
 		for _, scoredTask := range selectedTasks {
 			select {
@@ -353,6 +359,7 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 
 			tasksRun++
 			fmt.Printf("\n--- Running: %s (via %s) ---\n", scoredTask.Definition.Name, choice.name)
+			projectTaskTypes = append(projectTaskTypes, string(scoredTask.Definition.Type))
 
 			// Create task instance
 			taskInstance := &tasks.Task{
@@ -374,6 +381,7 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 
 			if err != nil {
 				tasksFailed++
+				projectFailed++
 				fmt.Printf("  FAILED: %v\n", err)
 				p.log.Errorf("task %s failed: %v", taskInstance.ID, err)
 				if p.report != nil {
@@ -393,10 +401,12 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 			switch result.Status {
 			case orchestrator.StatusCompleted:
 				tasksCompleted++
+				projectCompleted++
 				fmt.Printf("  COMPLETED in %d iteration(s) (%s)\n", result.Iterations, result.Duration)
 				p.st.RecordTaskRun(projectPath, string(scoredTask.Definition.Type))
+				_, maxTok := scoredTask.Definition.EstimatedTokens()
+				projectTokensUsed += maxTok
 				if p.report != nil {
-					_, maxTok := scoredTask.Definition.EstimatedTokens()
 					p.report.addTask(reporting.TaskResult{
 						Project:    projectPath,
 						TaskType:   string(scoredTask.Definition.Type),
@@ -410,6 +420,7 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 				}
 			case orchestrator.StatusAbandoned:
 				tasksFailed++
+				projectFailed++
 				fmt.Printf("  ABANDONED after %d iteration(s): %s\n", result.Iterations, result.Error)
 				if p.report != nil {
 					p.report.addTask(reporting.TaskResult{
@@ -423,6 +434,7 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 				}
 			default:
 				tasksFailed++
+				projectFailed++
 				fmt.Printf("  FAILED: %s\n", result.Error)
 				if p.report != nil {
 					p.report.addTask(reporting.TaskResult{
@@ -439,6 +451,22 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 
 		// Record project run
 		p.st.RecordProjectRun(projectPath)
+		projectStatus := "partial"
+		if projectFailed == 0 && projectCompleted > 0 {
+			projectStatus = "success"
+		}
+		if projectCompleted == 0 && projectFailed > 0 {
+			projectStatus = "failed"
+		}
+		p.st.AddRunRecord(state.RunRecord{
+			StartTime:  projectStart,
+			EndTime:    time.Now(),
+			Provider:   choice.name,
+			Project:    projectPath,
+			Tasks:      projectTaskTypes,
+			TokensUsed: projectTokensUsed,
+			Status:     projectStatus,
+		})
 	}
 
 	// Summary
