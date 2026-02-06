@@ -178,6 +178,28 @@ tasks:
 
 Use `nightshift preview --explain` to see cooldown status, including which tasks are currently on cooldown and when they become eligible again. When all tasks for a project are on cooldown, the run is skipped with a diagnostic message.
 
+### Custom Tasks
+
+Define your own tasks with custom prompts:
+
+```yaml
+tasks:
+  custom:
+    - type: pr-review
+      name: "PR Review Session"
+      description: |
+        Review all open PRs. Fix obvious issues immediately.
+        Create tasks for bigger problems.
+      category: pr
+      cost_tier: high
+      risk_level: medium
+      interval: "72h"
+```
+
+Custom tasks use the same scoring, cooldowns, and budget controls as built-in tasks. The `description` field becomes the agent prompt. Only `type`, `name`, and `description` are required — other fields have sensible defaults.
+
+See `docs/guides/adding-tasks.md` for the full reference.
+
 ### Budget Controls
 
 Budget controls apply globally unless overridden per provider.
@@ -548,6 +570,28 @@ integrations:
         enabled: true
         teach_agent: true   # Include `td usage --new-session` + core workflow in prompts
 ```
+
+#### td Review Task
+
+The `td-review` task runs a detailed review session over open td reviews. It:
+
+- Reviews all open review tasks in the project
+- Fixes obvious bugs immediately and creates td bug tasks for them
+- Creates new td tasks with detailed descriptions for bigger issues
+- Verifies changes have tests, creates tasks for missing coverage
+- Uses subagents for reviews that can run in parallel
+- Closes in-progress tasks once related bugs are resolved
+
+This task is **disabled by default** and must be explicitly opted in:
+
+```yaml
+tasks:
+  enabled:
+    - td-review
+    # ... your other tasks
+```
+
+Requires the td integration to be enabled (see above).
 
 ---
 
