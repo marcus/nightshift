@@ -2,6 +2,8 @@
 
 > It finds what you forgot to look for.
 
+**[nightshift.haplab.com](https://nightshift.haplab.com)** · [Docs](https://nightshift.haplab.com/docs/intro) · [Quick Start](https://nightshift.haplab.com/docs/quick-start) · [CLI Reference](https://nightshift.haplab.com/docs/cli-reference)
+
 ![Nightshift logo](logo.png)
 
 Your tokens get reset every week, you might as well use them. Nightshift runs overnight to find dead code, doc drift, test gaps, security issues, and 20+ other things silently accumulating while you ship features. Like a Roomba for your codebase — runs overnight, worst case you close the PR.
@@ -17,6 +19,8 @@ Everything lands as a branch or PR. It never writes directly to your primary bra
 
 ## Installation
 
+Full guide: [Installation docs](https://nightshift.haplab.com/docs/installation)
+
 ```bash
 brew install marcus/tap/nightshift
 ```
@@ -30,6 +34,8 @@ go install github.com/marcus/nightshift/cmd/nightshift@latest
 ```
 
 ## Getting Started
+
+Full guide: [Quick Start docs](https://nightshift.haplab.com/docs/quick-start)
 
 After installing, run the guided setup:
 
@@ -51,6 +57,8 @@ nightshift run
 ```
 
 ## Common CLI Usage
+
+Full reference: [CLI Reference docs](https://nightshift.haplab.com/docs/cli-reference)
 
 ```bash
 # Preview next scheduled runs with prompt previews
@@ -121,6 +129,8 @@ If you prefer API-based usage, you can authenticate those CLIs with API keys ins
 
 ## Configuration
 
+Full guide: [Configuration docs](https://nightshift.haplab.com/docs/configuration) · [Budget docs](https://nightshift.haplab.com/docs/budget) · [Scheduling docs](https://nightshift.haplab.com/docs/scheduling) · [Tasks docs](https://nightshift.haplab.com/docs/tasks)
+
 Nightshift uses YAML config files to define:
 
 - Token budget limits
@@ -130,7 +140,7 @@ Nightshift uses YAML config files to define:
 
 Run `nightshift setup` to create/update the global config at `~/.config/nightshift/config.yaml`.
 
-See [SPEC.md](docs/SPEC.md) for detailed configuration options.
+See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) or [SPEC.md](docs/SPEC.md) for detailed options.
 
 Minimal example:
 
