@@ -309,6 +309,109 @@ func (c *Claude) ListSessionFiles() ([]string, error) {
 	return sessions, err
 }
 
+// ScanTodayTokens walks JSONL session files and sums input+output tokens
+// for assistant messages timestamped today (local time). Files not modified
+// today are skipped via mtime check for performance.
+func (c *Claude) ScanTodayTokens() (int64, error) {
+	today := time.Now().Local().Format("2006-01-02")
+	return c.scanTokensSince(today, 0)
+}
+
+// ScanWeeklyTokens walks JSONL session files and sums input+output tokens
+// for assistant messages timestamped within the last 7 days (local time).
+func (c *Claude) ScanWeeklyTokens() (int64, error) {
+	oldest := time.Now().Local().AddDate(0, 0, -6).Format("2006-01-02")
+	return c.scanTokensSince(oldest, 6)
+}
+
+// scanTokensSince walks projects/ for .jsonl files, skipping files whose
+// mtime is before cutoffDate minus extraDays. For each qualifying file it
+// parses lines and sums input_tokens+output_tokens for assistant messages
+// whose timestamp falls on or after cutoffDate.
+func (c *Claude) scanTokensSince(cutoffDate string, extraMtimeDays int) (int64, error) {
+	projectsDir := filepath.Join(c.dataPath, "projects")
+
+	// mtime threshold: start of cutoff day (local) minus extra buffer
+	cutoff, err := time.ParseInLocation("2006-01-02", cutoffDate, time.Now().Location())
+	if err != nil {
+		return 0, fmt.Errorf("parsing cutoff date: %w", err)
+	}
+	mtimeCutoff := cutoff.AddDate(0, 0, -extraMtimeDays)
+
+	var total int64
+
+	walkErr := filepath.WalkDir(projectsDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			if os.IsPermission(err) {
+				return nil
+			}
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(path, ".jsonl") {
+			return nil
+		}
+
+		// mtime filter: skip files not modified since cutoff
+		info, err := d.Info()
+		if err != nil {
+			return nil // skip unreadable
+		}
+		if info.ModTime().Before(mtimeCutoff) {
+			return nil
+		}
+
+		tokens, err := scanFileTokens(path, cutoffDate)
+		if err != nil {
+			return nil // skip corrupt files
+		}
+		total += tokens
+		return nil
+	})
+
+	if walkErr != nil && os.IsNotExist(walkErr) {
+		return 0, nil
+	}
+	return total, walkErr
+}
+
+// scanFileTokens reads a single JSONL file and sums input_tokens+output_tokens
+// for assistant messages whose timestamp (local) is on or after cutoffDate.
+func scanFileTokens(path string, cutoffDate string) (int64, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = file.Close() }()
+
+	var total int64
+	reader := bufio.NewReaderSize(file, 64*1024)
+	for {
+		line, err := reader.ReadBytes('\n')
+		if len(line) > 0 {
+			line = bytes.TrimRight(line, "\r\n")
+			if len(line) > 0 {
+				var msg SessionMessage
+				if jsonErr := json.Unmarshal(line, &msg); jsonErr == nil &&
+					msg.Type == "assistant" &&
+					msg.Message != nil &&
+					msg.Message.Usage != nil {
+					msgDate := msg.Timestamp.Local().Format("2006-01-02")
+					if msgDate >= cutoffDate {
+						total += msg.Message.Usage.InputTokens + msg.Message.Usage.OutputTokens
+					}
+				}
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return 0, err
+		}
+	}
+	return total, nil
+}
+
 // sumTokensByModel sums all token counts across models.
 func sumTokensByModel(tokensByModel map[string]int64) int64 {
 	var total int64

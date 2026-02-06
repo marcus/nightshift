@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -534,5 +535,167 @@ func TestTokenUsage_TotalTokens(t *testing.T) {
 	}
 	if usage.TotalTokens() != 185 {
 		t.Errorf("TotalTokens() = %d, want 185", usage.TotalTokens())
+	}
+}
+
+// --- ScanTodayTokens / ScanWeeklyTokens tests ---
+
+// writeJSONLFile writes session messages as JSONL to the given path.
+func writeJSONLFile(t *testing.T, path string, lines []string) {
+	t.Helper()
+	content := strings.Join(lines, "\n") + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// makeAssistantLine returns a JSONL line for an assistant message with usage.
+func makeAssistantLine(ts time.Time, inputTokens, outputTokens int64) string {
+	return `{"type":"assistant","message":{"model":"claude-sonnet-4","usage":{"input_tokens":` +
+		fmt.Sprintf("%d", inputTokens) + `,"output_tokens":` +
+		fmt.Sprintf("%d", outputTokens) + `,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"` +
+		ts.Format(time.RFC3339) + `"}`
+}
+
+func TestClaudeProvider_ScanTodayTokens(t *testing.T) {
+	tmpDir := t.TempDir()
+	projDir := filepath.Join(tmpDir, "projects", "myproj")
+	if err := os.MkdirAll(projDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now().Local()
+	todayMorning := time.Date(now.Year(), now.Month(), now.Day(), 9, 0, 0, 0, now.Location())
+
+	// Session 1: two assistant messages today
+	writeJSONLFile(t, filepath.Join(projDir, "s1.jsonl"), []string{
+		`{"type":"human","message":{"content":"hello"},"timestamp":"` + todayMorning.Format(time.RFC3339) + `"}`,
+		makeAssistantLine(todayMorning, 100, 50),
+		makeAssistantLine(todayMorning.Add(time.Hour), 200, 80),
+	})
+
+	// Session 2: one assistant message today in a different subdir
+	projDir2 := filepath.Join(tmpDir, "projects", "otherproj")
+	if err := os.MkdirAll(projDir2, 0755); err != nil {
+		t.Fatal(err)
+	}
+	writeJSONLFile(t, filepath.Join(projDir2, "s2.jsonl"), []string{
+		makeAssistantLine(todayMorning.Add(2*time.Hour), 300, 100),
+	})
+
+	provider := NewClaudeWithPath(tmpDir)
+	tokens, err := provider.ScanTodayTokens()
+	if err != nil {
+		t.Fatalf("ScanTodayTokens error: %v", err)
+	}
+
+	// (100+50) + (200+80) + (300+100) = 830
+	if tokens != 830 {
+		t.Errorf("ScanTodayTokens = %d, want 830", tokens)
+	}
+}
+
+func TestClaudeProvider_ScanTodayTokens_SkipsOldMessages(t *testing.T) {
+	tmpDir := t.TempDir()
+	projDir := filepath.Join(tmpDir, "projects", "myproj")
+	if err := os.MkdirAll(projDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now().Local()
+	todayMorning := time.Date(now.Year(), now.Month(), now.Day(), 10, 0, 0, 0, now.Location())
+	yesterday := todayMorning.AddDate(0, 0, -1)
+
+	// File has both today and yesterday messages; file mtime is today
+	writeJSONLFile(t, filepath.Join(projDir, "mixed.jsonl"), []string{
+		makeAssistantLine(yesterday, 500, 500),    // yesterday: should be excluded
+		makeAssistantLine(todayMorning, 100, 100), // today: should be included
+	})
+
+	provider := NewClaudeWithPath(tmpDir)
+	tokens, err := provider.ScanTodayTokens()
+	if err != nil {
+		t.Fatalf("ScanTodayTokens error: %v", err)
+	}
+
+	// Only today's message: 100+100 = 200
+	if tokens != 200 {
+		t.Errorf("ScanTodayTokens = %d, want 200", tokens)
+	}
+}
+
+func TestClaudeProvider_ScanTodayTokens_SkipsHumanMessages(t *testing.T) {
+	tmpDir := t.TempDir()
+	projDir := filepath.Join(tmpDir, "projects", "myproj")
+	if err := os.MkdirAll(projDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now().Local()
+	todayMorning := time.Date(now.Year(), now.Month(), now.Day(), 10, 0, 0, 0, now.Location())
+
+	writeJSONLFile(t, filepath.Join(projDir, "session.jsonl"), []string{
+		`{"type":"human","message":{"content":"hello"},"timestamp":"` + todayMorning.Format(time.RFC3339) + `"}`,
+		makeAssistantLine(todayMorning, 100, 50),
+	})
+
+	provider := NewClaudeWithPath(tmpDir)
+	tokens, err := provider.ScanTodayTokens()
+	if err != nil {
+		t.Fatalf("ScanTodayTokens error: %v", err)
+	}
+
+	// Only assistant message: 100+50 = 150
+	if tokens != 150 {
+		t.Errorf("ScanTodayTokens = %d, want 150", tokens)
+	}
+}
+
+func TestClaudeProvider_ScanTodayTokens_NoProjectsDir(t *testing.T) {
+	provider := NewClaudeWithPath(t.TempDir())
+	tokens, err := provider.ScanTodayTokens()
+	if err != nil {
+		t.Fatalf("ScanTodayTokens error: %v", err)
+	}
+	if tokens != 0 {
+		t.Errorf("ScanTodayTokens = %d, want 0 for missing projects dir", tokens)
+	}
+}
+
+func TestClaudeProvider_ScanWeeklyTokens(t *testing.T) {
+	tmpDir := t.TempDir()
+	projDir := filepath.Join(tmpDir, "projects", "myproj")
+	if err := os.MkdirAll(projDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now().Local()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 10, 0, 0, 0, now.Location())
+	threeDaysAgo := today.AddDate(0, 0, -3)
+	sixDaysAgo := today.AddDate(0, 0, -6)
+	eightDaysAgo := today.AddDate(0, 0, -8) // outside 7-day window
+
+	// File 1: messages from today and 3 days ago
+	writeJSONLFile(t, filepath.Join(projDir, "recent.jsonl"), []string{
+		makeAssistantLine(today, 100, 50),
+		makeAssistantLine(threeDaysAgo, 200, 100),
+	})
+
+	// File 2: message from 6 days ago (still in window) and 8 days ago (outside)
+	writeJSONLFile(t, filepath.Join(projDir, "older.jsonl"), []string{
+		makeAssistantLine(sixDaysAgo, 300, 150),
+		makeAssistantLine(eightDaysAgo, 999, 999), // should be excluded
+	})
+
+	provider := NewClaudeWithPath(tmpDir)
+	tokens, err := provider.ScanWeeklyTokens()
+	if err != nil {
+		t.Fatalf("ScanWeeklyTokens error: %v", err)
+	}
+
+	// (100+50) + (200+100) + (300+150) = 900; excludes 8-day-old (1998)
+	expected := int64(900)
+	if tokens != expected {
+		t.Errorf("ScanWeeklyTokens = %d, want %d", tokens, expected)
 	}
 }
