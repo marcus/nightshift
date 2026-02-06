@@ -250,6 +250,7 @@ func TestRegistryCompleteness(t *testing.T) {
 		TaskLintFix, TaskBugFinder, TaskAutoDRY, TaskAPIContractVerify,
 		TaskBackwardCompat, TaskBuildOptimize, TaskDocsBackfill,
 		TaskCommitNormalize, TaskChangelogSynth, TaskReleaseNotes, TaskADRDraft,
+		TaskTDReview,
 		// Category 2
 		TaskDocDrift, TaskSemanticDiff, TaskDeadCode, TaskDependencyRisk,
 		TaskTestGap, TaskTestFlakiness, TaskLoggingAudit, TaskMetricsCoverage,
@@ -304,6 +305,163 @@ func TestDefaultIntervalForCategory(t *testing.T) {
 		if got := DefaultIntervalForCategory(tt.cat); got != tt.want {
 			t.Errorf("DefaultIntervalForCategory(%d) = %v, want %v", tt.cat, got, tt.want)
 		}
+	}
+}
+
+func TestDisabledByDefault(t *testing.T) {
+	def, err := GetDefinition(TaskTDReview)
+	if err != nil {
+		t.Fatalf("GetDefinition(TaskTDReview) error: %v", err)
+	}
+	if !def.DisabledByDefault {
+		t.Error("TaskTDReview should be DisabledByDefault")
+	}
+
+	// Non-disabled-by-default tasks should have false
+	def, _ = GetDefinition(TaskLintFix)
+	if def.DisabledByDefault {
+		t.Error("TaskLintFix should not be DisabledByDefault")
+	}
+}
+
+func TestDefaultDisabledTaskTypes(t *testing.T) {
+	types := DefaultDisabledTaskTypes()
+	if len(types) == 0 {
+		t.Error("DefaultDisabledTaskTypes() returned empty slice")
+	}
+	found := false
+	for _, tt := range types {
+		if tt == TaskTDReview {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("DefaultDisabledTaskTypes() should include TaskTDReview")
+	}
+}
+
+func TestRegisterCustom_Success(t *testing.T) {
+	def := TaskDefinition{
+		Type: "custom-test", Category: CategoryAnalysis,
+		Name: "Test", Description: "test task",
+		CostTier: CostMedium, RiskLevel: RiskLow,
+		DefaultInterval: 72 * time.Hour,
+	}
+	t.Cleanup(func() { UnregisterCustom("custom-test") })
+
+	err := RegisterCustom(def)
+	if err != nil {
+		t.Fatalf("RegisterCustom() unexpected error: %v", err)
+	}
+
+	got, err := GetDefinition("custom-test")
+	if err != nil {
+		t.Fatalf("GetDefinition() after register: %v", err)
+	}
+	if got.Type != def.Type {
+		t.Errorf("Type = %q, want %q", got.Type, def.Type)
+	}
+	if got.Category != def.Category {
+		t.Errorf("Category = %d, want %d", got.Category, def.Category)
+	}
+	if got.Name != def.Name {
+		t.Errorf("Name = %q, want %q", got.Name, def.Name)
+	}
+	if got.CostTier != def.CostTier {
+		t.Errorf("CostTier = %d, want %d", got.CostTier, def.CostTier)
+	}
+	if got.DefaultInterval != def.DefaultInterval {
+		t.Errorf("DefaultInterval = %v, want %v", got.DefaultInterval, def.DefaultInterval)
+	}
+}
+
+func TestRegisterCustom_BuiltInCollision(t *testing.T) {
+	def := TaskDefinition{
+		Type: TaskLintFix, Category: CategoryPR,
+		Name: "Collision", Description: "should fail",
+		CostTier: CostLow, RiskLevel: RiskLow,
+		DefaultInterval: 24 * time.Hour,
+	}
+	err := RegisterCustom(def)
+	if err == nil {
+		t.Error("expected error for built-in collision")
+	}
+}
+
+func TestRegisterCustom_DuplicateCustom(t *testing.T) {
+	t.Cleanup(func() { UnregisterCustom("dup-test") })
+	_ = RegisterCustom(TaskDefinition{
+		Type: "dup-test", Category: CategoryAnalysis,
+		Name: "Dup1", Description: "first",
+		CostTier: CostLow, RiskLevel: RiskLow,
+		DefaultInterval: 72 * time.Hour,
+	})
+	err := RegisterCustom(TaskDefinition{
+		Type: "dup-test", Category: CategoryAnalysis,
+		Name: "Dup2", Description: "second",
+		CostTier: CostLow, RiskLevel: RiskLow,
+		DefaultInterval: 72 * time.Hour,
+	})
+	if err == nil {
+		t.Error("expected error for duplicate custom registration")
+	}
+}
+
+func TestIsCustom(t *testing.T) {
+	t.Cleanup(func() { UnregisterCustom("is-custom-test") })
+	_ = RegisterCustom(TaskDefinition{
+		Type: "is-custom-test", Category: CategoryAnalysis,
+		Name: "IsCustom", Description: "test",
+		CostTier: CostLow, RiskLevel: RiskLow,
+		DefaultInterval: 72 * time.Hour,
+	})
+	if !IsCustom("is-custom-test") {
+		t.Error("expected true for custom type")
+	}
+	if IsCustom(TaskLintFix) {
+		t.Error("expected false for built-in type")
+	}
+}
+
+func TestUnregisterCustom(t *testing.T) {
+	_ = RegisterCustom(TaskDefinition{
+		Type: "unreg-test", Category: CategoryAnalysis,
+		Name: "Unreg", Description: "test",
+		CostTier: CostLow, RiskLevel: RiskLow,
+		DefaultInterval: 72 * time.Hour,
+	})
+	UnregisterCustom("unreg-test")
+	_, err := GetDefinition("unreg-test")
+	if err == nil {
+		t.Error("expected error after unregister")
+	}
+	if IsCustom("unreg-test") {
+		t.Error("should not be custom after unregister")
+	}
+}
+
+func TestClearCustom(t *testing.T) {
+	_ = RegisterCustom(TaskDefinition{
+		Type: "clear-test-1", Category: CategoryAnalysis,
+		Name: "Clear1", Description: "test",
+		CostTier: CostLow, RiskLevel: RiskLow,
+		DefaultInterval: 72 * time.Hour,
+	})
+	_ = RegisterCustom(TaskDefinition{
+		Type: "clear-test-2", Category: CategoryAnalysis,
+		Name: "Clear2", Description: "test",
+		CostTier: CostLow, RiskLevel: RiskLow,
+		DefaultInterval: 72 * time.Hour,
+	})
+	ClearCustom()
+	if IsCustom("clear-test-1") || IsCustom("clear-test-2") {
+		t.Error("should be cleared")
+	}
+	if _, err := GetDefinition("clear-test-1"); err == nil {
+		t.Error("clear-test-1 should not be in registry after ClearCustom")
+	}
+	if _, err := GetDefinition("clear-test-2"); err == nil {
+		t.Error("clear-test-2 should not be in registry after ClearCustom")
 	}
 }
 

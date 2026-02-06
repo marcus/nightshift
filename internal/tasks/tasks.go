@@ -139,6 +139,7 @@ const (
 	TaskChangelogSynth       TaskType = "changelog-synth"
 	TaskReleaseNotes         TaskType = "release-notes"
 	TaskADRDraft             TaskType = "adr-draft"
+	TaskTDReview             TaskType = "td-review"
 )
 
 // Category 2: "Here's what I found"
@@ -209,13 +210,14 @@ const (
 
 // TaskDefinition describes a built-in task type.
 type TaskDefinition struct {
-	Type            TaskType
-	Category        TaskCategory
-	Name            string
-	Description     string
-	CostTier        CostTier
-	RiskLevel       RiskLevel
-	DefaultInterval time.Duration
+	Type              TaskType
+	Category          TaskCategory
+	Name              string
+	Description       string
+	CostTier          CostTier
+	RiskLevel         RiskLevel
+	DefaultInterval   time.Duration
+	DisabledByDefault bool // Requires explicit opt-in via tasks.enabled
 }
 
 // DefaultIntervalForCategory returns the default re-run interval for a task category.
@@ -242,6 +244,9 @@ func DefaultIntervalForCategory(cat TaskCategory) time.Duration {
 func (d TaskDefinition) EstimatedTokens() (min, max int) {
 	return d.CostTier.TokenRange()
 }
+
+// customTypes tracks which task types were registered via RegisterCustom.
+var customTypes = map[TaskType]bool{}
 
 // registry holds all built-in task definitions.
 var registry = map[TaskType]TaskDefinition{
@@ -344,6 +349,22 @@ var registry = map[TaskType]TaskDefinition{
 		CostTier:        CostMedium,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 168 * time.Hour,
+	},
+	TaskTDReview: {
+		Type:     TaskTDReview,
+		Category: CategoryPR,
+		Name:     "TD Review Session",
+		Description: `Start a td review session and do a detailed review of open reviews. ` +
+			`For obvious fixes, create a td bug task with a detailed description of the problem ` +
+			`and fix them immediately. Create new td tasks with detailed descriptions for bigger ` +
+			`bugs or issues that should be fixed in a later session. Verify that changes have ` +
+			`tests—if not, create td tasks to add test coverage. For reviews that can be processed ` +
+			`in parallel, use subagents. Once tasks related to previously opened bugs are complete, ` +
+			`close the in-progress tasks.`,
+		CostTier:          CostHigh,
+		RiskLevel:         RiskMedium,
+		DefaultInterval:   72 * time.Hour,
+		DisabledByDefault: true,
 	},
 
 	// Category 2: "Here's what I found"
@@ -841,6 +862,18 @@ func AllDefinitions() []TaskDefinition {
 	return defs
 }
 
+// DefaultDisabledTaskTypes returns task types that are disabled by default
+// and require explicit opt-in via the tasks.enabled config list.
+func DefaultDisabledTaskTypes() []TaskType {
+	var types []TaskType
+	for _, def := range registry {
+		if def.DisabledByDefault {
+			types = append(types, def.Type)
+		}
+	}
+	return types
+}
+
 // AllDefinitionsSorted returns all registered task definitions sorted by
 // Category first, then by Name within each category. This provides stable,
 // deterministic ordering for CLI output.
@@ -853,6 +886,38 @@ func AllDefinitionsSorted() []TaskDefinition {
 		return cmp.Compare(a.Name, b.Name)
 	})
 	return defs
+}
+
+// RegisterCustom registers a custom task definition. Returns an error if the
+// type is already registered (built-in or custom).
+func RegisterCustom(def TaskDefinition) error {
+	if _, exists := registry[def.Type]; exists {
+		return fmt.Errorf("task type %q already registered", def.Type)
+	}
+	registry[def.Type] = def
+	customTypes[def.Type] = true
+	return nil
+}
+
+// UnregisterCustom removes a custom task type. Built-in types are not affected.
+func UnregisterCustom(taskType TaskType) {
+	if customTypes[taskType] {
+		delete(registry, taskType)
+		delete(customTypes, taskType)
+	}
+}
+
+// IsCustom reports whether a task type was registered via RegisterCustom.
+func IsCustom(taskType TaskType) bool {
+	return customTypes[taskType]
+}
+
+// ClearCustom removes all custom task types from the registry.
+func ClearCustom() {
+	for t := range customTypes {
+		delete(registry, t)
+	}
+	customTypes = map[TaskType]bool{}
 }
 
 // Task represents a unit of work for an AI agent.
