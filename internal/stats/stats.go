@@ -315,17 +315,22 @@ func (s *Stats) computeFromRunHistory(result *StatsResult) {
 		return
 	}
 
-	// First and last run times
-	row = sqlDB.QueryRow(`SELECT MIN(start_time), MAX(start_time) FROM run_history`)
-	var firstRun, lastRun sql.NullTime
-	if err := row.Scan(&firstRun, &lastRun); err != nil {
+	// First and last run times — scan as strings because the modernc SQLite
+	// driver returns aggregated DATETIME columns as strings, not time.Time.
+	row = sqlDB.QueryRow(`SELECT CAST(MIN(start_time) AS TEXT), CAST(MAX(start_time) AS TEXT) FROM run_history`)
+	var firstRaw, lastRaw sql.NullString
+	if err := row.Scan(&firstRaw, &lastRaw); err != nil {
 		log.Printf("stats: run_history min/max: %v", err)
 	} else {
-		if firstRun.Valid && (result.FirstRunAt == nil || firstRun.Time.Before(*result.FirstRunAt)) {
-			result.FirstRunAt = &firstRun.Time
+		if firstRaw.Valid {
+			if t, ok := parseDBTimestamp(firstRaw.String); ok && (result.FirstRunAt == nil || t.Before(*result.FirstRunAt)) {
+				result.FirstRunAt = &t
+			}
 		}
-		if lastRun.Valid && (result.LastRunAt == nil || lastRun.Time.After(*result.LastRunAt)) {
-			result.LastRunAt = &lastRun.Time
+		if lastRaw.Valid {
+			if t, ok := parseDBTimestamp(lastRaw.String); ok && (result.LastRunAt == nil || t.After(*result.LastRunAt)) {
+				result.LastRunAt = &t
+			}
 		}
 	}
 
@@ -372,14 +377,15 @@ func (s *Stats) computeFromProjects(result *StatsResult) {
 
 	result.TotalProjects = len(projectRunCounts)
 
-	// Merge run_count from projects into existing project breakdown
-	existing := make(map[string]*ProjectStats)
+	// Merge run_count from projects into existing project breakdown.
+	// Use indices (not pointers) so appends don't invalidate references.
+	existing := make(map[string]int) // name → index in ProjectBreakdown
 	for i := range result.ProjectBreakdown {
-		existing[result.ProjectBreakdown[i].Name] = &result.ProjectBreakdown[i]
+		existing[result.ProjectBreakdown[i].Name] = i
 	}
 	for name, runCount := range projectRunCounts {
-		if ps, ok := existing[name]; ok {
-			ps.RunCount = runCount
+		if idx, ok := existing[name]; ok {
+			result.ProjectBreakdown[idx].RunCount = runCount
 		} else {
 			result.ProjectBreakdown = append(result.ProjectBreakdown, ProjectStats{
 				Name:     name,
