@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -25,8 +26,41 @@ import (
 	"github.com/marcus/nightshift/internal/state"
 	"github.com/marcus/nightshift/internal/tasks"
 	"github.com/marcus/nightshift/internal/trends"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
+
+// isInteractive reports whether stdout is a terminal. Override in tests.
+var isInteractive = func() bool {
+	return isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
+}
+
+// confirmRun prompts the user for confirmation unless bypassed by flags or
+// non-TTY context. Returns true if execution should proceed.
+func confirmRun(p executeRunParams) (bool, error) {
+	if p.yes {
+		return true, nil
+	}
+	if p.dryRun {
+		return false, nil
+	}
+	if !isInteractive() {
+		p.log.Info("non-TTY: auto-confirming")
+		return true, nil
+	}
+	fmt.Print("Proceed? [y/N]: ")
+	scanner := bufio.NewScanner(os.Stdin)
+	if scanner.Scan() {
+		ans := strings.TrimSpace(scanner.Text())
+		if strings.EqualFold(ans, "y") || strings.EqualFold(ans, "yes") {
+			return true, nil
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return false, fmt.Errorf("read stdin: %w", err)
+	}
+	return false, nil
+}
 
 var runCmd = &cobra.Command{
 	Use:   "run",
@@ -45,6 +79,7 @@ func init() {
 	runCmd.Flags().Int("max-projects", 1, "Max projects to process per run (ignored when --project is set)")
 	runCmd.Flags().Int("max-tasks", 1, "Max tasks to run per project (ignored when --task is set)")
 	runCmd.Flags().Bool("ignore-budget", false, "Bypass budget checks (use with caution)")
+	runCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 	rootCmd.AddCommand(runCmd)
 }
 
@@ -55,6 +90,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	maxProjects, _ := cmd.Flags().GetInt("max-projects")
 	maxTasks, _ := cmd.Flags().GetInt("max-tasks")
 	ignoreBudget, _ := cmd.Flags().GetBool("ignore-budget")
+	yes, _ := cmd.Flags().GetBool("yes")
 
 	// Augment PATH so provider CLIs are discoverable when launched
 	// from launchd/systemd/cron which have a minimal PATH.
@@ -153,6 +189,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		maxTasks:     maxTasks,
 		ignoreBudget: ignoreBudget,
 		dryRun:       dryRun,
+		yes:          yes,
 		log:          log,
 	}
 	if !dryRun {
@@ -171,6 +208,7 @@ type executeRunParams struct {
 	maxTasks     int
 	ignoreBudget bool
 	dryRun       bool
+	yes          bool
 	report       *runReport
 	log          *logging.Logger
 }
@@ -453,6 +491,20 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 
 	// Display preflight summary
 	displayPreflight(os.Stdout, plan)
+
+	// Confirm before proceeding
+	proceed, err := confirmRun(p)
+	if err != nil {
+		return err
+	}
+	if !proceed {
+		if p.dryRun {
+			// dry-run: continue to show per-project detail but skip execution
+		} else {
+			fmt.Println("Cancelled.")
+			return nil
+		}
+	}
 
 	// Execute based on the plan
 	var tasksRun, tasksCompleted, tasksFailed int

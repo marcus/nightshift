@@ -809,6 +809,134 @@ func TestBuildPreflight_InvalidTaskFilter(t *testing.T) {
 	}
 }
 
+// --- Confirmation prompt tests ---
+
+func TestConfirmRun_YesFlagSkipsPrompt(t *testing.T) {
+	p := executeRunParams{yes: true, log: logging.Component("test")}
+	ok, err := confirmRun(p)
+	if err != nil {
+		t.Fatalf("confirmRun: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected true when --yes is set")
+	}
+}
+
+func TestConfirmRun_DryRunReturnsFalse(t *testing.T) {
+	p := executeRunParams{dryRun: true, log: logging.Component("test")}
+	ok, err := confirmRun(p)
+	if err != nil {
+		t.Fatalf("confirmRun: %v", err)
+	}
+	if ok {
+		t.Fatal("expected false when --dry-run is set")
+	}
+}
+
+func TestConfirmRun_NonTTYAutoSkips(t *testing.T) {
+	orig := isInteractive
+	defer func() { isInteractive = orig }()
+	isInteractive = func() bool { return false }
+
+	p := executeRunParams{log: logging.Component("test")}
+	ok, err := confirmRun(p)
+	if err != nil {
+		t.Fatalf("confirmRun: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected true in non-TTY context")
+	}
+}
+
+func TestConfirmRun_TTYAcceptsY(t *testing.T) {
+	orig := isInteractive
+	defer func() { isInteractive = orig }()
+	isInteractive = func() bool { return true }
+
+	// Replace stdin with a pipe containing "y\n"
+	origStdin := os.Stdin
+	defer func() { os.Stdin = origStdin }()
+	r, w, _ := os.Pipe()
+	os.Stdin = r
+	_, _ = w.WriteString("y\n")
+	w.Close()
+
+	p := executeRunParams{log: logging.Component("test")}
+	ok, err := confirmRun(p)
+	if err != nil {
+		t.Fatalf("confirmRun: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected true when user enters 'y'")
+	}
+}
+
+func TestConfirmRun_TTYAcceptsYes(t *testing.T) {
+	orig := isInteractive
+	defer func() { isInteractive = orig }()
+	isInteractive = func() bool { return true }
+
+	origStdin := os.Stdin
+	defer func() { os.Stdin = origStdin }()
+	r, w, _ := os.Pipe()
+	os.Stdin = r
+	_, _ = w.WriteString("yes\n")
+	w.Close()
+
+	p := executeRunParams{log: logging.Component("test")}
+	ok, err := confirmRun(p)
+	if err != nil {
+		t.Fatalf("confirmRun: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected true when user enters 'yes'")
+	}
+}
+
+func TestConfirmRun_TTYRejectsN(t *testing.T) {
+	orig := isInteractive
+	defer func() { isInteractive = orig }()
+	isInteractive = func() bool { return true }
+
+	origStdin := os.Stdin
+	defer func() { os.Stdin = origStdin }()
+	r, w, _ := os.Pipe()
+	os.Stdin = r
+	_, _ = w.WriteString("n\n")
+	w.Close()
+
+	p := executeRunParams{log: logging.Component("test")}
+	ok, err := confirmRun(p)
+	if err != nil {
+		t.Fatalf("confirmRun: %v", err)
+	}
+	if ok {
+		t.Fatal("expected false when user enters 'n'")
+	}
+}
+
+func TestConfirmRun_TTYDefaultRejectsEmpty(t *testing.T) {
+	orig := isInteractive
+	defer func() { isInteractive = orig }()
+	isInteractive = func() bool { return true }
+
+	origStdin := os.Stdin
+	defer func() { os.Stdin = origStdin }()
+	r, w, _ := os.Pipe()
+	os.Stdin = r
+	_, _ = w.WriteString("\n")
+	w.Close()
+
+	p := executeRunParams{log: logging.Component("test")}
+	ok, err := confirmRun(p)
+	if err != nil {
+		t.Fatalf("confirmRun: %v", err)
+	}
+	if ok {
+		t.Fatal("expected false on empty input (default=N)")
+	}
+}
+
 func TestDisplayPreflight_NoWarningsWhenBudgetRespected(t *testing.T) {
 	plan := &preflightPlan{
 		ignoreBudget: false,
