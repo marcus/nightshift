@@ -2,6 +2,7 @@
 package tasks
 
 import (
+	"math/rand/v2"
 	"sort"
 	"time"
 
@@ -312,4 +313,43 @@ func (s *Selector) SelectTopN(budget int64, project string, n int) []ScoredTask 
 		n = len(scored)
 	}
 	return scored[:n]
+}
+
+// SelectRandom returns a random task from the eligible pool.
+// It applies the same filter pipeline as SelectNext but picks randomly
+// instead of by highest score. The returned ScoredTask still has an
+// accurate Score for display purposes. Returns nil if no task is eligible.
+func (s *Selector) SelectRandom(budget int64, project string) *ScoredTask {
+	// Start with all task definitions
+	tasks := AllDefinitions()
+
+	// Filter: enabled tasks only
+	tasks = s.FilterEnabled(tasks)
+
+	// Filter: tasks within budget estimate
+	tasks = s.FilterByBudget(tasks, budget)
+
+	// Filter: unassigned tasks
+	tasks = s.FilterUnassigned(tasks, project)
+
+	// Filter: tasks not on cooldown
+	tasks = s.FilterByCooldown(tasks, project)
+
+	if len(tasks) == 0 {
+		return nil
+	}
+
+	// Score each task
+	scored := make([]ScoredTask, len(tasks))
+	for i, t := range tasks {
+		scored[i] = ScoredTask{
+			Definition: t,
+			Score:      s.ScoreTask(t.Type, project),
+			Project:    project,
+		}
+	}
+
+	// Pick a random task from the eligible pool
+	pick := scored[rand.IntN(len(scored))]
+	return &pick
 }

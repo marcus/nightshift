@@ -574,6 +574,134 @@ func TestIsOnCooldown_UnknownTask(t *testing.T) {
 	}
 }
 
+func TestSelectRandom(t *testing.T) {
+	st := newTestState(t)
+
+	cfg := &config.Config{
+		Tasks: config.TasksConfig{
+			Enabled: []string{
+				string(TaskLintFix),
+				string(TaskDocsBackfill),
+				string(TaskDeadCode),
+			},
+			Priorities: map[string]int{
+				string(TaskLintFix):      10,
+				string(TaskDocsBackfill): 5,
+				string(TaskDeadCode):     1,
+			},
+			Intervals: map[string]string{
+				string(TaskLintFix):      "1ns",
+				string(TaskDocsBackfill): "1ns",
+				string(TaskDeadCode):     "1ns",
+			},
+		},
+	}
+	sel := NewSelector(cfg, st)
+
+	project := "/test/project"
+	// Run all tasks recently to remove staleness bonus
+	st.RecordTaskRun(project, string(TaskLintFix))
+	st.RecordTaskRun(project, string(TaskDocsBackfill))
+	st.RecordTaskRun(project, string(TaskDeadCode))
+
+	// Small sleep to ensure 1ns intervals have passed
+	time.Sleep(time.Microsecond)
+
+	// Run many iterations and verify we get different tasks (randomness)
+	seen := make(map[TaskType]bool)
+	for i := 0; i < 200; i++ {
+		task := sel.SelectRandom(1_000_000, project)
+		if task == nil {
+			t.Fatal("SelectRandom() returned nil")
+		}
+		seen[task.Definition.Type] = true
+		// Verify score is populated
+		if task.Score <= 0 {
+			t.Errorf("SelectRandom() Score = %f, want > 0", task.Score)
+		}
+		// Verify project is set
+		if task.Project != project {
+			t.Errorf("SelectRandom() Project = %s, want %s", task.Project, project)
+		}
+	}
+
+	// With 3 eligible tasks and 200 iterations, we should see all 3
+	if len(seen) < 2 {
+		t.Errorf("SelectRandom() returned only %d distinct tasks in 200 iterations, expected variety", len(seen))
+	}
+}
+
+func TestSelectRandomNoBudget(t *testing.T) {
+	sel, _ := setupTestSelector(t)
+
+	// Budget too low for any task
+	task := sel.SelectRandom(1000, "/test/project")
+	if task != nil {
+		t.Errorf("SelectRandom() with tiny budget should return nil, got %v", task)
+	}
+}
+
+func TestSelectRandomSingleTask(t *testing.T) {
+	st := newTestState(t)
+
+	cfg := &config.Config{
+		Tasks: config.TasksConfig{
+			Enabled: []string{string(TaskLintFix)},
+			Intervals: map[string]string{
+				string(TaskLintFix): "1ns",
+			},
+		},
+	}
+	sel := NewSelector(cfg, st)
+
+	project := "/test/project"
+	st.RecordTaskRun(project, string(TaskLintFix))
+	time.Sleep(time.Microsecond)
+
+	// With only one eligible task, SelectRandom should always return it
+	task := sel.SelectRandom(100_000, project)
+	if task == nil {
+		t.Fatal("SelectRandom() returned nil with one eligible task")
+	}
+	if task.Definition.Type != TaskLintFix {
+		t.Errorf("SelectRandom() = %s, want %s", task.Definition.Type, TaskLintFix)
+	}
+}
+
+func TestSelectRandomRespectsFilters(t *testing.T) {
+	st := newTestState(t)
+
+	cfg := &config.Config{
+		Tasks: config.TasksConfig{
+			Enabled: []string{
+				string(TaskLintFix),
+				string(TaskDocsBackfill),
+			},
+			Priorities: map[string]int{
+				string(TaskLintFix):      10,
+				string(TaskDocsBackfill): 1,
+			},
+		},
+	}
+	sel := NewSelector(cfg, st)
+
+	project := "/test/project"
+
+	// Put lint-fix on cooldown (24h default interval)
+	st.RecordTaskRun(project, string(TaskLintFix))
+
+	// SelectRandom should only return docs-backfill (lint-fix on cooldown)
+	for i := 0; i < 20; i++ {
+		task := sel.SelectRandom(100_000, project)
+		if task == nil {
+			t.Fatal("SelectRandom() returned nil")
+		}
+		if task.Definition.Type != TaskDocsBackfill {
+			t.Errorf("SelectRandom() = %s, want %s (lint-fix on cooldown)", task.Definition.Type, TaskDocsBackfill)
+		}
+	}
+}
+
 func TestSelectNextRespectssCooldown(t *testing.T) {
 	st := newTestState(t)
 
