@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/marcus/nightshift/internal/calibrator"
 	"github.com/marcus/nightshift/internal/config"
 	"github.com/marcus/nightshift/internal/db"
 	"github.com/marcus/nightshift/internal/reporting"
@@ -49,7 +50,8 @@ func runStats(jsonOutput bool, period string) error {
 	defer func() { _ = database.Close() }()
 
 	reportsDir := reporting.DefaultReportsDir()
-	s := stats.New(database, reportsDir)
+	cal := calibrator.New(database, cfg)
+	s := stats.NewWithBudgetSource(database, reportsDir, cal)
 	result, err := s.Compute()
 	if err != nil {
 		return fmt.Errorf("computing stats: %w", err)

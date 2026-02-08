@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/marcus/nightshift/internal/budget"
 	"github.com/marcus/nightshift/internal/db"
 	"github.com/marcus/nightshift/internal/reporting"
 )
@@ -114,9 +115,10 @@ type ProjectStats struct {
 
 // Stats computes aggregate statistics from nightshift data sources.
 type Stats struct {
-	db         *db.DB
-	reportsDir string
-	nowFunc    func() time.Time
+	db           *db.DB
+	reportsDir   string
+	nowFunc      func() time.Time
+	budgetSource budget.BudgetSource
 }
 
 // New creates a Stats instance.
@@ -125,6 +127,16 @@ func New(database *db.DB, reportsDir string) *Stats {
 		db:         database,
 		reportsDir: reportsDir,
 		nowFunc:    time.Now,
+	}
+}
+
+// NewWithBudgetSource creates a Stats instance with a calibrated budget source.
+func NewWithBudgetSource(database *db.DB, reportsDir string, source budget.BudgetSource) *Stats {
+	return &Stats{
+		db:           database,
+		reportsDir:   reportsDir,
+		nowFunc:      time.Now,
+		budgetSource: source,
 	}
 }
 
@@ -466,6 +478,18 @@ func (s *Stats) computeProviderBudgetProjection(sqlDB *sql.DB, provider string, 
 		return BudgetProjection{}, false
 	}
 
+	// Override budget from calibrator when available.
+	budgetValue := inferredBudget.Int64
+	budgetSourceLabel := "calibrated"
+	if s.budgetSource != nil {
+		if est, err := s.budgetSource.GetBudget(provider); err == nil && est.WeeklyTokens > 0 {
+			budgetValue = est.WeeklyTokens
+			if est.Source != "" {
+				budgetSourceLabel = est.Source
+			}
+		}
+	}
+
 	// Average each day's max local_daily over the last 7 days to avoid duplicate
 	// same-day snapshots biasing the average.
 	cutoff := now.AddDate(0, 0, -7)
@@ -494,8 +518,8 @@ func (s *Stats) computeProviderBudgetProjection(sqlDB *sql.DB, provider string, 
 	usedPct := 0.0
 	if scrapedPct.Valid {
 		usedPct = scrapedPct.Float64
-	} else if inferredBudget.Int64 > 0 && localTokens > 0 {
-		usedPct = (float64(localTokens) / float64(inferredBudget.Int64)) * 100
+	} else if budgetValue > 0 && localTokens > 0 {
+		usedPct = (float64(localTokens) / float64(budgetValue)) * 100
 	}
 	if usedPct < 0 {
 		usedPct = 0
@@ -504,19 +528,19 @@ func (s *Stats) computeProviderBudgetProjection(sqlDB *sql.DB, provider string, 
 		usedPct = 100
 	}
 
-	remaining := int64(math.Round(float64(inferredBudget.Int64) * (1 - usedPct/100)))
+	remaining := int64(math.Round(float64(budgetValue) * (1 - usedPct/100)))
 	if remaining < 0 {
 		remaining = 0
 	}
 
 	proj := BudgetProjection{
 		Provider:        provider,
-		WeeklyBudget:    inferredBudget.Int64,
+		WeeklyBudget:    budgetValue,
 		CurrentUsedPct:  usedPct,
 		AvgDailyUsage:   int64(math.Round(avgDaily.Float64)),
 		AvgHourlyUsage:  avgDaily.Float64 / 24.0,
 		RemainingTokens: remaining,
-		Source:          "calibrated",
+		Source:          budgetSourceLabel,
 	}
 
 	if proj.AvgDailyUsage > 0 && remaining > 0 {
