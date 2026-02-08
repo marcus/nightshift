@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -570,6 +571,154 @@ func TestRunTaskExtractsPRURL(t *testing.T) {
 	}
 	if result.OutputRef != "https://github.com/owner/repo/pull/42" {
 		t.Errorf("OutputRef = %q, want %q", result.OutputRef, "https://github.com/owner/repo/pull/42")
+	}
+}
+
+func TestBuildMetadataBlock(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{
+		Provider:  "claude",
+		TaskType:  "lint-fix",
+		TaskScore: 8.5,
+		CostTier:  "Low (10-50k)",
+		RunStart:  time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
+	})
+
+	task := &tasks.Task{
+		ID:    "lint-fix:/project",
+		Title: "Lint Fix",
+		Type:  "lint-fix",
+	}
+	result := &TaskResult{
+		Iterations: 2,
+		Duration:   3*time.Minute + 15*time.Second + 500*time.Millisecond,
+	}
+
+	block := o.buildMetadataBlock(task, result)
+
+	// Verify all expected fields are present
+	for _, want := range []string{
+		"task-id: lint-fix:/project",
+		"task-type: lint-fix",
+		"task-title: Lint Fix",
+		"provider: claude",
+		"score: 8.5",
+		"cost-tier: Low (10-50k)",
+		"iterations: 2",
+		"duration: 3m16s",
+		"run-started: 2025-01-15T10:30:00Z",
+		"nightshift:metadata -->",
+		"Automated by [nightshift]",
+	} {
+		if !strings.Contains(block, want) {
+			t.Errorf("block missing %q\ngot:\n%s", want, block)
+		}
+	}
+}
+
+func TestBuildMetadataBlock_NoRunMeta(t *testing.T) {
+	o := New() // runMeta is nil
+
+	task := &tasks.Task{
+		ID:    "test-id",
+		Title: "Test Title",
+		Type:  "dep-update",
+	}
+	result := &TaskResult{
+		Iterations: 1,
+		Duration:   45 * time.Second,
+	}
+
+	block := o.buildMetadataBlock(task, result)
+
+	// Task fields should be present
+	for _, want := range []string{
+		"task-id: test-id",
+		"task-type: dep-update",
+		"task-title: Test Title",
+		"iterations: 1",
+		"duration: 45s",
+	} {
+		if !strings.Contains(block, want) {
+			t.Errorf("block missing %q\ngot:\n%s", want, block)
+		}
+	}
+
+	// RunMetadata fields should NOT be present
+	for _, absent := range []string{
+		"provider:",
+		"score:",
+		"cost-tier:",
+		"run-started:",
+	} {
+		if strings.Contains(block, absent) {
+			t.Errorf("block should not contain %q when runMeta is nil\ngot:\n%s", absent, block)
+		}
+	}
+}
+
+func TestParseMetadataBlock(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{
+		Provider:  "codex",
+		TaskType:  "bug-finder",
+		TaskScore: 7.2,
+		CostTier:  "High (150-500k)",
+		RunStart:  time.Date(2025, 6, 1, 8, 0, 0, 0, time.UTC),
+	})
+
+	task := &tasks.Task{
+		ID:    "bug-finder:/repo",
+		Title: "Bug Finder",
+		Type:  "bug-finder",
+	}
+	result := &TaskResult{
+		Iterations: 3,
+		Duration:   5 * time.Minute,
+	}
+
+	block := o.buildMetadataBlock(task, result)
+
+	parsed := ParseMetadataBlock("Some PR body text.\n" + block)
+	if parsed == nil {
+		t.Fatal("ParseMetadataBlock returned nil")
+	}
+
+	checks := map[string]string{
+		"task-id":     "bug-finder:/repo",
+		"task-type":   "bug-finder",
+		"task-title":  "Bug Finder",
+		"provider":    "codex",
+		"score":       "7.2",
+		"cost-tier":   "High (150-500k)",
+		"iterations":  "3",
+		"duration":    "5m0s",
+		"run-started": "2025-06-01T08:00:00Z",
+	}
+	for k, want := range checks {
+		got, ok := parsed[k]
+		if !ok {
+			t.Errorf("missing key %q", k)
+			continue
+		}
+		if got != want {
+			t.Errorf("parsed[%q] = %q, want %q", k, got, want)
+		}
+	}
+}
+
+func TestParseMetadataBlock_NoBlock(t *testing.T) {
+	result := ParseMetadataBlock("Just a regular PR body with no metadata.")
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
+}
+
+func TestParseMetadataBlock_Partial(t *testing.T) {
+	// Only start marker, no end marker
+	result := ParseMetadataBlock("body\n<!-- nightshift:metadata\ntask-id: x\n")
+	if result != nil {
+		t.Errorf("expected nil for partial block, got %v", result)
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -83,6 +84,16 @@ type LogEntry struct {
 	Fields  map[string]any `json:"fields,omitempty"`
 }
 
+// RunMetadata holds provenance information about a nightshift run,
+// injected into PRs for traceability.
+type RunMetadata struct {
+	Provider  string
+	TaskType  string
+	TaskScore float64
+	CostTier  string
+	RunStart  time.Time
+}
+
 // Config holds orchestrator configuration.
 type Config struct {
 	MaxIterations int           // Max review iterations (default: 3)
@@ -106,6 +117,7 @@ type Orchestrator struct {
 	config       Config
 	logger       *logging.Logger
 	eventHandler EventHandler // optional callback for real-time events
+	runMeta      *RunMetadata
 }
 
 // Option configures an Orchestrator.
@@ -279,14 +291,17 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 			result.Duration = time.Since(start)
 
 			// Extract PR URL from agent output
-			if url := ExtractPRURL(impl.Raw); url != "" {
+			url := ExtractPRURL(impl.Raw)
+			if url == "" {
+				url = ExtractPRURL(impl.Summary)
+			}
+			if url != "" {
 				result.OutputType = "PR"
 				result.OutputRef = url
 				o.log(result, "info", "PR found", map[string]any{"url": url})
-			} else if url := ExtractPRURL(impl.Summary); url != "" {
-				result.OutputType = "PR"
-				result.OutputRef = url
-				o.log(result, "info", "PR found", map[string]any{"url": url})
+				if err := o.annotatePR(ctx, url, task, result, workDir); err != nil {
+					o.log(result, "warn", "annotate PR failed", map[string]any{"error": err.Error()})
+				}
 			}
 
 			o.log(result, "info", "task completed", map[string]any{"duration": result.Duration.String()})
@@ -318,6 +333,99 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 	result.Duration = time.Since(start)
 	o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: result.Status, Duration: result.Duration})
 	return result, nil
+}
+
+// SetRunMetadata sets the metadata to inject into PRs for the next task.
+func (o *Orchestrator) SetRunMetadata(m *RunMetadata) {
+	o.runMeta = m
+}
+
+// buildMetadataBlock produces the metadata footer appended to PR bodies.
+func (o *Orchestrator) buildMetadataBlock(task *tasks.Task, result *TaskResult) string {
+	var b strings.Builder
+	b.WriteString("\n---\n")
+	b.WriteString("*Automated by [nightshift](https://github.com/marcus/nightshift)*\n\n")
+	b.WriteString("<!-- nightshift:metadata\n")
+	fmt.Fprintf(&b, "task-id: %s\n", task.ID)
+	fmt.Fprintf(&b, "task-type: %s\n", task.Type)
+	fmt.Fprintf(&b, "task-title: %s\n", task.Title)
+	if o.runMeta != nil {
+		fmt.Fprintf(&b, "provider: %s\n", o.runMeta.Provider)
+		fmt.Fprintf(&b, "score: %.1f\n", o.runMeta.TaskScore)
+		fmt.Fprintf(&b, "cost-tier: %s\n", o.runMeta.CostTier)
+	}
+	fmt.Fprintf(&b, "iterations: %d\n", result.Iterations)
+	fmt.Fprintf(&b, "duration: %s\n", result.Duration.Round(time.Second))
+	if o.runMeta != nil {
+		fmt.Fprintf(&b, "run-started: %s\n", o.runMeta.RunStart.Format(time.RFC3339))
+	}
+	b.WriteString("nightshift:metadata -->\n")
+	return b.String()
+}
+
+// ParseMetadataBlock extracts key-value pairs from a nightshift metadata
+// comment embedded in a PR body. Returns nil if the block is not found
+// or is malformed.
+func ParseMetadataBlock(body string) map[string]string {
+	const startMarker = "<!-- nightshift:metadata"
+	const endMarker = "nightshift:metadata -->"
+
+	startIdx := strings.Index(body, startMarker)
+	if startIdx < 0 {
+		return nil
+	}
+	endIdx := strings.Index(body[startIdx:], endMarker)
+	if endIdx < 0 {
+		return nil
+	}
+
+	inner := body[startIdx+len(startMarker) : startIdx+endIdx]
+	result := make(map[string]string)
+	for _, line := range strings.Split(inner, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		result[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+// annotatePR appends a metadata block to an existing GitHub PR body.
+// Idempotent: skips if a metadata block already exists.
+func (o *Orchestrator) annotatePR(ctx context.Context, prURL string, task *tasks.Task, result *TaskResult, workDir string) error {
+	// Read current PR body
+	readCmd := exec.CommandContext(ctx, "gh", "pr", "view", prURL, "--json", "body", "-q", ".body")
+	readCmd.Dir = workDir
+	bodyBytes, err := readCmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("gh pr view: %s: %w", string(bodyBytes), err)
+	}
+
+	currentBody := string(bodyBytes)
+
+	// Skip if metadata already present
+	if ParseMetadataBlock(currentBody) != nil {
+		return nil
+	}
+
+	metaBlock := o.buildMetadataBlock(task, result)
+	newBody := strings.TrimRight(currentBody, "\n") + "\n\n" + metaBlock
+
+	// Update PR body
+	editCmd := exec.CommandContext(ctx, "gh", "pr", "edit", prURL, "--body", newBody)
+	editCmd.Dir = workDir
+	if output, err := editCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("gh pr edit: %s: %w", string(output), err)
+	}
+	return nil
 }
 
 // plan spawns the plan agent to create an execution plan.
@@ -565,7 +673,9 @@ Description: %s
 0. You are running autonomously. If the task is broad or ambiguous, choose a concrete, minimal scope that delivers value and state any assumptions in the description.
 1. Work on a new branch and plan to submit a PR. Never work directly on the primary branch.
 2. Before creating your branch, record the current branch name and plan to switch back after the PR is opened.
-3. If you create commits, include a message and the repo link: https://github.com/marcus/nightshift
+3. If you create commits, include a concise message with these git trailers:
+   Nightshift-Task: %s
+   Nightshift-Ref: https://github.com/marcus/nightshift
 4. Analyze the task requirements
 5. Identify files that need to be modified
 6. Create step-by-step implementation plan
@@ -576,7 +686,7 @@ Description: %s
   "files": ["file1.go", "file2.go", ...],
   "description": "overall approach"
 }
-`, task.ID, task.Title, task.Description)
+`, task.ID, task.Title, task.Description, task.Type)
 }
 
 func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, iteration int) string {
@@ -601,7 +711,9 @@ Description: %s
 ## Instructions
 0. Before creating your branch, record the current branch name. Create and work on a new branch. Never modify or commit directly to the primary branch.
    When finished, open a PR. After the PR is submitted, switch back to the original branch. If you cannot open a PR, leave the branch and explain next steps.
-1. If you create commits, include a concise message and the repo link: https://github.com/marcus/nightshift
+1. If you create commits, include a concise message with these git trailers:
+   Nightshift-Task: %s
+   Nightshift-Ref: https://github.com/marcus/nightshift
 2. Implement the plan step by step
 3. Make all necessary code changes
 4. Ensure tests pass
@@ -611,7 +723,7 @@ Description: %s
   "files_modified": ["file1.go", ...],
   "summary": "what was done"
 }
-`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote)
+`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, task.Type)
 }
 
 func (o *Orchestrator) buildReviewPrompt(task *tasks.Task, impl *ImplementOutput) string {

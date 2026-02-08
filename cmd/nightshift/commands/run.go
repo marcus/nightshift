@@ -669,6 +669,15 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 			// Mark as assigned
 			p.st.MarkAssigned(taskInstance.ID, projectPath, string(scoredTask.Definition.Type))
 
+			// Inject run metadata for PR traceability
+			orch.SetRunMetadata(&orchestrator.RunMetadata{
+				Provider:  choice.name,
+				TaskType:  string(scoredTask.Definition.Type),
+				TaskScore: scoredTask.Score,
+				CostTier:  scoredTask.Definition.CostTier.String(),
+				RunStart:  projectStart,
+			})
+
 			// Execute via orchestrator
 			result, err := orch.RunTask(ctx, taskInstance, projectPath)
 
