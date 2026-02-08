@@ -364,7 +364,7 @@ func TestCodexGetUsedPercent_Daily_RateLimitFallback(t *testing.T) {
 	}
 }
 
-func TestCodexGetUsedPercent_Daily_PrefersRateLimit(t *testing.T) {
+func TestCodexGetUsedPercent_Daily_PrefersTokens(t *testing.T) {
 	tmpDir := t.TempDir()
 	now := time.Now()
 	todayDir := filepath.Join(
@@ -378,7 +378,7 @@ func TestCodexGetUsedPercent_Daily_PrefersRateLimit(t *testing.T) {
 	}
 
 	// Session has both token data and rate limits (used_percent: 5.0).
-	// Rate limit should be preferred over token-based calculation.
+	// Token-based daily calculation should be preferred over 5h rate limit.
 	sessionPath := filepath.Join(todayDir, "session.jsonl")
 	content := `{"type":"session_meta","payload":{"id":"test"}}
 ` + codexTokenCountJSON(5000, 4000, 1000, 200, 6200) + "\n"
@@ -392,9 +392,13 @@ func TestCodexGetUsedPercent_Daily_PrefersRateLimit(t *testing.T) {
 		t.Fatalf("GetUsedPercent error: %v", err)
 	}
 
-	// Rate limit used_percent=5.0 is preferred over token-based (2.2%)
-	if pct != 5.0 {
-		t.Errorf("GetUsedPercent(daily) = %.1f, want 5.0 (rate limit preferred)", pct)
+	// Token-based: dailyBudget = 700000/7 = 100000
+	// billable = (5000-4000) + 1000 + 200 = 2200
+	// pct = 2200/100000 * 100 = 2.2%
+	// This is preferred over rate limit used_percent=5.0 (which is a 5h window, not daily)
+	expectedPct := float64(2200) / float64(100000) * 100
+	if pct != expectedPct {
+		t.Errorf("GetUsedPercent(daily) = %.1f, want %.1f (token-based preferred)", pct, expectedPct)
 	}
 }
 
@@ -436,7 +440,7 @@ func TestCodexGetUsedPercent_Daily_TokenFallback(t *testing.T) {
 	}
 }
 
-func TestCodexGetUsedPercent_Daily_ZeroRateLimitDoesNotFallback(t *testing.T) {
+func TestCodexGetUsedPercent_Daily_TokensPreferredOverZeroRateLimit(t *testing.T) {
 	tmpDir := t.TempDir()
 	now := time.Now()
 	todayDir := filepath.Join(
@@ -465,8 +469,13 @@ func TestCodexGetUsedPercent_Daily_ZeroRateLimitDoesNotFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetUsedPercent error: %v", err)
 	}
-	if pct != 0 {
-		t.Fatalf("GetUsedPercent(daily) = %.2f, want 0.0", pct)
+	// Token-based: dailyBudget = 700000/7 = 100000
+	// billable = (5000-4000) + 1000 + 200 = 2200
+	// pct = 2200/100000 * 100 = 2.2%
+	// Tokens preferred even when rate limit is 0% (5h window doesn't reflect daily usage)
+	expectedPct := float64(2200) / float64(100000) * 100
+	if pct != expectedPct {
+		t.Fatalf("GetUsedPercent(daily) = %.2f, want %.2f (tokens preferred)", pct, expectedPct)
 	}
 }
 
