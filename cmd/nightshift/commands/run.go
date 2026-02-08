@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/marcus/nightshift/internal/agents"
 	"github.com/marcus/nightshift/internal/budget"
 	"github.com/marcus/nightshift/internal/calibrator"
@@ -27,6 +28,7 @@ import (
 	"github.com/marcus/nightshift/internal/tasks"
 	"github.com/marcus/nightshift/internal/trends"
 	"github.com/mattn/go-isatty"
+	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
 )
 
@@ -107,6 +109,7 @@ func init() {
 	runCmd.Flags().Bool("ignore-budget", false, "Bypass budget checks (use with caution)")
 	runCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 	runCmd.Flags().Bool("random-task", false, "Pick a random task from eligible tasks")
+	runCmd.Flags().Bool("no-color", false, "Disable colored output")
 	rootCmd.AddCommand(runCmd)
 }
 
@@ -122,6 +125,11 @@ func runRun(cmd *cobra.Command, args []string) error {
 
 	if randomTask && taskFilter != "" {
 		return fmt.Errorf("--random-task and --task are mutually exclusive")
+	}
+
+	noColor, _ := cmd.Flags().GetBool("no-color")
+	if noColor || os.Getenv("NO_COLOR") != "" {
+		lipgloss.SetColorProfile(termenv.Ascii)
 	}
 
 	// Augment PATH so provider CLIs are discoverable when launched
@@ -532,7 +540,11 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 	}
 
 	// Display preflight summary
-	displayPreflight(os.Stdout, plan)
+	if isInteractive() {
+		displayPreflightColored(plan)
+	} else {
+		displayPreflight(os.Stdout, plan)
+	}
 
 	// Dry-run: show preflight and exit without executing
 	if p.dryRun {
@@ -589,27 +601,41 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 		choice := pp.provider
 		projectPath := pp.path
 
-		fmt.Printf("\n=== Project: %s ===\n", projectPath)
-		fmt.Printf("Provider: %s\n", choice.name)
-		fmt.Printf("Budget: %d tokens available (%.1f%% used, mode=%s)\n",
-			choice.allowance.Allowance, choice.allowance.UsedPercent, choice.allowance.Mode)
+		if isInteractive() {
+			displayProjectHeaderColored(projectPath, choice.name, choice.allowance, len(pp.tasks), pp.tasks)
+		} else {
+			fmt.Printf("\n=== Project: %s ===\n", projectPath)
+			fmt.Printf("Provider: %s\n", choice.name)
+			fmt.Printf("Budget: %d tokens available (%.1f%% used, mode=%s)\n",
+				choice.allowance.Allowance, choice.allowance.UsedPercent, choice.allowance.Mode)
 
-		fmt.Printf("Selected %d task(s):\n", len(pp.tasks))
-		for i, st := range pp.tasks {
-			minTok, maxTok := st.Definition.EstimatedTokens()
-			fmt.Printf("  %d. %s (score=%.1f, cost=%s, tokens=%d-%d)\n",
-				i+1, st.Definition.Name, st.Score, st.Definition.CostTier, minTok, maxTok)
+			fmt.Printf("Selected %d task(s):\n", len(pp.tasks))
+			for i, st := range pp.tasks {
+				minTok, maxTok := st.Definition.EstimatedTokens()
+				fmt.Printf("  %d. %s (score=%.1f, cost=%s, tokens=%d-%d)\n",
+					i+1, st.Definition.Name, st.Score, st.Definition.CostTier, minTok, maxTok)
+			}
 		}
 
 		// Create orchestrator with the selected agent
-		orch := orchestrator.New(
+		var renderer *liveRenderer
+		if isInteractive() {
+			renderer = newLiveRenderer()
+			defer renderer.cleanup()
+		}
+
+		orchOpts := []orchestrator.Option{
 			orchestrator.WithAgent(choice.agent),
 			orchestrator.WithConfig(orchestrator.Config{
 				MaxIterations: 3,
 				AgentTimeout:  30 * time.Minute,
 			}),
 			orchestrator.WithLogger(logging.Component("orchestrator")),
-		)
+		}
+		if renderer != nil {
+			orchOpts = append(orchOpts, orchestrator.WithEventHandler(renderer.HandleEvent))
+		}
+		orch := orchestrator.New(orchOpts...)
 
 		projectStart := time.Now()
 		projectTaskTypes := make([]string, 0, len(pp.tasks))
@@ -626,7 +652,9 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 			}
 
 			tasksRun++
-			fmt.Printf("\n--- Running: %s (via %s) ---\n", scoredTask.Definition.Name, choice.name)
+			if !isInteractive() {
+				fmt.Printf("\n--- Running: %s (via %s) ---\n", scoredTask.Definition.Name, choice.name)
+			}
 			projectTaskTypes = append(projectTaskTypes, string(scoredTask.Definition.Type))
 
 			// Create task instance
@@ -650,7 +678,9 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 			if err != nil {
 				tasksFailed++
 				projectFailed++
-				fmt.Printf("  FAILED: %v\n", err)
+				if !isInteractive() {
+					fmt.Printf("  FAILED: %v\n", err)
+				}
 				p.log.Errorf("task %s failed: %v", taskInstance.ID, err)
 				if p.report != nil {
 					p.report.addTask(reporting.TaskResult{
@@ -670,7 +700,9 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 			case orchestrator.StatusCompleted:
 				tasksCompleted++
 				projectCompleted++
-				fmt.Printf("  COMPLETED in %d iteration(s) (%s)\n", result.Iterations, result.Duration)
+				if !isInteractive() {
+					fmt.Printf("  COMPLETED in %d iteration(s) (%s)\n", result.Iterations, result.Duration)
+				}
 				p.st.RecordTaskRun(projectPath, string(scoredTask.Definition.Type))
 				_, maxTok := scoredTask.Definition.EstimatedTokens()
 				projectTokensUsed += maxTok
@@ -689,7 +721,9 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 			case orchestrator.StatusAbandoned:
 				tasksFailed++
 				projectFailed++
-				fmt.Printf("  ABANDONED after %d iteration(s): %s\n", result.Iterations, result.Error)
+				if !isInteractive() {
+					fmt.Printf("  ABANDONED after %d iteration(s): %s\n", result.Iterations, result.Error)
+				}
 				if p.report != nil {
 					p.report.addTask(reporting.TaskResult{
 						Project:    projectPath,
@@ -703,7 +737,9 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 			default:
 				tasksFailed++
 				projectFailed++
-				fmt.Printf("  FAILED: %s\n", result.Error)
+				if !isInteractive() {
+					fmt.Printf("  FAILED: %s\n", result.Error)
+				}
 				if p.report != nil {
 					p.report.addTask(reporting.TaskResult{
 						Project:    projectPath,
@@ -739,14 +775,18 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 
 	// Summary
 	duration := time.Since(start)
-	fmt.Printf("\n=== Run Complete ===\n")
-	fmt.Printf("Duration: %s\n", duration.Round(time.Second))
-	fmt.Printf("Tasks: %d run, %d completed, %d failed\n", tasksRun, tasksCompleted, tasksFailed)
+	if isInteractive() {
+		displayRunSummaryColored(duration, tasksRun, tasksCompleted, tasksFailed, skipReasons)
+	} else {
+		fmt.Printf("\n=== Run Complete ===\n")
+		fmt.Printf("Duration: %s\n", duration.Round(time.Second))
+		fmt.Printf("Tasks: %d run, %d completed, %d failed\n", tasksRun, tasksCompleted, tasksFailed)
 
-	if tasksRun == 0 && len(skipReasons) > 0 {
-		fmt.Println("\nNothing ran because:")
-		for _, reason := range skipReasons {
-			fmt.Printf("  - %s\n", reason)
+		if tasksRun == 0 && len(skipReasons) > 0 {
+			fmt.Println("\nNothing ran because:")
+			for _, reason := range skipReasons {
+				fmt.Printf("  - %s\n", reason)
+			}
 		}
 	}
 

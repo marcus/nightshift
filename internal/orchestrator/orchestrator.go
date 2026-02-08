@@ -100,11 +100,12 @@ func DefaultConfig() Config {
 
 // Orchestrator manages agent execution using plan-implement-review loop.
 type Orchestrator struct {
-	agent  agents.Agent
-	budget *budget.Tracker
-	queue  *tasks.Queue
-	config Config
-	logger *logging.Logger
+	agent        agents.Agent
+	budget       *budget.Tracker
+	queue        *tasks.Queue
+	config       Config
+	logger       *logging.Logger
+	eventHandler EventHandler // optional callback for real-time events
 }
 
 // Option configures an Orchestrator.
@@ -145,6 +146,21 @@ func WithLogger(l *logging.Logger) Option {
 	}
 }
 
+// WithEventHandler sets an optional callback for real-time orchestrator events.
+func WithEventHandler(h EventHandler) Option {
+	return func(o *Orchestrator) {
+		o.eventHandler = h
+	}
+}
+
+// emit sends an event to the registered handler, if any.
+func (o *Orchestrator) emit(e Event) {
+	if o.eventHandler != nil {
+		e.Time = time.Now()
+		o.eventHandler(e)
+	}
+}
+
 // New creates an orchestrator with the given options.
 func New(opts ...Option) *Orchestrator {
 	o := &Orchestrator{
@@ -168,10 +184,18 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 
 	o.log(result, "info", "starting task", map[string]any{"task_id": task.ID, "title": task.Title})
 
+	o.emit(Event{
+		Type:      EventTaskStart,
+		TaskID:    task.ID,
+		TaskTitle: task.Title,
+		Message:   "starting task",
+	})
+
 	if o.agent == nil {
 		result.Status = StatusFailed
 		result.Error = "no agent configured"
 		result.Duration = time.Since(start)
+		o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: StatusFailed, Duration: result.Duration, Error: result.Error})
 		return result, errors.New("no agent configured")
 	}
 
@@ -184,45 +208,65 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 	result.Status = StatusPlanning
 	o.log(result, "info", "planning", nil)
 
+	o.emit(Event{Type: EventPhaseStart, Phase: StatusPlanning, TaskID: task.ID})
+	phaseStart := time.Now()
+
 	plan, err := o.plan(ctx, task, workDir)
 	if err != nil {
 		result.Status = StatusFailed
 		result.Error = fmt.Sprintf("planning failed: %v", err)
 		result.Duration = time.Since(start)
 		o.log(result, "error", "plan failed", map[string]any{"error": err.Error()})
+		o.emit(Event{Type: EventPhaseEnd, Phase: StatusPlanning, TaskID: task.ID, Duration: time.Since(phaseStart), Error: err.Error()})
+		o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: StatusFailed, Duration: result.Duration, Error: result.Error})
 		return result, err
 	}
 	result.Plan = plan
 	o.log(result, "info", "plan created", map[string]any{"steps": len(plan.Steps)})
+	o.emit(Event{Type: EventPhaseEnd, Phase: StatusPlanning, TaskID: task.ID, Duration: time.Since(phaseStart)})
 
 	// Step 2-4: Implement -> Review loop
 	for iteration := 1; iteration <= o.config.MaxIterations; iteration++ {
 		result.Iterations = iteration
 		o.log(result, "info", "iteration start", map[string]any{"iteration": iteration})
 
+		o.emit(Event{Type: EventIterationStart, TaskID: task.ID, Iteration: iteration, MaxIter: o.config.MaxIterations})
+
 		// Implement
 		result.Status = StatusExecuting
+		o.emit(Event{Type: EventPhaseStart, Phase: StatusExecuting, TaskID: task.ID, Iteration: iteration})
+		phaseStart = time.Now()
+
 		impl, err := o.implement(ctx, task, plan, workDir, iteration)
 		if err != nil {
 			result.Status = StatusFailed
 			result.Error = fmt.Sprintf("implement failed (iteration %d): %v", iteration, err)
 			result.Duration = time.Since(start)
 			o.log(result, "error", "implement failed", map[string]any{"iteration": iteration, "error": err.Error()})
+			o.emit(Event{Type: EventPhaseEnd, Phase: StatusExecuting, TaskID: task.ID, Duration: time.Since(phaseStart), Error: err.Error()})
+			o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: StatusFailed, Duration: result.Duration, Error: result.Error})
 			return result, err
 		}
 		result.Output = impl.Summary
 		o.log(result, "info", "implementation complete", map[string]any{"files_modified": len(impl.FilesModified)})
+		o.emit(Event{Type: EventPhaseEnd, Phase: StatusExecuting, TaskID: task.ID, Duration: time.Since(phaseStart), Iteration: iteration})
 
 		// Review
 		result.Status = StatusReviewing
+		o.emit(Event{Type: EventPhaseStart, Phase: StatusReviewing, TaskID: task.ID, Iteration: iteration})
+		phaseStart = time.Now()
+
 		review, err := o.review(ctx, task, impl, workDir)
 		if err != nil {
 			result.Status = StatusFailed
 			result.Error = fmt.Sprintf("review failed (iteration %d): %v", iteration, err)
 			result.Duration = time.Since(start)
 			o.log(result, "error", "review failed", map[string]any{"iteration": iteration, "error": err.Error()})
+			o.emit(Event{Type: EventPhaseEnd, Phase: StatusReviewing, TaskID: task.ID, Duration: time.Since(phaseStart), Error: err.Error()})
+			o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: StatusFailed, Duration: result.Duration, Error: result.Error})
 			return result, err
 		}
+		o.emit(Event{Type: EventPhaseEnd, Phase: StatusReviewing, TaskID: task.ID, Duration: time.Since(phaseStart), Iteration: iteration})
 
 		if review.Passed {
 			// Success - commit and return
@@ -246,6 +290,7 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 			}
 
 			o.log(result, "info", "task completed", map[string]any{"duration": result.Duration.String()})
+			o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: StatusCompleted, Duration: result.Duration})
 			return result, nil
 		}
 
@@ -262,6 +307,7 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 			result.Error = fmt.Sprintf("max iterations (%d) reached: %s", o.config.MaxIterations, review.Feedback)
 			result.Duration = time.Since(start)
 			o.log(result, "error", "task abandoned", map[string]any{"reason": "max iterations"})
+			o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: StatusAbandoned, Duration: result.Duration, Error: result.Error})
 			return result, nil
 		}
 
@@ -270,6 +316,7 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 	}
 
 	result.Duration = time.Since(start)
+	o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: result.Status, Duration: result.Duration})
 	return result, nil
 }
 
@@ -696,4 +743,11 @@ func (o *Orchestrator) log(result *TaskResult, level, msg string, fields map[str
 	case "error":
 		o.logger.ErrorCtx(msg, fields)
 	}
+
+	o.emit(Event{
+		Type:    EventLog,
+		Level:   level,
+		Message: msg,
+		Fields:  fields,
+	})
 }
