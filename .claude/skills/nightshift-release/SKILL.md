@@ -1,5 +1,5 @@
 ---
-name: release-nightshift
+name: nightshift-release
 description: Release a new version of the nightshift Go project using goreleaser. Use when the user asks to cut a release, push a new version, bump the version, publish a release, or verify a release succeeded. Covers version bumping, git tagging, goreleaser dry-run validation, pushing, and post-release verification via GitHub Actions and `gh`.
 ---
 
