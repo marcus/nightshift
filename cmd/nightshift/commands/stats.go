@@ -314,12 +314,16 @@ func renderStatsHuman(result *stats.StatsResult) error {
 			}
 
 			if bp.EstExhaustAt != nil {
-				fmt.Printf("    Projected:  %s (%s)\n", bp.EstExhaustAt.Local().Format("Jan 2 3:04pm"), formatCompactDuration(time.Until(*bp.EstExhaustAt)))
-				if bp.WillExhaustBeforeReset != nil {
-					if *bp.WillExhaustBeforeReset {
-						fmt.Printf("    Outlook:    likely exhausted before reset\n")
-					} else {
-						fmt.Printf("    Outlook:    likely resets before exhaustion\n")
+				if time.Until(*bp.EstExhaustAt) <= 0 {
+					fmt.Printf("    Projected:  budget may already be exhausted\n")
+				} else {
+					fmt.Printf("    Projected:  %s (%s)\n", bp.EstExhaustAt.Local().Format("Jan 2 3:04pm"), formatCompactDuration(time.Until(*bp.EstExhaustAt)))
+					if bp.WillExhaustBeforeReset != nil {
+						if *bp.WillExhaustBeforeReset {
+							fmt.Printf("    Outlook:    likely exhausted before reset\n")
+						} else {
+							fmt.Printf("    Outlook:    likely resets before exhaustion\n")
+						}
 					}
 				}
 			} else if bp.RemainingTokens <= 0 {
