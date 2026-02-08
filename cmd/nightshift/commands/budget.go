@@ -274,7 +274,11 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 	}
 
 	// Budget used bar
-	fmt.Printf("  Budget used:  %s\n", progressBar(result.UsedPercent, 30))
+	periodLabel := "this week"
+	if result.Mode == "daily" {
+		periodLabel = "today"
+	}
+	fmt.Printf("  Budget used:  %s %s\n", progressBar(result.UsedPercent, 30), periodLabel)
 
 	// Token accounting note
 	printTokenAccountingNote(provName, estimate)
