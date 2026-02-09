@@ -35,12 +35,5 @@ changelog:
       - "^ci:"
       - "^chore:"
 
-homebrew_casks:
-  - name: nightshift
-    homepage: https://github.com/marcus/nightshift
-    description: Nightshift runs AI maintenance tasks overnight
-    directory: Casks
-    repository:
-      owner: marcus
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+# Note: Homebrew formula is manually maintained in marcus/homebrew-tap
+# to build from source (avoids Gatekeeper warnings on macOS)
