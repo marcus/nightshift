@@ -30,6 +30,11 @@ var migrations = []Migration{
 		Description: "add provider column to run_history",
 		SQL:         migration003SQL,
 	},
+	{
+		Version:     4,
+		Description: "add bus_factor_results table for code ownership analysis",
+		SQL:         migration004SQL,
+	},
 }
 
 const migration002SQL = `
@@ -39,6 +44,20 @@ ALTER TABLE snapshots ADD COLUMN weekly_reset_time TEXT;
 
 const migration003SQL = `
 ALTER TABLE run_history ADD COLUMN provider TEXT NOT NULL DEFAULT '';
+`
+
+const migration004SQL = `
+CREATE TABLE IF NOT EXISTS bus_factor_results (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    component       TEXT NOT NULL,
+    timestamp       DATETIME NOT NULL,
+    metrics         TEXT NOT NULL,
+    contributors    TEXT NOT NULL,
+    risk_level      TEXT NOT NULL,
+    report_path     TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_bus_factor_component_time ON bus_factor_results(component, timestamp DESC);
 `
 
 const migration001SQL = `
