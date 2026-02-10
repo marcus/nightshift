@@ -861,7 +861,7 @@ func TestConfirmRun_TTYAcceptsY(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdin = r
 	_, _ = w.WriteString("y\n")
-	w.Close()
+	_ = w.Close()
 
 	p := executeRunParams{log: logging.Component("test")}
 	ok, err := confirmRun(p)
@@ -883,7 +883,7 @@ func TestConfirmRun_TTYAcceptsYes(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdin = r
 	_, _ = w.WriteString("yes\n")
-	w.Close()
+	_ = w.Close()
 
 	p := executeRunParams{log: logging.Component("test")}
 	ok, err := confirmRun(p)
@@ -905,7 +905,7 @@ func TestConfirmRun_TTYRejectsN(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdin = r
 	_, _ = w.WriteString("n\n")
-	w.Close()
+	_ = w.Close()
 
 	p := executeRunParams{log: logging.Component("test")}
 	ok, err := confirmRun(p)
@@ -927,7 +927,7 @@ func TestConfirmRun_TTYDefaultRejectsEmpty(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdin = r
 	_, _ = w.WriteString("\n")
-	w.Close()
+	_ = w.Close()
 
 	p := executeRunParams{log: logging.Component("test")}
 	ok, err := confirmRun(p)
@@ -953,7 +953,7 @@ func captureStdout(t *testing.T, fn func()) string {
 
 	fn()
 
-	w.Close()
+	_ = w.Close()
 	os.Stdout = origStdout
 
 	var buf strings.Builder

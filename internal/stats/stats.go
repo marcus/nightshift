@@ -28,7 +28,7 @@ type Duration struct {
 
 // MarshalJSON serializes Duration as integer seconds.
 func (d Duration) MarshalJSON() ([]byte, error) {
-	return json.Marshal(int64(d.Duration.Seconds()))
+	return json.Marshal(int64(d.Seconds()))
 }
 
 // UnmarshalJSON deserializes Duration from integer seconds.

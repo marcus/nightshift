@@ -472,14 +472,14 @@ func buildPreflight(p executeRunParams) (*preflightPlan, error) {
 
 // displayPreflight renders the preflight summary to the given writer.
 func displayPreflight(w io.Writer, plan *preflightPlan) {
-	fmt.Fprintf(w, "\n=== Preflight Summary ===\n")
+	_, _ = fmt.Fprintf(w, "\n=== Preflight Summary ===\n")
 
 	// Show provider info from first project that has one
 	for _, pp := range plan.projects {
 		if pp.provider != nil {
-			fmt.Fprintf(w, "Provider: %s (%.1f%% budget used, %s mode)\n",
+			_, _ = fmt.Fprintf(w, "Provider: %s (%.1f%% budget used, %s mode)\n",
 				pp.provider.name, pp.provider.allowance.UsedPercent, pp.provider.allowance.Mode)
-			fmt.Fprintf(w, "Budget: %d tokens remaining\n", pp.provider.allowance.Allowance)
+			_, _ = fmt.Fprintf(w, "Budget: %d tokens remaining\n", pp.provider.allowance.Allowance)
 			break
 		}
 	}
@@ -491,7 +491,7 @@ func displayPreflight(w io.Writer, plan *preflightPlan) {
 			active++
 		}
 	}
-	fmt.Fprintf(w, "\nProjects (%d of %d):\n", active, len(plan.projects))
+	_, _ = fmt.Fprintf(w, "\nProjects (%d of %d):\n", active, len(plan.projects))
 
 	idx := 0
 	for _, pp := range plan.projects {
@@ -499,10 +499,10 @@ func displayPreflight(w io.Writer, plan *preflightPlan) {
 			continue
 		}
 		idx++
-		fmt.Fprintf(w, "  %d. %s\n", idx, filepath.Base(pp.path))
+		_, _ = fmt.Fprintf(w, "  %d. %s\n", idx, filepath.Base(pp.path))
 		for _, st := range pp.tasks {
 			minTok, maxTok := st.Definition.EstimatedTokens()
-			fmt.Fprintf(w, "     - %s (score=%.1f, cost=%s, ~%dk-%dk tokens)\n",
+			_, _ = fmt.Fprintf(w, "     - %s (score=%.1f, cost=%s, ~%dk-%dk tokens)\n",
 				st.Definition.Name, st.Score, st.Definition.CostTier, minTok/1000, maxTok/1000)
 		}
 	}
@@ -515,19 +515,19 @@ func displayPreflight(w io.Writer, plan *preflightPlan) {
 		}
 	}
 	if len(skipped) > 0 {
-		fmt.Fprintf(w, "\nSkipped:\n")
+		_, _ = fmt.Fprintf(w, "\nSkipped:\n")
 		for _, pp := range skipped {
-			fmt.Fprintf(w, "  - %s: %s\n", filepath.Base(pp.path), pp.skipReason)
+			_, _ = fmt.Fprintf(w, "  - %s: %s\n", filepath.Base(pp.path), pp.skipReason)
 		}
 	}
 
 	// Warnings
 	if plan.ignoreBudget {
-		fmt.Fprintf(w, "\nWarnings:\n")
-		fmt.Fprintf(w, "  - --ignore-budget is set: budget limits bypassed\n")
+		_, _ = fmt.Fprintf(w, "\nWarnings:\n")
+		_, _ = fmt.Fprintf(w, "  - --ignore-budget is set: budget limits bypassed\n")
 	}
 
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 }
 
 func executeRun(ctx context.Context, p executeRunParams) error {
@@ -915,6 +915,6 @@ func ensurePATH() {
 
 	if len(added) > 0 {
 		newPath := current + string(os.PathListSeparator) + strings.Join(added, string(os.PathListSeparator))
-		os.Setenv("PATH", newPath)
+		_ = os.Setenv("PATH", newPath)
 	}
 }
