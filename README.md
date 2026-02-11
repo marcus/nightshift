@@ -165,7 +165,34 @@ codex --login
 
 Claude Code login supports Claude.ai subscriptions or Anthropic Console credentials. Codex CLI supports signing in with ChatGPT or an API key.
 
-If you prefer API-based usage, you can authenticate those CLIs with API keys instead.
+### Ollama Cloud
+
+Ollama Cloud requires cookie-based authentication since it doesn't provide a public API for rate limiting:
+
+```bash
+# Set up authentication
+nightshift ollama auth
+```
+
+This creates `~/.ollama/cookies.txt`. To populate it:
+
+1. Sign in to https://ollama.com/settings in your browser
+2. Install a browser extension to export cookies:
+   - Chrome/Firefox: ["EditThisCookie"](https://chrome.google.com/webstore/detail/editthiscookie/) or ["Get cookies.txt LOCALLY"](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/)
+3. Export your ollama.com cookies in **Netscape format**
+4. Paste the cookies into `~/.ollama/cookies.txt`
+
+Required cookies (find exactly these names):
+- `__Secure-session` or `__Secure-next-auth.session-token`
+- `aid`
+- `cf_clearance`
+
+Verify setup:
+```bash
+nightshift budget --provider ollama
+```
+
+If you prefer API-based usage, you can authenticate the Claude and Codex CLIs with API keys instead (Ollama Cloud only uses cookie auth).
 
 ## Configuration
 
@@ -200,6 +227,7 @@ providers:
   preference:
     - claude
     - codex
+    - ollama
   claude:
     enabled: true
     data_path: "~/.claude"
@@ -208,6 +236,9 @@ providers:
     enabled: true
     data_path: "~/.codex"
     dangerously_bypass_approvals_and_sandbox: true
+  ollama:
+    enabled: false
+    data_path: "~/.ollama"
 
 projects:
   - path: ~/code/sidecar

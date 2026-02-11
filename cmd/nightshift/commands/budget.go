@@ -28,7 +28,7 @@ Shows spending across all providers or a specific provider.`,
 }
 
 func init() {
-	budgetCmd.Flags().StringP("provider", "p", "", "Show specific provider status (claude, codex)")
+	budgetCmd.Flags().StringP("provider", "p", "", "Show specific provider status (claude, codex, ollama)")
 	rootCmd.AddCommand(budgetCmd)
 }
 
@@ -48,6 +48,7 @@ func runBudget(filterProvider string) error {
 	// Initialize providers
 	var claude *providers.Claude
 	var codex *providers.Codex
+	var ollama *providers.Ollama
 
 	if cfg.Providers.Claude.Enabled {
 		dataPath := cfg.ExpandedProviderPath("claude")
@@ -67,10 +68,19 @@ func runBudget(filterProvider string) error {
 		}
 	}
 
+	if cfg.Providers.Ollama.Enabled {
+		dataPath := cfg.ExpandedProviderPath("ollama")
+		if dataPath != "" {
+			ollama = providers.NewOllamaWithPath(dataPath)
+		} else {
+			ollama = providers.NewOllama()
+		}
+	}
+
 	// Create budget manager
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	mgr := budget.NewManagerFromProviders(cfg, claude, codex, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
+	mgr := budget.NewManagerFromProviders(cfg, claude, codex, budget.WithOllamaProvider(ollama), budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	providerList, err := resolveProviderList(cfg, filterProvider)
 	if err != nil {

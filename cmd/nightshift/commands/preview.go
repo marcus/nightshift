@@ -256,9 +256,10 @@ func buildPreviewResult(cfg *config.Config, database *db.DB, projects []string, 
 
 	claudeProvider := providers.NewClaudeWithPath(cfg.ExpandedProviderPath("claude"))
 	codexProvider := providers.NewCodexWithPath(cfg.ExpandedProviderPath("codex"))
+	ollamaProvider := providers.NewOllamaWithPath(cfg.ExpandedProviderPath("ollama"))
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
+	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, budget.WithOllamaProvider(ollamaProvider), budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	selector := tasks.NewSelector(cfg, st)
 	orch := orchestrator.New()

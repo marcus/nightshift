@@ -19,8 +19,12 @@ func resolveProviderList(cfg *config.Config, filter string) ([]string, error) {
 			if !cfg.Providers.Codex.Enabled {
 				return nil, fmt.Errorf("codex provider not enabled")
 			}
+		case "ollama":
+			if !cfg.Providers.Ollama.Enabled {
+				return nil, fmt.Errorf("ollama provider not enabled")
+			}
 		default:
-			return nil, fmt.Errorf("unknown provider: %s (valid: claude, codex)", filter)
+			return nil, fmt.Errorf("unknown provider: %s (valid: claude, codex, ollama)", filter)
 		}
 		return []string{filter}, nil
 	}
@@ -31,6 +35,9 @@ func resolveProviderList(cfg *config.Config, filter string) ([]string, error) {
 	}
 	if cfg.Providers.Codex.Enabled {
 		providerList = append(providerList, "codex")
+	}
+	if cfg.Providers.Ollama.Enabled {
+		providerList = append(providerList, "ollama")
 	}
 
 	return providerList, nil

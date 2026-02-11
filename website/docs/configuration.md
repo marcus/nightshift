@@ -30,6 +30,7 @@ providers:
   preference:
     - claude
     - codex
+    - ollama
   claude:
     enabled: true
     data_path: "~/.claude"
@@ -38,6 +39,9 @@ providers:
     enabled: true
     data_path: "~/.codex"
     dangerously_bypass_approvals_and_sandbox: true
+  ollama:
+    enabled: false
+    data_path: "~/.ollama"
 
 projects:
   - path: ~/code/sidecar
@@ -127,4 +131,64 @@ If `state/state.json` exists from older versions, Nightshift migrates it to the 
 
 ## Providers
 
-Nightshift supports Claude Code and Codex as execution providers. It will use whichever has budget remaining, in the order specified by `preference`.
+Nightshift supports Claude Code, Codex, and Ollama Cloud as execution providers. It will use whichever has budget remaining, in the order specified by `preference`.
+
+### Claude Code
+
+```yaml
+providers:
+  claude:
+    enabled: true
+    data_path: "~/.claude"
+    dangerously_skip_permissions: true
+```
+
+Authenticate via `/login` in the Claude Code CLI or use an API key.
+
+### Codex
+
+```yaml
+providers:
+  codex:
+    enabled: true
+    data_path: "~/.codex"
+    dangerously_bypass_approvals_and_sandbox: true
+```
+
+Authenticate via `codex --login` or use an API key.
+
+### Ollama Cloud
+
+```yaml
+providers:
+  ollama:
+    enabled: false
+    data_path: "~/.ollama"
+```
+
+Ollama Cloud uses cookie-based authentication since it doesn't provide a public API for rate limiting.
+
+**Setup steps:**
+
+```bash
+nightshift ollama auth
+```
+
+This creates `~/.ollama/cookies.txt`. To populate it:
+
+1. Sign in to https://ollama.com/settings in your browser
+2. Install a browser extension to export cookies:
+   - Chrome/Firefox: ["EditThisCookie"](https://chrome.google.com/webstore/detail/editthiscookie/) or ["Get cookies.txt LOCALLY"](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/)
+3. Export your ollama.com cookies in **Netscape format**
+4. Paste the cookies into `~/.ollama/cookies.txt`
+
+**Required cookies:**
+- `__Secure-session` (or `__Secure-next-auth.session-token`)
+- `aid`
+- `cf_clearance`
+
+**Verify setup:**
+
+```bash
+nightshift budget --provider ollama
+```

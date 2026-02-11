@@ -12,7 +12,7 @@ Use td usage -q after first read.
 
 ## Purpose
 
-Nightshift is a CLI tool that orchestrates AI coding agents (Claude Code, Codex) to work on tasks overnight. It manages budgets, schedules runs, and coordinates parallel agent execution.
+Nightshift is a CLI tool that orchestrates AI coding agents (Claude Code, Codex, Ollama Cloud) to work on tasks overnight. It manages budgets, schedules runs, and coordinates parallel agent execution.
 
 ## Key Directories
 

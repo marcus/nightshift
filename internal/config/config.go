@@ -59,9 +59,10 @@ type BudgetConfig struct {
 
 // ProvidersConfig defines AI provider settings.
 type ProvidersConfig struct {
-	Claude ProviderConfig `mapstructure:"claude"`
-	Codex  ProviderConfig `mapstructure:"codex"`
-	// Preference sets provider order (e.g., ["claude", "codex"]).
+	Claude    ProviderConfig `mapstructure:"claude"`
+	Codex     ProviderConfig `mapstructure:"codex"`
+	Ollama    ProviderConfig `mapstructure:"ollama"`
+	// Preference sets provider order (e.g., ["claude", "codex", "ollama"]).
 	Preference []string `mapstructure:"preference"`
 }
 
@@ -398,12 +399,13 @@ func Validate(cfg *Config) error {
 	// Provider preference validation
 	if len(cfg.Providers.Preference) > 0 {
 		seen := map[string]bool{}
+		validProviders := map[string]bool{"claude": true, "codex": true, "ollama": true}
 		for _, pref := range cfg.Providers.Preference {
 			name := strings.ToLower(strings.TrimSpace(pref))
 			if name == "" {
 				continue
 			}
-			if name != "claude" && name != "codex" {
+			if !validProviders[name] {
 				return fmt.Errorf("providers.preference contains unknown provider: %s", pref)
 			}
 			if seen[name] {
@@ -550,6 +552,8 @@ func (c *Config) ExpandedProviderPath(provider string) string {
 		return expandPath(c.Providers.Claude.DataPath)
 	case "codex":
 		return expandPath(c.Providers.Codex.DataPath)
+	case "ollama":
+		return expandPath(c.Providers.Ollama.DataPath)
 	default:
 		return ""
 	}

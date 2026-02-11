@@ -13,6 +13,7 @@ Nightshift is designed to use tokens you'd otherwise waste. It tracks your remai
 nightshift budget
 nightshift budget --provider claude
 nightshift budget --provider codex
+nightshift budget --provider ollama
 ```
 
 ## Configuration Options
