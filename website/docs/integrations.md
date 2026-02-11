@@ -24,6 +24,32 @@ Nightshift supports OpenAI's Codex CLI as an alternative provider:
 codex --login
 ```
 
+## Ollama Cloud
+
+Nightshift supports Ollama Cloud as a third provider. Since Ollama Cloud doesn't provide a public API for rate limiting, authentication uses cookies:
+
+```bash
+nightshift ollama auth
+```
+
+This creates `~/.ollama/cookies.txt`. Populate it with your ollama.com browser cookies:
+
+1. Sign in to https://ollama.com/settings
+2. Export cookies via browser extension (Netscape format):
+   - ["EditThisCookie"](https://chrome.google.com/webstore/detail/editthiscookie/)
+   - ["Get cookies.txt LOCALLY"](https://chrome.google.com/webstore/detail/get-cookiestxt-locally/)
+3. Paste cookies into `~/.ollama/cookies.txt`
+
+**Required cookies:**
+- `__Secure-session` (or `__Secure-next-auth.session-token`)
+- `aid`
+- `cf_clearance`
+
+Verify setup:
+```bash
+nightshift budget --provider ollama
+```
+
 ## GitHub
 
 All output is PR-based. Nightshift creates branches and pull requests for its findings.

@@ -29,6 +29,13 @@ type CodexUsageProvider interface {
 	GetResetTime(mode string) (time.Time, error)
 }
 
+// OllamaUsageProvider extends UsageProvider for Ollama-specific usage methods.
+type OllamaUsageProvider interface {
+	UsageProvider
+	GetUsedPercent(mode string, weeklyBudget int64) (float64, error)
+	GetResetTime(mode string) (time.Time, error)
+}
+
 // BudgetEstimate provides a resolved weekly budget with metadata.
 type BudgetEstimate struct {
 	WeeklyTokens int64
@@ -62,6 +69,7 @@ type Manager struct {
 	cfg          *config.Config
 	claude       ClaudeUsageProvider
 	codex        CodexUsageProvider
+	ollama       OllamaUsageProvider
 	budgetSource BudgetSource
 	trend        TrendAnalyzer
 	nowFunc      func() time.Time // for testing
@@ -92,6 +100,13 @@ func WithBudgetSource(source BudgetSource) Option {
 func WithTrendAnalyzer(analyzer TrendAnalyzer) Option {
 	return func(m *Manager) {
 		m.trend = analyzer
+	}
+}
+
+// WithOllamaProvider injects an Ollama usage provider.
+func WithOllamaProvider(ollama OllamaUsageProvider) Option {
+	return func(m *Manager) {
+		m.ollama = ollama
 	}
 }
 
@@ -297,6 +312,12 @@ func (m *Manager) GetUsedPercent(provider string) (float64, error) {
 		}
 		return m.codex.GetUsedPercent(mode, weeklyBudget)
 
+	case "ollama":
+		if m.ollama == nil {
+			return 0, fmt.Errorf("ollama provider not configured")
+		}
+		return m.ollama.GetUsedPercent(mode, weeklyBudget)
+
 	default:
 		return 0, fmt.Errorf("unknown provider: %s", provider)
 	}
@@ -310,6 +331,10 @@ func (m *Manager) usedPercentSource(provider string) string {
 		}
 	case "codex":
 		if reporter, ok := m.codex.(UsedPercentSourceProvider); ok {
+			return reporter.LastUsedPercentSource()
+		}
+	case "ollama":
+		if reporter, ok := m.ollama.(UsedPercentSourceProvider); ok {
 			return reporter.LastUsedPercentSource()
 		}
 	}
@@ -348,6 +373,24 @@ func (m *Manager) DaysUntilWeeklyReset(provider string) (int, error) {
 		days := int(math.Ceil(duration.Hours() / 24))
 		if days <= 0 {
 			return 1, nil // At least 1 day
+		}
+		return days, nil
+
+	case "ollama":
+		if m.ollama == nil {
+			return 7, nil
+		}
+		resetTime, err := m.ollama.GetResetTime("weekly")
+		if err != nil {
+			return 7, nil
+		}
+		if resetTime.IsZero() {
+			return 7, nil
+		}
+		duration := resetTime.Sub(now)
+		days := int(math.Ceil(duration.Hours() / 24))
+		if days <= 0 {
+			return 1, nil
 		}
 		return days, nil
 
