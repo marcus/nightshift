@@ -207,6 +207,13 @@ func displayPreflightColored(plan *preflightPlan) {
 	fmt.Println(s.Title.Render("Preflight Summary"))
 	fmt.Println(s.Muted.Render(hr))
 
+	// Show branch info
+	if plan.branch != "" {
+		fmt.Printf("  %s %s\n",
+			s.Label.Render("Branch:"),
+			s.Value.Render(plan.branch))
+	}
+
 	// Show provider info from first project that has one
 	for _, pp := range plan.projects {
 		if pp.provider != nil {

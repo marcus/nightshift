@@ -70,6 +70,7 @@ func init() {
 	taskRunCmd.Flags().StringP("project", "p", "", "Project directory to run in")
 	taskRunCmd.Flags().Bool("dry-run", false, "Show prompt without executing")
 	taskRunCmd.Flags().Duration("timeout", 30*time.Minute, "Execution timeout")
+	taskRunCmd.Flags().StringP("branch", "b", "", "Base branch for new feature branches (defaults to current branch)")
 	_ = taskRunCmd.MarkFlagRequired("provider")
 
 	taskCmd.AddCommand(taskListCmd)
@@ -181,6 +182,7 @@ func runTaskRun(cmd *cobra.Command, args []string) error {
 	projectPath, _ := cmd.Flags().GetString("project")
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	timeout, _ := cmd.Flags().GetDuration("timeout")
+	branch, _ := cmd.Flags().GetString("branch")
 
 	def, err := tasks.GetDefinition(taskType)
 	if err != nil {
@@ -199,6 +201,14 @@ func runTaskRun(cmd *cobra.Command, args []string) error {
 	// Validate project path is not a sensitive directory
 	if err := security.ValidateProjectPath(projectPath); err != nil {
 		return err
+	}
+
+	// Resolve branch: use flag value or detect current branch
+	ctx := context.Background()
+	if branch == "" {
+		if detected, err := orchestrator.CurrentBranch(ctx, projectPath); err == nil {
+			branch = detected
+		}
 	}
 
 	// Build the task
@@ -224,11 +234,21 @@ func runTaskRun(cmd *cobra.Command, args []string) error {
 		orchestrator.WithLogger(logging.Component("task-run")),
 	)
 
+	// Inject run metadata with branch for prompt generation
+	orch.SetRunMetadata(&orchestrator.RunMetadata{
+		Provider: provider,
+		TaskType: string(taskType),
+		Branch:   branch,
+	})
+
 	prompt := orch.PlanPrompt(taskInstance)
 
 	fmt.Printf("Task:     %s (%s)\n", def.Name, def.Type)
 	fmt.Printf("Provider: %s\n", provider)
 	fmt.Printf("Project:  %s\n", projectPath)
+	if branch != "" {
+		fmt.Printf("Branch:   %s\n", branch)
+	}
 	fmt.Printf("Timeout:  %s\n", timeout)
 
 	min, max := def.EstimatedTokens()

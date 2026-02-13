@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -719,6 +720,176 @@ func TestParseMetadataBlock_Partial(t *testing.T) {
 	result := ParseMetadataBlock("body\n<!-- nightshift:metadata\ntask-id: x\n")
 	if result != nil {
 		t.Errorf("expected nil for partial block, got %v", result)
+	}
+}
+
+func TestBuildPlanPrompt_WithBranch(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{Branch: "develop"})
+
+	task := &tasks.Task{
+		ID:          "branch-test",
+		Title:       "Branch Test",
+		Description: "Test branch injection",
+	}
+
+	prompt := o.buildPlanPrompt(task)
+	if !strings.Contains(prompt, "Create your feature branch from `develop`.") {
+		t.Errorf("plan prompt missing branch instruction\nGot:\n%s", prompt)
+	}
+}
+
+func TestBuildPlanPrompt_WithoutBranch(t *testing.T) {
+	o := New() // no runMeta
+
+	task := &tasks.Task{
+		ID:          "no-branch-test",
+		Title:       "No Branch Test",
+		Description: "Test no branch",
+	}
+
+	prompt := o.buildPlanPrompt(task)
+	if strings.Contains(prompt, "Create your feature branch from") {
+		t.Errorf("plan prompt should not contain branch instruction when branch is empty\nGot:\n%s", prompt)
+	}
+}
+
+func TestBuildPlanPrompt_EmptyBranch(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{Branch: ""})
+
+	task := &tasks.Task{
+		ID:          "empty-branch-test",
+		Title:       "Empty Branch Test",
+		Description: "Test empty branch",
+	}
+
+	prompt := o.buildPlanPrompt(task)
+	if strings.Contains(prompt, "Create your feature branch from") {
+		t.Errorf("plan prompt should not contain branch instruction when branch is empty\nGot:\n%s", prompt)
+	}
+}
+
+func TestBuildImplementPrompt_WithBranch(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{Branch: "staging"})
+
+	task := &tasks.Task{
+		ID:          "impl-branch-test",
+		Title:       "Impl Branch Test",
+		Description: "Test branch in implement prompt",
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"step1"},
+		Description: "test plan",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+	if !strings.Contains(prompt, "Checkout `staging` before creating your feature branch.") {
+		t.Errorf("implement prompt missing branch instruction\nGot:\n%s", prompt)
+	}
+}
+
+func TestBuildImplementPrompt_WithoutBranch(t *testing.T) {
+	o := New() // no runMeta
+
+	task := &tasks.Task{
+		ID:          "impl-no-branch",
+		Title:       "Impl No Branch",
+		Description: "Test no branch in implement prompt",
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"step1"},
+		Description: "test plan",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+	if strings.Contains(prompt, "Checkout") && strings.Contains(prompt, "before creating your feature branch") {
+		t.Errorf("implement prompt should not contain branch checkout instruction when branch is empty\nGot:\n%s", prompt)
+	}
+}
+
+func TestBuildMetadataBlock_WithBranch(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{
+		Provider:  "claude",
+		TaskType:  "lint-fix",
+		TaskScore: 8.5,
+		CostTier:  "Low (10-50k)",
+		RunStart:  time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
+		Branch:    "develop",
+	})
+
+	task := &tasks.Task{
+		ID:    "lint-fix:/project",
+		Title: "Lint Fix",
+		Type:  "lint-fix",
+	}
+	result := &TaskResult{
+		Iterations: 1,
+		Duration:   2 * time.Minute,
+	}
+
+	block := o.buildMetadataBlock(task, result)
+	if !strings.Contains(block, "branch: develop") {
+		t.Errorf("metadata block missing branch\nGot:\n%s", block)
+	}
+}
+
+func TestBuildMetadataBlock_NoBranch(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{
+		Provider: "claude",
+		TaskType: "lint-fix",
+		// Branch intentionally empty
+	})
+
+	task := &tasks.Task{
+		ID:    "lint-fix:/project",
+		Title: "Lint Fix",
+		Type:  "lint-fix",
+	}
+	result := &TaskResult{
+		Iterations: 1,
+		Duration:   2 * time.Minute,
+	}
+
+	block := o.buildMetadataBlock(task, result)
+	if strings.Contains(block, "branch:") {
+		t.Errorf("metadata block should not contain branch when empty\nGot:\n%s", block)
+	}
+}
+
+func TestCurrentBranch(t *testing.T) {
+	// Create a temp git repo
+	dir := t.TempDir()
+	for _, args := range [][]string{
+		{"init"},
+		{"config", "user.email", "test@test.com"},
+		{"config", "user.name", "test"},
+		{"commit", "--allow-empty", "-m", "init"},
+	} {
+		cmd := exec.CommandContext(context.Background(), "git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %s: %v", args, out, err)
+		}
+	}
+
+	branch, err := CurrentBranch(context.Background(), dir)
+	if err != nil {
+		t.Fatalf("CurrentBranch: %v", err)
+	}
+	// Default branch is typically "main" or "master"
+	if branch != "main" && branch != "master" {
+		t.Errorf("CurrentBranch = %q, want main or master", branch)
+	}
+}
+
+func TestCurrentBranch_InvalidDir(t *testing.T) {
+	_, err := CurrentBranch(context.Background(), t.TempDir())
+	if err == nil {
+		t.Fatal("expected error for non-git directory")
 	}
 }
 

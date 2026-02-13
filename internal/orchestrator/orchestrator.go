@@ -92,6 +92,7 @@ type RunMetadata struct {
 	TaskScore float64
 	CostTier  string
 	RunStart  time.Time
+	Branch    string // base branch for feature branches
 }
 
 // Config holds orchestrator configuration.
@@ -353,6 +354,9 @@ func (o *Orchestrator) buildMetadataBlock(task *tasks.Task, result *TaskResult) 
 		fmt.Fprintf(&b, "provider: %s\n", o.runMeta.Provider)
 		fmt.Fprintf(&b, "score: %.1f\n", o.runMeta.TaskScore)
 		fmt.Fprintf(&b, "cost-tier: %s\n", o.runMeta.CostTier)
+		if o.runMeta.Branch != "" {
+			fmt.Fprintf(&b, "branch: %s\n", o.runMeta.Branch)
+		}
 	}
 	fmt.Fprintf(&b, "iterations: %d\n", result.Iterations)
 	fmt.Fprintf(&b, "duration: %s\n", result.Duration.Round(time.Second))
@@ -662,6 +666,11 @@ func (o *Orchestrator) PlanPrompt(task *tasks.Task) string {
 }
 
 func (o *Orchestrator) buildPlanPrompt(task *tasks.Task) string {
+	branchInstruction := ""
+	if o.runMeta != nil && o.runMeta.Branch != "" {
+		branchInstruction = fmt.Sprintf("\n   Create your feature branch from `%s`.", o.runMeta.Branch)
+	}
+
 	return fmt.Sprintf(`You are a planning agent. Create a detailed execution plan for this task.
 
 ## Task
@@ -671,7 +680,7 @@ Description: %s
 
 ## Instructions
 0. You are running autonomously. If the task is broad or ambiguous, choose a concrete, minimal scope that delivers value and state any assumptions in the description.
-1. Work on a new branch and plan to submit a PR. Never work directly on the primary branch.
+1. Work on a new branch and plan to submit a PR. Never work directly on the primary branch.%s
 2. Before creating your branch, record the current branch name and plan to switch back after the PR is opened.
 3. If you create commits, include a concise message with these git trailers:
    Nightshift-Task: %s
@@ -686,13 +695,18 @@ Description: %s
   "files": ["file1.go", "file2.go", ...],
   "description": "overall approach"
 }
-`, task.ID, task.Title, task.Description, task.Type)
+`, task.ID, task.Title, task.Description, branchInstruction, task.Type)
 }
 
 func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, iteration int) string {
 	iterationNote := ""
 	if iteration > 1 {
 		iterationNote = fmt.Sprintf("\n\n## Note\nThis is iteration %d. Previous attempts did not pass review. Pay attention to the feedback in the plan description.", iteration)
+	}
+
+	branchInstruction := ""
+	if o.runMeta != nil && o.runMeta.Branch != "" {
+		branchInstruction = fmt.Sprintf("\n   Checkout `%s` before creating your feature branch.", o.runMeta.Branch)
 	}
 
 	return fmt.Sprintf(`You are an implementation agent. Execute the plan for this task.
@@ -709,7 +723,7 @@ Description: %s
 %v
 %s
 ## Instructions
-0. Before creating your branch, record the current branch name. Create and work on a new branch. Never modify or commit directly to the primary branch.
+0. Before creating your branch, record the current branch name. Create and work on a new branch. Never modify or commit directly to the primary branch.%s
    When finished, open a PR. After the PR is submitted, switch back to the original branch. If you cannot open a PR, leave the branch and explain next steps.
 1. If you create commits, include a concise message with these git trailers:
    Nightshift-Task: %s
@@ -723,7 +737,7 @@ Description: %s
   "files_modified": ["file1.go", ...],
   "summary": "what was done"
 }
-`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, task.Type)
+`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, task.Type)
 }
 
 func (o *Orchestrator) buildReviewPrompt(task *tasks.Task, impl *ImplementOutput) string {
@@ -862,4 +876,16 @@ func (o *Orchestrator) log(result *TaskResult, level, msg string, fields map[str
 		Message: msg,
 		Fields:  fields,
 	})
+}
+
+// CurrentBranch resolves the current git branch in the given directory.
+// Returns an error if the directory is not inside a git repository.
+func CurrentBranch(ctx context.Context, workDir string) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = workDir
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("git rev-parse --abbrev-ref HEAD: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
 }
