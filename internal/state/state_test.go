@@ -320,6 +320,59 @@ func TestRunHistoryProviderPersisted(t *testing.T) {
 	}
 }
 
+func TestRunHistoryBranchPersisted(t *testing.T) {
+	s := newTestState(t)
+
+	start := time.Now().Add(-2 * time.Minute)
+	record := RunRecord{
+		ID:         "run-branch-test",
+		StartTime:  start,
+		EndTime:    start.Add(45 * time.Second),
+		Provider:   "claude",
+		Project:    "/tmp/project",
+		Tasks:      []string{"lint-fix"},
+		TokensUsed: 30000,
+		Status:     "success",
+		Branch:     "develop",
+	}
+
+	s.AddRunRecord(record)
+
+	runs := s.GetRunHistory(1)
+	if len(runs) != 1 {
+		t.Fatalf("GetRunHistory() returned %d runs, want 1", len(runs))
+	}
+	if runs[0].Branch != "develop" {
+		t.Fatalf("run branch = %q, want %q", runs[0].Branch, "develop")
+	}
+}
+
+func TestRunHistoryBranchEmpty(t *testing.T) {
+	s := newTestState(t)
+
+	start := time.Now().Add(-2 * time.Minute)
+	record := RunRecord{
+		ID:         "run-no-branch-test",
+		StartTime:  start,
+		EndTime:    start.Add(30 * time.Second),
+		Provider:   "claude",
+		Project:    "/tmp/project",
+		Tasks:      []string{"lint-fix"},
+		TokensUsed: 20000,
+		Status:     "success",
+	}
+
+	s.AddRunRecord(record)
+
+	runs := s.GetRunHistory(1)
+	if len(runs) != 1 {
+		t.Fatalf("GetRunHistory() returned %d runs, want 1", len(runs))
+	}
+	if runs[0].Branch != "" {
+		t.Fatalf("run branch = %q, want empty", runs[0].Branch)
+	}
+}
+
 func newTestState(t *testing.T) *State {
 	t.Helper()
 

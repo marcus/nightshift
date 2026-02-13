@@ -1114,6 +1114,92 @@ func TestBuildPreflight_RandomTask_TaskFromEligiblePool(t *testing.T) {
 	}
 }
 
+func TestDisplayPreflight_ShowsBranch(t *testing.T) {
+	plan := &preflightPlan{
+		branch: "develop",
+		projects: []preflightProject{
+			{
+				path: "/home/user/proj",
+				tasks: []tasks.ScoredTask{
+					{
+						Definition: tasks.TaskDefinition{
+							Name:     "Linter Fixes",
+							CostTier: tasks.CostLow,
+						},
+						Score: 5.0,
+					},
+				},
+				provider: &providerChoice{
+					name: "claude",
+					allowance: &budget.AllowanceResult{
+						Allowance:   50000,
+						UsedPercent: 20.0,
+						Mode:        "daily",
+					},
+				},
+			},
+		},
+	}
+
+	var buf strings.Builder
+	displayPreflight(&buf, plan)
+	output := buf.String()
+
+	if !strings.Contains(output, "Branch: develop") {
+		t.Errorf("output missing 'Branch: develop'\nGot:\n%s", output)
+	}
+}
+
+func TestDisplayPreflight_NoBranch(t *testing.T) {
+	plan := &preflightPlan{
+		branch: "",
+		projects: []preflightProject{
+			{
+				path: "/home/user/proj",
+				tasks: []tasks.ScoredTask{
+					{
+						Definition: tasks.TaskDefinition{
+							Name:     "Linter Fixes",
+							CostTier: tasks.CostLow,
+						},
+						Score: 5.0,
+					},
+				},
+				provider: &providerChoice{
+					name: "claude",
+					allowance: &budget.AllowanceResult{
+						Allowance:   50000,
+						UsedPercent: 20.0,
+						Mode:        "daily",
+					},
+				},
+			},
+		},
+	}
+
+	var buf strings.Builder
+	displayPreflight(&buf, plan)
+	output := buf.String()
+
+	if strings.Contains(output, "Branch:") {
+		t.Errorf("output should not contain 'Branch:' when branch is empty\nGot:\n%s", output)
+	}
+}
+
+func TestBuildPreflight_BranchThreaded(t *testing.T) {
+	project := t.TempDir()
+	params := newPreflightParams(t, []string{project})
+	params.branch = "staging"
+
+	plan, err := buildPreflight(params)
+	if err != nil {
+		t.Fatalf("buildPreflight: %v", err)
+	}
+	if plan.branch != "staging" {
+		t.Fatalf("plan.branch = %q, want %q", plan.branch, "staging")
+	}
+}
+
 func TestDisplayPreflight_NoWarningsWhenBudgetRespected(t *testing.T) {
 	plan := &preflightPlan{
 		ignoreBudget: false,
