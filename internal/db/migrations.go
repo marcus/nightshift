@@ -35,6 +35,11 @@ var migrations = []Migration{
 		Description: "add bus_factor_results table for code ownership analysis",
 		SQL:         migration004SQL,
 	},
+	{
+		Version:     5,
+		Description: "add branch column to run_history",
+		SQL:         migration005SQL,
+	},
 }
 
 const migration002SQL = `
@@ -110,6 +115,10 @@ CREATE TABLE snapshots (
 CREATE INDEX idx_snapshots_provider_time ON snapshots(provider, timestamp DESC);
 CREATE INDEX idx_snapshots_provider_week ON snapshots(provider, week_start);
 CREATE INDEX idx_run_history_time ON run_history(start_time DESC);
+`
+
+const migration005SQL = `
+ALTER TABLE run_history ADD COLUMN branch TEXT NOT NULL DEFAULT '';
 `
 
 // Migrate runs all pending migrations inside transactions.
