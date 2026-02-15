@@ -205,6 +205,38 @@ func (m *Manager) CheckPreExecution(op Operation) error {
 	return nil
 }
 
+// ValidateProjectPath checks that a resolved project path is not a sensitive
+// system directory. When agents run with dangerous permission flags, pointing
+// them at a home directory or filesystem root exposes credentials, SSH keys,
+// and other private data.
+func ValidateProjectPath(path string) error {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("resolving path: %w", err)
+	}
+
+	home, _ := os.UserHomeDir()
+
+	blocked := []string{
+		"/",
+		"/tmp",
+		"/var",
+		"/etc",
+		"/usr",
+	}
+	if home != "" {
+		blocked = append(blocked, home)
+	}
+
+	for _, b := range blocked {
+		if absPath == b {
+			return fmt.Errorf("refusing to run in %s: this is a sensitive directory that may contain credentials and private data. Use -p to specify a project directory", absPath)
+		}
+	}
+
+	return nil
+}
+
 // Operation types for safety checks.
 type OperationType string
 
