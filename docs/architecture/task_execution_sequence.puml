@@ -1,0 +1,56 @@
+@startuml Task Execution Sequence
+
+actor User
+participant "CLI/Scheduler" as runner
+participant "Budget Manager" as budget
+participant "Orchestrator" as orch
+participant "Task Queue" as queue
+participant "Agent (Claude/Codex)" as agent
+participant "Local Workspace" as fs
+participant "GitHub" as gh
+
+runner -> budget : GetAllowance()
+activate budget
+budget --> runner : allowance (tokens)
+deactivate budget
+
+runner -> queue : GetNextTask()
+activate queue
+queue --> runner : task
+deactivate queue
+
+runner -> orch : RunTask(task)
+activate orch
+
+orch -> orch : Step 1: Plan
+orch -> agent : Execute(PlanPrompt)
+activate agent
+agent --> orch : Plan (files, steps)
+deactivate agent
+
+loop until Success or MaxIterations
+    orch -> orch : Step 2: Implement
+    orch -> agent : Execute(ImplementPrompt, workspace)
+    activate agent
+    agent -> fs : Modify files
+    agent --> orch : Implementation Summary
+    deactivate agent
+
+    orch -> orch : Step 3: Review
+    orch -> agent : Execute(ReviewPrompt, changes)
+    activate agent
+    agent --> orch : ReviewResult (Passed/Failed, Feedback)
+    deactivate agent
+    
+    break if Passed
+end
+
+orch -> gh : Create Pull Request (if CategoryPR)
+activate gh
+gh --> orch : PR URL
+deactivate gh
+
+orch --> runner : TaskResult
+deactivate orch
+
+@enduml

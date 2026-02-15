@@ -1,0 +1,54 @@
+@startuml Nightshift Component Diagram
+
+title Nightshift - High-Level Architecture
+
+package "CLI (cmd/nightshift)" {
+    [Commands] as cmd
+}
+
+package "Core Logic (internal/orchestrator)" {
+    [Orchestrator] as orch
+}
+
+package "Resource Management" {
+    [Budget Manager] as budget
+    [Scheduler] as sched
+    [Config] as config
+}
+
+package "Knowledge & Tasks" {
+    [Task Queue] as queue
+    [Project Manager] as projects
+    [State Manager] as state
+}
+
+package "AI Engine" {
+    [Agent Interface] as agent_if
+    [Claude Agent] as claude
+    [Codex Agent] as codex
+}
+
+package "Integrations" {
+    [GitHub] as github
+    [Tmux Scraper] as tmux
+}
+
+package "Analysis Tools" {
+    [Analyzer] as analyzer
+    [Security Audit] as security
+}
+
+cmd --> orch : triggers
+orch --> budget : checks allowance
+orch --> queue : fetches tasks
+orch --> agent_if : executes
+agent_if <|-- claude
+agent_if <|-- codex
+orch --> github : creates PRs
+orch --> analyzer : uses for insights
+orch --> security : runs audits
+
+sched --> orch : scheduled runs
+projects --> queue : populates
+
+@enduml

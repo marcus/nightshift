@@ -1,0 +1,62 @@
+@startuml Internal Structure
+
+package "internal/orchestrator" {
+    class Orchestrator {
+        - agent: Agent
+        - budget: Tracker
+        - queue: Queue
+        + RunTask(task: Task): TaskResult
+    }
+    
+    class TaskResult {
+        + Status: TaskStatus
+        + Iterations: int
+        + Plan: PlanOutput
+        + OutputRef: string
+    }
+}
+
+package "internal/agents" {
+    interface Agent {
+        + Name(): string
+        + Execute(opts: ExecuteOptions): ExecuteResult
+    }
+    
+    class ClaudeAgent
+    class CodexAgent
+    
+    Agent <|.. ClaudeAgent
+    Agent <|.. CodexAgent
+}
+
+package "internal/budget" {
+    class Manager {
+        - cfg: Config
+        - budgetSource: BudgetSource
+        + GetAllowance(): AllowanceResult
+    }
+    
+    interface BudgetSource {
+        + GetBudget(provider: string): BudgetEstimate
+    }
+}
+
+package "internal/tasks" {
+    class Task {
+        + ID: string
+        + Title: string
+        + Category: TaskCategory
+        + Cost: CostTier
+    }
+    
+    class Queue {
+        + Pop(): Task
+        + Push(task: Task)
+    }
+}
+
+Orchestrator --> Agent
+Orchestrator --> Task
+Orchestrator ..> TaskResult
+
+@enduml

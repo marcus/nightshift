@@ -1,0 +1,44 @@
+@startuml Scheduling Logic
+
+title Nightshift - Scheduling & Window Constraints
+
+participant "Config" as cfg
+participant "Scheduler" as sched
+participant "Cron/Timer" as timer
+participant "Orchestrator" as orch
+
+== Initialization ==
+
+cfg -> sched : NewFromConfig(ScheduleConfig)
+activate sched
+sched -> sched : Parse Cron/Interval
+sched -> sched : Parse Window (Start, End, TZ)
+deactivate sched
+
+== Execution Loop ==
+
+timer -> sched : Trigger (Tick)
+activate sched
+
+alt Window Configured?
+    sched -> sched : Check Current Time vs Window
+    alt Outside Window
+        sched -> sched : Skip Execution
+        sched -> sched : Calculate Next Run
+    else Inside Window
+        sched -> orch : RunTask()
+        activate orch
+        orch --> sched : TaskResult
+        deactivate orch
+    end
+else No Window
+    sched -> orch : RunTask()
+    activate orch
+    orch --> sched : TaskResult
+    deactivate orch
+end
+
+sched -> sched : Update NextRun
+deactivate sched
+
+@enduml
