@@ -15,17 +15,18 @@ import (
 // CopilotAgent spawns GitHub Copilot CLI for task execution.
 //
 // GitHub Copilot CLI implementation notes:
-// - Uses 'gh copilot' extension commands
-// - Main commands: 'gh copilot explain' and 'gh copilot suggest'
-// - For agent tasks, we use 'gh copilot suggest' with prompts
-// - The CLI is interactive by default, but supports non-interactive modes
+// - Supports both 'gh copilot' (gh extension) and standalone 'copilot' binary
+// - Main commands: 'copilot suggest' and 'copilot explain'
+// - For agent tasks, we use 'copilot suggest' with prompts
+// - Uses --no-ask-user flag for autonomous non-interactive mode
 //
-// According to GitHub documentation:
-// - Install: gh extension install github/gh-copilot
-// - Usage: gh copilot suggest -t <type> <prompt>
+// Install options:
+// - Via gh: gh extension install github/gh-copilot
+// - Standalone: npm install -g @github/copilot or curl script
+// - Usage: copilot suggest -t <type> --no-ask-user <prompt>
 // - Types: shell, gh, git (for different command contexts)
 type CopilotAgent struct {
-	binaryPath string        // Path to gh binary (default: "gh")
+	binaryPath string        // Path to binary: "gh" or "copilot" (default: "gh")
 	timeout    time.Duration // Default timeout
 	runner     CommandRunner // Command executor (for testing)
 }
@@ -33,7 +34,7 @@ type CopilotAgent struct {
 // CopilotOption configures a CopilotAgent.
 type CopilotOption func(*CopilotAgent)
 
-// WithCopilotBinaryPath sets a custom path to the gh binary.
+// WithCopilotBinaryPath sets a custom path to the copilot binary ("gh" or "copilot").
 func WithCopilotBinaryPath(path string) CopilotOption {
 	return func(a *CopilotAgent) {
 		a.binaryPath = path
@@ -93,10 +94,20 @@ func (a *CopilotAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execu
 	defer cancel()
 
 	// Build command args
-	// According to GitHub CLI docs, the format is:
-	// gh copilot suggest -t <type> <prompt>
-	// For our use case, we use 'shell' type as it's most general
-	args := []string{"copilot", "suggest", "-t", "shell"}
+	// Two modes:
+	// 1. gh copilot: gh copilot suggest -t <type> --no-ask-user <prompt>
+	// 2. standalone copilot: copilot suggest -t <type> --no-ask-user <prompt>
+	var args []string
+	if a.binaryPath == "gh" {
+		args = []string{"copilot", "suggest", "-t", "shell"}
+	} else {
+		// Standalone copilot binary
+		args = []string{"suggest", "-t", "shell"}
+	}
+
+	// Add --no-ask-user for non-interactive execution (autonomous mode)
+	// This prevents Copilot from asking user questions during task execution
+	args = append(args, "--no-ask-user")
 
 	// Add prompt directly as argument
 	if opts.Prompt != "" {

@@ -96,7 +96,7 @@ func TestCopilotAgent_Execute_Success(t *testing.T) {
 	if mock.CapturedName != "gh" {
 		t.Errorf("binary = %q, want %q", mock.CapturedName, "gh")
 	}
-	expectedArgs := []string{"copilot", "suggest", "-t", "shell", "how to list files"}
+	expectedArgs := []string{"copilot", "suggest", "-t", "shell", "--no-ask-user", "how to list files"}
 	if len(mock.CapturedArgs) != len(expectedArgs) {
 		t.Errorf("args length = %d, want %d", len(mock.CapturedArgs), len(expectedArgs))
 	} else {
