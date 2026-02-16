@@ -152,20 +152,44 @@ Other useful flags:
 
 ## Authentication (Subscriptions)
 
-Nightshift relies on the local Claude Code and Codex CLIs. If you have subscriptions, you can sign in via the CLIs without API keys.
+Nightshift supports three AI providers:
+- **Claude Code** - Anthropic's Claude via local CLI
+- **Codex** - OpenAI's GPT via local CLI  
+- **GitHub Copilot** - GitHub's Copilot via GitHub CLI
+
+### Claude Code
 
 ```bash
-# Claude Code
 claude
 /login
+```
 
-# Codex
+Supports Claude.ai subscriptions or Anthropic Console credentials.
+
+### Codex
+
+```bash
 codex --login
 ```
 
-Claude Code login supports Claude.ai subscriptions or Anthropic Console credentials. Codex CLI supports signing in with ChatGPT or an API key.
+Supports signing in with ChatGPT or an API key.
 
-If you prefer API-based usage, you can authenticate those CLIs with API keys instead.
+### GitHub Copilot
+
+```bash
+# Install GitHub CLI
+brew install gh  # or apt install gh
+
+# Authenticate
+gh auth login
+
+# Install Copilot extension
+gh extension install github/gh-copilot
+```
+
+Requires GitHub Copilot subscription. See [docs/COPILOT_INTEGRATION.md](docs/COPILOT_INTEGRATION.md) for details.
+
+If you prefer API-based usage, you can authenticate Claude and Codex CLIs with API keys instead.
 
 ## Configuration
 
