@@ -432,6 +432,14 @@ func collectProviderBudgets(cfg *config.Config, budgetMgr *budget.Manager) []pro
 			err:       err,
 		})
 	}
+	if cfg.Providers.Copilot.Enabled {
+		allowance, err := budgetMgr.CalculateAllowance("copilot")
+		summaries = append(summaries, providerBudgetSummary{
+			name:      "copilot",
+			allowance: allowance,
+			err:       err,
+		})
+	}
 	return summaries
 }
 
@@ -557,6 +565,9 @@ func previewProvider(cfg *config.Config) (string, error) {
 	}
 	if cfg.Providers.Codex.Enabled {
 		return "codex", nil
+	}
+	if cfg.Providers.Copilot.Enabled {
+		return "copilot", nil
 	}
 	return "", fmt.Errorf("no providers enabled for preview")
 }
