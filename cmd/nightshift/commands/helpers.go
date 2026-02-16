@@ -58,13 +58,13 @@ func newCopilotAgentFromConfig(cfg *config.Config) *agents.CopilotAgent {
 	if cfg == nil {
 		return agents.NewCopilotAgent()
 	}
-	
+
 	// Auto-detect: prefer standalone copilot, fallback to gh
 	binaryPath := "gh"
 	if _, err := exec.LookPath("copilot"); err == nil {
 		binaryPath = "copilot"
 	}
-	
+
 	// Copilot uses DangerouslySkipPermissions for --allow-all-tools flag
 	// Note: The agent already uses --no-ask-user for autonomous mode
 	opts := []agents.CopilotOption{

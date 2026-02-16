@@ -11,7 +11,7 @@ import (
 )
 
 // Copilot wraps the GitHub Copilot CLI as a provider.
-// 
+//
 // Usage tracking approach:
 // GitHub Copilot CLI does not expose usage metrics via API or local files like
 // Codex or Claude. We track usage by counting requests made through this provider.

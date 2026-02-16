@@ -128,41 +128,41 @@ type TaskType string
 
 // Category 1: "It's done - here's the PR"
 const (
-	TaskLintFix              TaskType = "lint-fix"
-	TaskBugFinder            TaskType = "bug-finder"
-	TaskAutoDRY              TaskType = "auto-dry"
-	TaskSkillGroom           TaskType = "skill-groom"
-	TaskAPIContractVerify    TaskType = "api-contract-verify"
-	TaskBackwardCompat       TaskType = "backward-compat"
-	TaskBuildOptimize        TaskType = "build-optimize"
-	TaskDocsBackfill         TaskType = "docs-backfill"
-	TaskCommitNormalize      TaskType = "commit-normalize"
-	TaskChangelogSynth       TaskType = "changelog-synth"
-	TaskReleaseNotes         TaskType = "release-notes"
-	TaskADRDraft             TaskType = "adr-draft"
-	TaskTDReview             TaskType = "td-review"
+	TaskLintFix           TaskType = "lint-fix"
+	TaskBugFinder         TaskType = "bug-finder"
+	TaskAutoDRY           TaskType = "auto-dry"
+	TaskSkillGroom        TaskType = "skill-groom"
+	TaskAPIContractVerify TaskType = "api-contract-verify"
+	TaskBackwardCompat    TaskType = "backward-compat"
+	TaskBuildOptimize     TaskType = "build-optimize"
+	TaskDocsBackfill      TaskType = "docs-backfill"
+	TaskCommitNormalize   TaskType = "commit-normalize"
+	TaskChangelogSynth    TaskType = "changelog-synth"
+	TaskReleaseNotes      TaskType = "release-notes"
+	TaskADRDraft          TaskType = "adr-draft"
+	TaskTDReview          TaskType = "td-review"
 )
 
 // Category 2: "Here's what I found"
 const (
-	TaskDocDrift          TaskType = "doc-drift"
-	TaskSemanticDiff      TaskType = "semantic-diff"
-	TaskDeadCode          TaskType = "dead-code"
-	TaskDependencyRisk    TaskType = "dependency-risk"
-	TaskTestGap           TaskType = "test-gap"
-	TaskTestFlakiness     TaskType = "test-flakiness"
-	TaskLoggingAudit      TaskType = "logging-audit"
-	TaskMetricsCoverage   TaskType = "metrics-coverage"
-	TaskPerfRegression    TaskType = "perf-regression"
-	TaskCostAttribution   TaskType = "cost-attribution"
-	TaskSecurityFootgun   TaskType = "security-footgun"
-	TaskPIIScanner        TaskType = "pii-scanner"
-	TaskPrivacyPolicy     TaskType = "privacy-policy"
-	TaskSchemaEvolution   TaskType = "schema-evolution"
-	TaskEventTaxonomy     TaskType = "event-taxonomy"
-	TaskRoadmapEntropy    TaskType = "roadmap-entropy"
-	TaskBusFactor         TaskType = "bus-factor"
-	TaskKnowledgeSilo     TaskType = "knowledge-silo"
+	TaskDocDrift        TaskType = "doc-drift"
+	TaskSemanticDiff    TaskType = "semantic-diff"
+	TaskDeadCode        TaskType = "dead-code"
+	TaskDependencyRisk  TaskType = "dependency-risk"
+	TaskTestGap         TaskType = "test-gap"
+	TaskTestFlakiness   TaskType = "test-flakiness"
+	TaskLoggingAudit    TaskType = "logging-audit"
+	TaskMetricsCoverage TaskType = "metrics-coverage"
+	TaskPerfRegression  TaskType = "perf-regression"
+	TaskCostAttribution TaskType = "cost-attribution"
+	TaskSecurityFootgun TaskType = "security-footgun"
+	TaskPIIScanner      TaskType = "pii-scanner"
+	TaskPrivacyPolicy   TaskType = "privacy-policy"
+	TaskSchemaEvolution TaskType = "schema-evolution"
+	TaskEventTaxonomy   TaskType = "event-taxonomy"
+	TaskRoadmapEntropy  TaskType = "roadmap-entropy"
+	TaskBusFactor       TaskType = "bus-factor"
+	TaskKnowledgeSilo   TaskType = "knowledge-silo"
 )
 
 // Category 3: "Here are options"
@@ -288,9 +288,9 @@ Use README.md as the primary project context for commands, architecture, and wor
 For Agent Skills documentation lookup, fetch https://agentskills.io/llms.txt first and use it as the index before reading specific spec pages.
 Inspect .claude/skills and .codex/skills for SKILL.md files, validate frontmatter and naming rules against the spec, and fix stale references to files/scripts/paths.
 Apply safe updates directly, and leave concise follow-ups for anything uncertain.`,
-		CostTier:          CostHigh,
-		RiskLevel:         RiskMedium,
-		DefaultInterval:   168 * time.Hour,
+		CostTier:        CostHigh,
+		RiskLevel:       RiskMedium,
+		DefaultInterval: 168 * time.Hour,
 	},
 	TaskAPIContractVerify: {
 		Type:            TaskAPIContractVerify,

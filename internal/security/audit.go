@@ -32,20 +32,20 @@ const (
 
 // AuditEvent represents a single audit log entry.
 type AuditEvent struct {
-	Timestamp   time.Time         `json:"timestamp"`
-	EventType   AuditEventType    `json:"event_type"`
-	Agent       string            `json:"agent,omitempty"`
-	TaskID      string            `json:"task_id,omitempty"`
-	Project     string            `json:"project,omitempty"`
-	Target      string            `json:"target,omitempty"`
-	Action      string            `json:"action,omitempty"`
-	Result      string            `json:"result,omitempty"`
-	Duration    time.Duration     `json:"duration,omitempty"`
-	TokensUsed  int               `json:"tokens_used,omitempty"`
-	Error       string            `json:"error,omitempty"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
-	RequestID   string            `json:"request_id,omitempty"`
-	SessionID   string            `json:"session_id,omitempty"`
+	Timestamp  time.Time         `json:"timestamp"`
+	EventType  AuditEventType    `json:"event_type"`
+	Agent      string            `json:"agent,omitempty"`
+	TaskID     string            `json:"task_id,omitempty"`
+	Project    string            `json:"project,omitempty"`
+	Target     string            `json:"target,omitempty"`
+	Action     string            `json:"action,omitempty"`
+	Result     string            `json:"result,omitempty"`
+	Duration   time.Duration     `json:"duration,omitempty"`
+	TokensUsed int               `json:"tokens_used,omitempty"`
+	Error      string            `json:"error,omitempty"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
+	RequestID  string            `json:"request_id,omitempty"`
+	SessionID  string            `json:"session_id,omitempty"`
 }
 
 // AuditLogger writes audit events to an append-only log file.

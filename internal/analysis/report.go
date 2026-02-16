@@ -9,12 +9,12 @@ import (
 
 // Report represents a bus-factor analysis report for a codebase or component.
 type Report struct {
-	Timestamp     time.Time          `json:"timestamp"`
-	Component     string             `json:"component"` // "overall", "dir/path", etc
-	Metrics       *OwnershipMetrics  `json:"metrics"`
-	Contributors  []CommitAuthor     `json:"contributors"`
-	Recommendations []string         `json:"recommendations"`
-	ReportedAt    string             `json:"reported_at"`
+	Timestamp       time.Time         `json:"timestamp"`
+	Component       string            `json:"component"` // "overall", "dir/path", etc
+	Metrics         *OwnershipMetrics `json:"metrics"`
+	Contributors    []CommitAuthor    `json:"contributors"`
+	Recommendations []string          `json:"recommendations"`
+	ReportedAt      string            `json:"reported_at"`
 }
 
 // ReportGenerator creates formatted reports from analysis results.
@@ -35,11 +35,11 @@ func (rg *ReportGenerator) Generate(component string, authors []CommitAuthor, me
 	})
 
 	report := &Report{
-		Timestamp:      time.Now(),
-		Component:      component,
-		Metrics:        metrics,
-		Contributors:   sorted,
-		ReportedAt:     time.Now().Format("2006-01-02 15:04:05"),
+		Timestamp:       time.Now(),
+		Component:       component,
+		Metrics:         metrics,
+		Contributors:    sorted,
+		ReportedAt:      time.Now().Format("2006-01-02 15:04:05"),
 		Recommendations: rg.generateRecommendations(metrics, sorted),
 	}
 
@@ -128,8 +128,7 @@ func (rg *ReportGenerator) RenderMarkdown(report *Report) string {
 		buf.WriteString("## Recommendations\n\n")
 		for _, rec := range report.Recommendations {
 			// Check if this is a priority item (starts with risk level keywords)
-			isHighPriority := len(rec) > 0 && (
-				bytes.HasPrefix([]byte(rec), []byte("GOOD")) ||
+			isHighPriority := len(rec) > 0 && (bytes.HasPrefix([]byte(rec), []byte("GOOD")) ||
 				bytes.HasPrefix([]byte(rec), []byte("HIGH")) ||
 				bytes.HasPrefix([]byte(rec), []byte("CRITICAL")) ||
 				bytes.HasPrefix([]byte(rec), []byte("MEDIUM")))

@@ -11,8 +11,8 @@ import (
 
 // CommitAuthor represents a commit author's contribution.
 type CommitAuthor struct {
-	Name   string
-	Email  string
+	Name    string
+	Email   string
 	Commits int
 }
 

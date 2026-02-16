@@ -76,10 +76,10 @@ func (a *CopilotAgent) Name() string {
 // Execute runs gh copilot with the given prompt.
 //
 // Implementation approach:
-// - Uses 'gh copilot suggest' for general prompts
-// - Runs in non-interactive mode by providing prompt directly
-// - Note: GitHub Copilot CLI is designed to be interactive, so we work around this
-//   by using environment variables or input redirection where needed
+//   - Uses 'gh copilot suggest' for general prompts
+//   - Runs in non-interactive mode by providing prompt directly
+//   - Note: GitHub Copilot CLI is designed to be interactive, so we work around this
+//     by using environment variables or input redirection where needed
 func (a *CopilotAgent) Execute(ctx context.Context, opts ExecuteOptions) (*ExecuteResult, error) {
 	start := time.Now()
 
@@ -262,8 +262,8 @@ func (a *CopilotAgent) Available() bool {
 	}
 
 	// Look for github/gh-copilot in the extension list
-	return strings.Contains(string(output), "github/gh-copilot") || 
-	       strings.Contains(string(output), "gh-copilot")
+	return strings.Contains(string(output), "github/gh-copilot") ||
+		strings.Contains(string(output), "gh-copilot")
 }
 
 // Version returns the gh copilot extension version.

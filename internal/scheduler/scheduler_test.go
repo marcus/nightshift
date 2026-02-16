@@ -579,4 +579,3 @@ func TestScheduleInterval_Legacy(t *testing.T) {
 		t.Errorf("len(jobs) = %d, want 1", len(s.jobs))
 	}
 }
-
