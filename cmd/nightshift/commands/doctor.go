@@ -92,8 +92,8 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	checkDaemon(add)
 
 	checkCLIs(cfg, add)
-	claudeProvider, codexProvider := checkProviders(cfg, add)
-	checkBudget(cfg, database, claudeProvider, codexProvider, add)
+	claudeProvider, codexProvider, copilotProvider := checkProviders(cfg, add)
+	checkBudget(cfg, database, claudeProvider, codexProvider, copilotProvider, add)
 	checkSnapshots(cfg, database, add)
 	checkTmux(cfg, add)
 
@@ -195,9 +195,10 @@ func checkCLIs(cfg *config.Config, add func(string, checkStatus, string)) {
 	}
 }
 
-func checkProviders(cfg *config.Config, add func(string, checkStatus, string)) (*providers.Claude, *providers.Codex) {
+func checkProviders(cfg *config.Config, add func(string, checkStatus, string)) (*providers.Claude, *providers.Codex, *providers.Copilot) {
 	var claudeProvider *providers.Claude
 	var codexProvider *providers.Codex
+	var copilotProvider *providers.Copilot
 
 	mode := cfg.Budget.Mode
 	if mode == "" {
@@ -237,13 +238,28 @@ func checkProviders(cfg *config.Config, add func(string, checkStatus, string)) (
 		}
 	}
 
-	return claudeProvider, codexProvider
+	if cfg.Providers.Copilot.Enabled {
+		path := cfg.ExpandedProviderPath("copilot")
+		if _, err := os.Stat(path); err != nil {
+			add("copilot.data_path", statusFail, fmt.Sprintf("missing %s", path))
+		} else {
+			add("copilot.data_path", statusOK, path)
+		}
+		copilotProvider = providers.NewCopilotWithPath(path)
+		monthlyLimit := int64(cfg.GetProviderBudget("copilot"))
+		if pct, err := copilotProvider.GetUsedPercent(mode, monthlyLimit); err != nil {
+			add("copilot.usage", statusFail, err.Error())
+		} else {
+			add("copilot.usage", statusOK, fmt.Sprintf("%.1f%% used (%s)", pct, mode))
+		}
+	}
+
+	return claudeProvider, codexProvider, copilotProvider
 }
 
-func checkBudget(cfg *config.Config, database *db.DB, claudeProvider *providers.Claude, codexProvider *providers.Codex, add func(string, checkStatus, string)) {
+func checkBudget(cfg *config.Config, database *db.DB, claudeProvider *providers.Claude, codexProvider *providers.Codex, copilotProvider *providers.Copilot, add func(string, checkStatus, string)) {
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	copilotProvider := providers.NewCopilotWithPath(cfg.ExpandedProviderPath("copilot"))
 	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, copilotProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	if cfg.Providers.Claude.Enabled {

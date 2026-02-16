@@ -37,6 +37,14 @@ func (m *mockCodexUsage) GetResetTime(mode string) (time.Time, error) {
 	return time.Time{}, nil
 }
 
+type mockCopilotUsage struct {
+	mockUsage
+}
+
+func (m *mockCopilotUsage) GetResetTime(mode string) (time.Time, error) {
+	return time.Time{}, nil
+}
+
 func TestSelectProvider_PreferenceOrder(t *testing.T) {
 	tmp := t.TempDir()
 	makeExecutable(t, tmp, "claude")
@@ -60,7 +68,7 @@ func TestSelectProvider_PreferenceOrder(t *testing.T) {
 
 	claude := &mockUsage{name: "claude", pct: 0}
 	codex := &mockCodexUsage{mockUsage: mockUsage{name: "codex", pct: 0}}
-	budgetMgr := budget.NewManager(cfg, claude, codex, nil)
+	budgetMgr := budget.NewManager(cfg, claude, codex, &mockCopilotUsage{mockUsage: mockUsage{name: "copilot", pct: 0}})
 
 	choice, err := selectProvider(cfg, budgetMgr, logging.Component("test"), false)
 	if err != nil {
@@ -94,7 +102,7 @@ func TestSelectProvider_FallbackOnBudget(t *testing.T) {
 
 	claude := &mockUsage{name: "claude", pct: 0}
 	codex := &mockCodexUsage{mockUsage: mockUsage{name: "codex", pct: 100}}
-	budgetMgr := budget.NewManager(cfg, claude, codex, nil)
+	budgetMgr := budget.NewManager(cfg, claude, codex, &mockCopilotUsage{mockUsage: mockUsage{name: "copilot", pct: 0}})
 
 	choice, err := selectProvider(cfg, budgetMgr, logging.Component("test"), false)
 	if err != nil {
@@ -114,7 +122,7 @@ func TestSelectProvider_NoProvidersEnabled(t *testing.T) {
 	}
 	claude := &mockUsage{name: "claude", pct: 0}
 	codex := &mockCodexUsage{mockUsage: mockUsage{name: "codex", pct: 0}}
-	budgetMgr := budget.NewManager(cfg, claude, codex, nil)
+	budgetMgr := budget.NewManager(cfg, claude, codex, &mockCopilotUsage{mockUsage: mockUsage{name: "copilot", pct: 0}})
 
 	_, err := selectProvider(cfg, budgetMgr, logging.Component("test"), false)
 	if err == nil {
@@ -144,7 +152,7 @@ func TestSelectProvider_AllBudgetExhausted(t *testing.T) {
 	}
 	claude := &mockUsage{name: "claude", pct: 100}
 	codex := &mockCodexUsage{mockUsage: mockUsage{name: "codex", pct: 100}}
-	budgetMgr := budget.NewManager(cfg, claude, codex, nil)
+	budgetMgr := budget.NewManager(cfg, claude, codex, &mockCopilotUsage{mockUsage: mockUsage{name: "copilot", pct: 0}})
 
 	_, err := selectProvider(cfg, budgetMgr, logging.Component("test"), false)
 	if err == nil {
@@ -172,7 +180,7 @@ func TestSelectProvider_CLINotInPath(t *testing.T) {
 	}
 	claude := &mockUsage{name: "claude", pct: 0}
 	codex := &mockCodexUsage{mockUsage: mockUsage{name: "codex", pct: 0}}
-	budgetMgr := budget.NewManager(cfg, claude, codex, nil)
+	budgetMgr := budget.NewManager(cfg, claude, codex, &mockCopilotUsage{mockUsage: mockUsage{name: "copilot", pct: 0}})
 
 	_, err := selectProvider(cfg, budgetMgr, logging.Component("test"), false)
 	if err == nil {
@@ -294,7 +302,7 @@ func TestMaxTasks_DefaultLimitsToOne(t *testing.T) {
 	budgetMgr := budget.NewManager(cfg,
 		&mockUsage{name: "claude", pct: 0},
 		&mockCodexUsage{mockUsage: mockUsage{name: "codex", pct: 0}},
-		nil,
+		&mockCopilotUsage{mockUsage: mockUsage{name: "copilot", pct: 0}},
 	)
 	project := t.TempDir()
 
@@ -335,7 +343,7 @@ func TestMaxTasks_OverrideToN(t *testing.T) {
 	budgetMgr := budget.NewManager(cfg,
 		&mockUsage{name: "claude", pct: 0},
 		&mockCodexUsage{mockUsage: mockUsage{name: "codex", pct: 0}},
-		nil,
+		&mockCopilotUsage{mockUsage: mockUsage{name: "copilot", pct: 0}},
 	)
 	project := t.TempDir()
 
@@ -378,7 +386,7 @@ func TestMaxTasks_IgnoredWhenTaskSet(t *testing.T) {
 	budgetMgr := budget.NewManager(cfg,
 		&mockUsage{name: "claude", pct: 0},
 		&mockCodexUsage{mockUsage: mockUsage{name: "codex", pct: 0}},
-		nil,
+		&mockCopilotUsage{mockUsage: mockUsage{name: "copilot", pct: 0}},
 	)
 	project := t.TempDir()
 
@@ -423,7 +431,7 @@ func TestSelectProvider_IgnoreBudget_StillReturnsProvider(t *testing.T) {
 	// Both providers at 100% usage
 	claude := &mockUsage{name: "claude", pct: 100}
 	codex := &mockCodexUsage{mockUsage: mockUsage{name: "codex", pct: 100}}
-	budgetMgr := budget.NewManager(cfg, claude, codex, nil)
+	budgetMgr := budget.NewManager(cfg, claude, codex, &mockCopilotUsage{mockUsage: mockUsage{name: "copilot", pct: 0}})
 
 	choice, err := selectProvider(cfg, budgetMgr, logging.Component("test"), true)
 	if err != nil {
@@ -456,7 +464,7 @@ func TestSelectProvider_IgnoreBudget_PopulatesAllowance(t *testing.T) {
 	}
 	claude := &mockUsage{name: "claude", pct: 100}
 	codex := &mockCodexUsage{mockUsage: mockUsage{name: "codex", pct: 0}}
-	budgetMgr := budget.NewManager(cfg, claude, codex, nil)
+	budgetMgr := budget.NewManager(cfg, claude, codex, &mockCopilotUsage{mockUsage: mockUsage{name: "copilot", pct: 0}})
 
 	choice, err := selectProvider(cfg, budgetMgr, logging.Component("test"), true)
 	if err != nil {
@@ -489,7 +497,7 @@ func TestSelectProvider_IgnoreBudget_False_StillRejectsBudget(t *testing.T) {
 	}
 	claude := &mockUsage{name: "claude", pct: 100}
 	codex := &mockCodexUsage{mockUsage: mockUsage{name: "codex", pct: 100}}
-	budgetMgr := budget.NewManager(cfg, claude, codex, nil)
+	budgetMgr := budget.NewManager(cfg, claude, codex, &mockCopilotUsage{mockUsage: mockUsage{name: "copilot", pct: 0}})
 
 	_, err := selectProvider(cfg, budgetMgr, logging.Component("test"), false)
 	if err == nil {
@@ -516,7 +524,7 @@ func newPreflightParams(t *testing.T, projects []string) executeRunParams {
 	budgetMgr := budget.NewManager(cfg,
 		&mockUsage{name: "claude", pct: 0},
 		&mockCodexUsage{mockUsage: mockUsage{name: "codex", pct: 0}},
-		nil,
+		&mockCopilotUsage{mockUsage: mockUsage{name: "copilot", pct: 0}},
 	)
 	return executeRunParams{
 		cfg:       cfg,

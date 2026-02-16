@@ -177,14 +177,10 @@ Supports signing in with ChatGPT or an API key.
 ### GitHub Copilot
 
 ```bash
-# Install GitHub CLI
-brew install gh  # or apt install gh
-
-# Authenticate
-gh auth login
-
-# Install Copilot extension
-gh extension install github/gh-copilot
+# Install Copilot CLI
+npm install -g @github/copilot
+# or
+curl -fsSL https://gh.io/copilot-install | bash
 ```
 
 Requires GitHub Copilot subscription. See [docs/COPILOT_INTEGRATION.md](docs/COPILOT_INTEGRATION.md) for details.

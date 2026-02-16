@@ -48,6 +48,7 @@ func runBudget(filterProvider string) error {
 	// Initialize providers
 	var claude *providers.Claude
 	var codex *providers.Codex
+	var copilot *providers.Copilot
 
 	if cfg.Providers.Claude.Enabled {
 		dataPath := cfg.ExpandedProviderPath("claude")
@@ -67,10 +68,18 @@ func runBudget(filterProvider string) error {
 		}
 	}
 
+	if cfg.Providers.Copilot.Enabled {
+		dataPath := cfg.ExpandedProviderPath("copilot")
+		if dataPath != "" {
+			copilot = providers.NewCopilotWithPath(dataPath)
+		} else {
+			copilot = providers.NewCopilot()
+		}
+	}
+
 	// Create budget manager
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	copilot := providers.NewCopilot()
 	mgr := budget.NewManagerFromProviders(cfg, claude, codex, copilot, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	providerList, err := resolveProviderList(cfg, filterProvider)

@@ -37,6 +37,21 @@ func (m *mockCodexProvider) GetResetTime(mode string) (time.Time, error) {
 	return m.resetTime, m.err
 }
 
+// mockCopilotProvider implements CopilotUsageProvider for testing.
+type mockCopilotProvider struct {
+	usedPercent float64
+	resetTime   time.Time
+	err         error
+}
+
+func (m *mockCopilotProvider) Name() string { return "copilot" }
+func (m *mockCopilotProvider) GetUsedPercent(mode string, monthlyLimit int64) (float64, error) {
+	return m.usedPercent, m.err
+}
+func (m *mockCopilotProvider) GetResetTime(mode string) (time.Time, error) {
+	return m.resetTime, m.err
+}
+
 type mockBudgetSource struct {
 	estimate BudgetEstimate
 	err      error
@@ -132,7 +147,7 @@ func TestCalculateAllowance_DailyMode(t *testing.T) {
 			}
 
 			claude := &mockClaudeProvider{usedPercent: tt.usedPercent}
-			mgr := NewManager(cfg, claude, nil, nil)
+			mgr := NewManager(cfg, claude, nil, &mockCopilotProvider{usedPercent: 0})
 
 			result, err := mgr.CalculateAllowance("claude")
 			if err != nil {
@@ -203,7 +218,7 @@ func TestCalculateAllowance_WeeklyMode(t *testing.T) {
 			}
 
 			claude := &mockClaudeProvider{usedPercent: tt.usedPercent}
-			mgr := NewManager(cfg, claude, nil, nil)
+			mgr := NewManager(cfg, claude, nil, &mockCopilotProvider{usedPercent: 0})
 			mgr.nowFunc = func() time.Time { return fixedTime }
 
 			result, err := mgr.CalculateAllowance("claude")
@@ -273,7 +288,7 @@ func TestAggressiveEndOfWeek(t *testing.T) {
 			}
 
 			claude := &mockClaudeProvider{usedPercent: 0}
-			mgr := NewManager(cfg, claude, nil, nil)
+			mgr := NewManager(cfg, claude, nil, &mockCopilotProvider{usedPercent: 0})
 			mgr.nowFunc = func() time.Time { return fixedTime }
 
 			result, err := mgr.CalculateAllowance("claude")
@@ -344,7 +359,7 @@ func TestDaysUntilWeeklyReset_Claude(t *testing.T) {
 				},
 			}
 
-			mgr := NewManager(cfg, nil, nil, nil)
+			mgr := NewManager(cfg, nil, nil, &mockCopilotProvider{usedPercent: 0})
 			mgr.nowFunc = func() time.Time { return fixedTime }
 
 			days, err := mgr.DaysUntilWeeklyReset("claude")
@@ -399,7 +414,7 @@ func TestDaysUntilWeeklyReset_Codex(t *testing.T) {
 			}
 
 			codex := &mockCodexProvider{resetTime: tt.resetTime}
-			mgr := NewManager(cfg, nil, codex, nil)
+			mgr := NewManager(cfg, nil, codex, &mockCopilotProvider{usedPercent: 0})
 			mgr.nowFunc = func() time.Time { return now }
 
 			days, err := mgr.DaysUntilWeeklyReset("codex")
@@ -427,7 +442,7 @@ func TestPerProviderBudget(t *testing.T) {
 	}
 
 	claude := &mockClaudeProvider{usedPercent: 0}
-	mgr := NewManager(cfg, claude, nil, nil)
+	mgr := NewManager(cfg, claude, nil, &mockCopilotProvider{usedPercent: 0})
 
 	result, err := mgr.CalculateAllowance("claude")
 	if err != nil {
@@ -514,7 +529,7 @@ func TestCanRun(t *testing.T) {
 	}
 
 	claude := &mockClaudeProvider{usedPercent: 0}
-	mgr := NewManager(cfg, claude, nil, nil)
+	mgr := NewManager(cfg, claude, nil, &mockCopilotProvider{usedPercent: 0})
 
 	// Available: 10000 tokens (100000 * 10%)
 	tests := []struct {
@@ -549,7 +564,7 @@ func TestSummary(t *testing.T) {
 	}
 
 	claude := &mockClaudeProvider{usedPercent: 25}
-	mgr := NewManager(cfg, claude, nil, nil)
+	mgr := NewManager(cfg, claude, nil, &mockCopilotProvider{usedPercent: 0})
 
 	summary, err := mgr.Summary("claude")
 	if err != nil {
@@ -580,7 +595,7 @@ func TestCalculateAllowance_UsedPercentSource(t *testing.T) {
 	}
 
 	claude := &mockClaudeProvider{usedPercent: 25, source: "jsonl-fallback"}
-	mgr := NewManager(cfg, claude, nil, nil)
+	mgr := NewManager(cfg, claude, nil, &mockCopilotProvider{usedPercent: 0})
 
 	result, err := mgr.CalculateAllowance("claude")
 	if err != nil {
@@ -603,7 +618,7 @@ func TestCalculateAllowance_Codex(t *testing.T) {
 	}
 
 	codex := &mockCodexProvider{usedPercent: 24} // 24% used (from scraped data)
-	mgr := NewManager(cfg, nil, codex, nil)
+	mgr := NewManager(cfg, nil, codex, &mockCopilotProvider{usedPercent: 0})
 
 	result, err := mgr.CalculateAllowance("codex")
 	if err != nil {
@@ -633,7 +648,7 @@ func TestGetUsedPercent_Errors(t *testing.T) {
 	}
 
 	// Test missing claude provider
-	mgr := NewManager(cfg, nil, nil, nil)
+	mgr := NewManager(cfg, nil, nil, &mockCopilotProvider{usedPercent: 0})
 	_, err := mgr.GetUsedPercent("claude")
 	if err == nil {
 		t.Error("expected error for missing claude provider")
@@ -701,7 +716,7 @@ func TestReserveEnforcement(t *testing.T) {
 			}
 
 			claude := &mockClaudeProvider{usedPercent: tt.usedPercent}
-			mgr := NewManager(cfg, claude, nil, nil)
+			mgr := NewManager(cfg, claude, nil, &mockCopilotProvider{usedPercent: 0})
 
 			result, err := mgr.CalculateAllowance("claude")
 			if err != nil {
