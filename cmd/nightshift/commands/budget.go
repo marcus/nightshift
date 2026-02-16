@@ -70,7 +70,8 @@ func runBudget(filterProvider string) error {
 	// Create budget manager
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	mgr := budget.NewManagerFromProviders(cfg, claude, codex, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
+	copilot := providers.NewCopilot()
+	mgr := budget.NewManagerFromProviders(cfg, claude, codex, copilot, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	providerList, err := resolveProviderList(cfg, filterProvider)
 	if err != nil {

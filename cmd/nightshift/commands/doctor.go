@@ -243,7 +243,8 @@ func checkProviders(cfg *config.Config, add func(string, checkStatus, string)) (
 func checkBudget(cfg *config.Config, database *db.DB, claudeProvider *providers.Claude, codexProvider *providers.Codex, add func(string, checkStatus, string)) {
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
+	copilotProvider := providers.NewCopilotWithPath(cfg.ExpandedProviderPath("copilot"))
+	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, copilotProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	if cfg.Providers.Claude.Enabled {
 		if allowance, err := budgetMgr.CalculateAllowance("claude"); err != nil {
