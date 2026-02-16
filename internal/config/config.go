@@ -59,9 +59,10 @@ type BudgetConfig struct {
 
 // ProvidersConfig defines AI provider settings.
 type ProvidersConfig struct {
-	Claude ProviderConfig `mapstructure:"claude"`
-	Codex  ProviderConfig `mapstructure:"codex"`
-	// Preference sets provider order (e.g., ["claude", "codex"]).
+	Claude  ProviderConfig `mapstructure:"claude"`
+	Codex   ProviderConfig `mapstructure:"codex"`
+	Copilot ProviderConfig `mapstructure:"copilot"`
+	// Preference sets provider order (e.g., ["claude", "codex", "copilot"]).
 	Preference []string `mapstructure:"preference"`
 }
 
@@ -153,6 +154,7 @@ const (
 	DefaultLogFormat         = "json"
 	DefaultClaudeDataPath    = "~/.claude"
 	DefaultCodexDataPath     = "~/.codex"
+	DefaultCopilotDataPath   = "~/.copilot"
 )
 
 // DefaultLogPath returns the default log path.
@@ -243,7 +245,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("budget.db_path", DefaultDBPath())
 
 	// Provider defaults
-	v.SetDefault("providers.preference", []string{"claude", "codex"})
+	v.SetDefault("providers.preference", []string{"claude", "codex", "copilot"})
 	v.SetDefault("providers.claude.enabled", true)
 	v.SetDefault("providers.claude.data_path", DefaultClaudeDataPath)
 	// SECURITY: Default to false to require explicit opt-in for permission bypassing
@@ -252,6 +254,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("providers.codex.data_path", DefaultCodexDataPath)
 	// SECURITY: Default to false to require explicit opt-in for bypassing approvals/sandbox
 	v.SetDefault("providers.codex.dangerously_bypass_approvals_and_sandbox", false)
+	v.SetDefault("providers.copilot.enabled", false) // Disabled by default until user sets up
+	v.SetDefault("providers.copilot.data_path", DefaultCopilotDataPath)
 
 	// Logging defaults
 	v.SetDefault("logging.level", DefaultLogLevel)
@@ -403,7 +407,7 @@ func Validate(cfg *Config) error {
 			if name == "" {
 				continue
 			}
-			if name != "claude" && name != "codex" {
+			if name != "claude" && name != "codex" && name != "copilot" {
 				return fmt.Errorf("providers.preference contains unknown provider: %s", pref)
 			}
 			if seen[name] {
@@ -550,6 +554,8 @@ func (c *Config) ExpandedProviderPath(provider string) string {
 		return expandPath(c.Providers.Claude.DataPath)
 	case "codex":
 		return expandPath(c.Providers.Codex.DataPath)
+	case "copilot":
+		return expandPath(c.Providers.Copilot.DataPath)
 	default:
 		return ""
 	}
