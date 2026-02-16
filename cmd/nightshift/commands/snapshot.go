@@ -113,6 +113,7 @@ func runBudgetSnapshot(cmd *cobra.Command, filterProvider string, localOnly bool
 		database,
 		providers.NewClaudeWithPath(cfg.ExpandedProviderPath("claude")),
 		providers.NewCodexWithPath(cfg.ExpandedProviderPath("codex")),
+		providers.NewCopilotWithPath(cfg.ExpandedProviderPath("copilot")),
 		scraper,
 		weekStartDayFromConfig(cfg),
 	)
@@ -299,7 +300,7 @@ func runBudgetHistory(filterProvider string, n int) error {
 		return nil
 	}
 
-	collector := snapshots.NewCollector(database, nil, nil, nil, weekStartDayFromConfig(cfg))
+	collector := snapshots.NewCollector(database, nil, nil, nil, nil, weekStartDayFromConfig(cfg))
 
 	for _, provider := range providerList {
 		history, err := collector.GetLatest(provider, n)

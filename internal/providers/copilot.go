@@ -267,3 +267,34 @@ func daysInCurrentMonth(t time.Time) int {
 	lastOfCurrent := firstOfNext.Add(-24 * time.Hour)
 	return lastOfCurrent.Day()
 }
+
+// GetTodayTokens returns today's request count (for snapshot compatibility).
+// Note: Copilot tracks requests, not tokens. We return request count as "tokens".
+func (c *Copilot) GetTodayTokens() (int64, error) {
+	data, err := c.LoadUsageData()
+	if err != nil {
+		return 0, err
+	}
+
+	now := time.Now().UTC()
+	currentMonth := now.Format("2006-01")
+
+	// If we've crossed into a new month, return 0
+	if data.Month != currentMonth {
+		return 0, nil
+	}
+
+	// Estimate today's usage: monthly total / days elapsed
+	daysElapsed := now.Day()
+	if daysElapsed == 0 {
+		daysElapsed = 1
+	}
+	todayEstimate := data.RequestCount / int64(daysElapsed)
+	return todayEstimate, nil
+}
+
+// GetWeeklyTokens returns this week's request count (for snapshot compatibility).
+// Note: Copilot tracks requests monthly, not weekly. We return monthly count.
+func (c *Copilot) GetWeeklyTokens() (int64, error) {
+	return c.GetRequestCount()
+}

@@ -19,8 +19,12 @@ func resolveProviderList(cfg *config.Config, filter string) ([]string, error) {
 			if !cfg.Providers.Codex.Enabled {
 				return nil, fmt.Errorf("codex provider not enabled")
 			}
+		case "copilot":
+			if !cfg.Providers.Copilot.Enabled {
+				return nil, fmt.Errorf("copilot provider not enabled")
+			}
 		default:
-			return nil, fmt.Errorf("unknown provider: %s (valid: claude, codex)", filter)
+			return nil, fmt.Errorf("unknown provider: %s (valid: claude, codex, copilot)", filter)
 		}
 		return []string{filter}, nil
 	}
@@ -31,6 +35,9 @@ func resolveProviderList(cfg *config.Config, filter string) ([]string, error) {
 	}
 	if cfg.Providers.Codex.Enabled {
 		providerList = append(providerList, "codex")
+	}
+	if cfg.Providers.Copilot.Enabled {
+		providerList = append(providerList, "copilot")
 	}
 
 	return providerList, nil

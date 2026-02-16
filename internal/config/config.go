@@ -254,8 +254,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("providers.codex.data_path", DefaultCodexDataPath)
 	// SECURITY: Default to false to require explicit opt-in for bypassing approvals/sandbox
 	v.SetDefault("providers.codex.dangerously_bypass_approvals_and_sandbox", false)
-	v.SetDefault("providers.copilot.enabled", false) // Disabled by default until user sets up
+	v.SetDefault("providers.copilot.enabled", true)
 	v.SetDefault("providers.copilot.data_path", DefaultCopilotDataPath)
+	// SECURITY: Default to false to require explicit opt-in for allowing all tools
+	v.SetDefault("providers.copilot.dangerously_skip_permissions", false)
 
 	// Logging defaults
 	v.SetDefault("logging.level", DefaultLogLevel)

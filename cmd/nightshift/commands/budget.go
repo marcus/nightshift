@@ -28,7 +28,7 @@ Shows spending across all providers or a specific provider.`,
 }
 
 func init() {
-	budgetCmd.Flags().StringP("provider", "p", "", "Show specific provider status (claude, codex)")
+	budgetCmd.Flags().StringP("provider", "p", "", "Show specific provider status (claude, codex, copilot)")
 	rootCmd.AddCommand(budgetCmd)
 }
 
@@ -102,7 +102,7 @@ func runBudget(filterProvider string) error {
 	fmt.Println()
 
 	// Print status for each provider
-	snapCollector := snapshots.NewCollector(database, nil, nil, nil, weekStartDayFromConfig(cfg))
+	snapCollector := snapshots.NewCollector(database, nil, nil, nil, nil, weekStartDayFromConfig(cfg))
 	for _, provName := range providerList {
 		if err := printProviderBudget(mgr, cfg, provName, cal, snapCollector, codex); err != nil {
 			fmt.Printf("%s: error: %v\n\n", provName, err)

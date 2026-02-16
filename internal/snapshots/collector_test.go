@@ -68,7 +68,7 @@ func TestTakeSnapshotInsertsClaude(t *testing.T) {
 	}
 	defer func() { _ = database.Close() }()
 
-	collector := NewCollector(database, fakeClaude{weekly: 700, daily: 120}, nil, fakeScraper{claudePct: 50}, time.Monday)
+	collector := NewCollector(database, fakeClaude{weekly: 700, daily: 120}, nil, nil, fakeScraper{claudePct: 50}, time.Monday)
 
 	_, err = collector.TakeSnapshot(context.Background(), "claude")
 	if err != nil {
@@ -115,7 +115,7 @@ func TestTakeSnapshotCodexWithTokenData(t *testing.T) {
 	defer func() { _ = database.Close() }()
 
 	codex := fakeCodex{weeklyTokens: 35000, dailyTokens: 5000}
-	collector := NewCollector(database, nil, codex, fakeScraper{codexPct: 42}, time.Monday)
+	collector := NewCollector(database, nil, codex, nil, fakeScraper{codexPct: 42}, time.Monday)
 
 	snap, err := collector.TakeSnapshot(context.Background(), "codex")
 	if err != nil {
@@ -151,7 +151,7 @@ func TestTakeSnapshotCodexNoTokenData(t *testing.T) {
 	}
 	defer func() { _ = database.Close() }()
 
-	collector := NewCollector(database, nil, fakeCodex{}, fakeScraper{codexPct: 42}, time.Monday)
+	collector := NewCollector(database, nil, fakeCodex{}, nil, fakeScraper{codexPct: 42}, time.Monday)
 
 	snap, err := collector.TakeSnapshot(context.Background(), "codex")
 	if err != nil {
@@ -223,7 +223,7 @@ func TestTakeSnapshotStoresResetTimes(t *testing.T) {
 		sessionResetTime: "9pm (America/Los_Angeles)",
 		weeklyResetTime:  "Feb 8 at 10am (America/Los_Angeles)",
 	}
-	collector := NewCollector(database, fakeClaude{weekly: 700, daily: 120}, nil, scraper, time.Monday)
+	collector := NewCollector(database, fakeClaude{weekly: 700, daily: 120}, nil, nil, scraper, time.Monday)
 
 	_, err = collector.TakeSnapshot(context.Background(), "claude")
 	if err != nil {
@@ -263,7 +263,7 @@ func TestTakeSnapshotCodexResetTimes(t *testing.T) {
 		sessionResetTime: "20:15",
 		weeklyResetTime:  "20:08 on 9 Feb",
 	}
-	collector := NewCollector(database, nil, fakeCodex{}, scraper, time.Monday)
+	collector := NewCollector(database, nil, fakeCodex{}, nil, scraper, time.Monday)
 
 	snap, err := collector.TakeSnapshot(context.Background(), "codex")
 	if err != nil {
@@ -290,7 +290,7 @@ func TestTakeSnapshotEmptyResetTimes(t *testing.T) {
 	defer func() { _ = database.Close() }()
 
 	// scraper with no reset times
-	collector := NewCollector(database, fakeClaude{weekly: 100, daily: 10}, nil, fakeScraper{claudePct: 25}, time.Monday)
+	collector := NewCollector(database, fakeClaude{weekly: 100, daily: 10}, nil, nil, fakeScraper{claudePct: 25}, time.Monday)
 
 	_, err = collector.TakeSnapshot(context.Background(), "claude")
 	if err != nil {
@@ -322,7 +322,7 @@ func TestPruneSnapshots(t *testing.T) {
 	}
 	defer func() { _ = database.Close() }()
 
-	collector := NewCollector(database, fakeClaude{}, nil, nil, time.Monday)
+	collector := NewCollector(database, fakeClaude{}, nil, nil, nil, time.Monday)
 
 	oldTime := time.Now().AddDate(0, 0, -3)
 	weekStart := startOfWeek(oldTime, time.Monday)
