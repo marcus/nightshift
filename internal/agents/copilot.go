@@ -96,22 +96,20 @@ func (a *CopilotAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execu
 	// Build command args
 	// Two modes:
 	// 1. gh copilot: gh copilot suggest -t <type> --no-ask-user <prompt>
-	// 2. standalone copilot: copilot suggest -t <type> --no-ask-user <prompt>
+	// 2. standalone copilot: copilot -p <prompt> --no-ask-user --allow-all-tools --silent
 	var args []string
 	if a.binaryPath == "gh" {
 		args = []string{"copilot", "suggest", "-t", "shell"}
+		// Add --no-ask-user for non-interactive execution (autonomous mode)
+		args = append(args, "--no-ask-user")
+		// Add prompt directly as argument
+		if opts.Prompt != "" {
+			args = append(args, opts.Prompt)
+		}
 	} else {
-		// Standalone copilot binary
-		args = []string{"suggest", "-t", "shell"}
-	}
-
-	// Add --no-ask-user for non-interactive execution (autonomous mode)
-	// This prevents Copilot from asking user questions during task execution
-	args = append(args, "--no-ask-user")
-
-	// Add prompt directly as argument
-	if opts.Prompt != "" {
-		args = append(args, opts.Prompt)
+		// Standalone copilot binary uses -p flag for non-interactive mode
+		// --silent outputs only the response (no stats), useful for scripting
+		args = []string{"-p", opts.Prompt, "--no-ask-user", "--allow-all-tools", "--silent"}
 	}
 
 	// Build stdin content from files if provided
