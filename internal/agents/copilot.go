@@ -245,12 +245,17 @@ func (a *CopilotAgent) extractJSON(output []byte) []byte {
 
 // Available checks if the gh binary is available in PATH and copilot extension is installed.
 func (a *CopilotAgent) Available() bool {
-	// First check if gh is available
+	// Check if binary is available
 	if _, err := exec.LookPath(a.binaryPath); err != nil {
 		return false
 	}
 
-	// Check if copilot extension is installed
+	// If using standalone copilot binary, it's available
+	if a.binaryPath == "copilot" {
+		return true
+	}
+
+	// If using gh, check if copilot extension is installed
 	// Run: gh extension list | grep copilot
 	cmd := exec.Command(a.binaryPath, "extension", "list")
 	output, err := cmd.Output()

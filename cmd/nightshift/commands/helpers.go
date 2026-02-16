@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/marcus/nightshift/internal/agents"
@@ -57,9 +58,18 @@ func newCopilotAgentFromConfig(cfg *config.Config) *agents.CopilotAgent {
 	if cfg == nil {
 		return agents.NewCopilotAgent()
 	}
+	
+	// Auto-detect: prefer standalone copilot, fallback to gh
+	binaryPath := "gh"
+	if _, err := exec.LookPath("copilot"); err == nil {
+		binaryPath = "copilot"
+	}
+	
 	// Copilot uses DangerouslySkipPermissions for --allow-all-tools flag
 	// Note: The agent already uses --no-ask-user for autonomous mode
-	opts := []agents.CopilotOption{}
+	opts := []agents.CopilotOption{
+		agents.WithCopilotBinaryPath(binaryPath),
+	}
 	if cfg.Providers.Copilot.DangerouslySkipPermissions {
 		// When enabled, this should pass --allow-all-tools
 		// Currently handled via config, future: add agent option
