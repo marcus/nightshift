@@ -481,7 +481,7 @@ func (m *setupModel) View() string {
 			} else {
 				b.WriteString(m.snapshotOutput + "\n")
 			}
-			b.WriteString(styleNote.Render("If an estimate looks off, run `nightshift budget snapshot --provider codex` and `nightshift budget calibrate` later. Setup doesn’t change your budget math."))
+			b.WriteString(styleNote.Render("If an estimate looks off, run `nightshift budget snapshot --provider <provider>` and `nightshift budget calibrate` later. Setup doesn’t change your budget math."))
 			b.WriteString("\n")
 			b.WriteString("\nPress Enter to continue.\n")
 		}
@@ -1567,7 +1567,7 @@ func renderSafetyFields(b *strings.Builder, m *setupModel) {
 			available: m.cfg.Providers.Codex.Enabled,
 		},
 		{
-			label:     "Copilot: --allow-all-tools",
+			label:     "Copilot: --allow-all-tools --allow-all-urls",
 			enabled:   m.cfg.Providers.Copilot.DangerouslySkipPermissions,
 			available: m.cfg.Providers.Copilot.Enabled,
 		},
