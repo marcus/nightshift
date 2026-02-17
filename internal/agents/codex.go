@@ -84,9 +84,9 @@ func (a *CodexAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execute
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	// Build command args for headless/non-interactive execution
-	// Codex CLI uses --quiet for non-interactive mode and accepts prompt directly
-	args := []string{"--quiet"}
+	// Build command args for headless/non-interactive execution.
+	// Codex CLI uses the `exec` subcommand for non-interactive mode.
+	args := []string{"exec"}
 	if a.bypassPerm {
 		args = append(args, "--dangerously-bypass-approvals-and-sandbox")
 	}
