@@ -206,6 +206,56 @@ func TestValidateBudgetSpend(t *testing.T) {
 	}
 }
 
+func TestValidateProjectPath(t *testing.T) {
+	home, _ := os.UserHomeDir()
+
+	tests := []struct {
+		name    string
+		path    string
+		wantErr bool
+	}{
+		{
+			name:    "home directory is blocked",
+			path:    home,
+			wantErr: true,
+		},
+		{
+			name:    "root is blocked",
+			path:    "/",
+			wantErr: true,
+		},
+		{
+			name:    "tmp is blocked",
+			path:    "/tmp",
+			wantErr: true,
+		},
+		{
+			name:    "etc is blocked",
+			path:    "/etc",
+			wantErr: true,
+		},
+		{
+			name:    "project subdirectory is allowed",
+			path:    filepath.Join(home, "Sites", "my-project"),
+			wantErr: false,
+		},
+		{
+			name:    "deep project path is allowed",
+			path:    filepath.Join(home, "code", "org", "repo"),
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateProjectPath(tt.path)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateProjectPath(%q) error = %v, wantErr %v", tt.path, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestSetMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	cfg := Config{

@@ -13,6 +13,7 @@ import (
 
 	"github.com/marcus/nightshift/internal/logging"
 	"github.com/marcus/nightshift/internal/orchestrator"
+	"github.com/marcus/nightshift/internal/security"
 	"github.com/marcus/nightshift/internal/tasks"
 	"github.com/spf13/cobra"
 )
@@ -193,6 +194,11 @@ func runTaskRun(cmd *cobra.Command, args []string) error {
 		if wdErr != nil {
 			return fmt.Errorf("get working directory: %w", wdErr)
 		}
+	}
+
+	// Validate project path is not a sensitive directory
+	if err := security.ValidateProjectPath(projectPath); err != nil {
+		return err
 	}
 
 	// Build the task
