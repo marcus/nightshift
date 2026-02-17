@@ -29,6 +29,7 @@ type CopilotAgent struct {
 	binaryPath string        // Path to binary: "gh" or "copilot" (default: "gh")
 	timeout    time.Duration // Default timeout
 	runner     CommandRunner // Command executor (for testing)
+	model      string        // Default model to use
 }
 
 // CopilotOption configures a CopilotAgent.
@@ -45,6 +46,13 @@ func WithCopilotBinaryPath(path string) CopilotOption {
 func WithCopilotDefaultTimeout(d time.Duration) CopilotOption {
 	return func(a *CopilotAgent) {
 		a.timeout = d
+	}
+}
+
+// WithCopilotModel sets the default model to use.
+func WithCopilotModel(model string) CopilotOption {
+	return func(a *CopilotAgent) {
+		a.model = model
 	}
 }
 
@@ -98,10 +106,19 @@ func (a *CopilotAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execu
 	// 1. gh copilot: gh copilot suggest -t <type> --no-ask-user <prompt>
 	// 2. standalone copilot: copilot -p <prompt> --no-ask-user --allow-all-tools --silent
 	var args []string
+	
+	// Determine model
+	model := opts.Model
+	if model == "" {
+		model = a.model
+	}
+	
 	if a.binaryPath == "gh" {
 		args = []string{"copilot", "suggest", "-t", "shell"}
 		// Add --no-ask-user for non-interactive execution (autonomous mode)
 		args = append(args, "--no-ask-user")
+		// Add model if specified (gh copilot doesn't support --model in suggest mode)
+		// Skip model for gh mode as it's not supported
 		// Add prompt directly as argument
 		if opts.Prompt != "" {
 			args = append(args, opts.Prompt)
@@ -109,7 +126,11 @@ func (a *CopilotAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execu
 	} else {
 		// Standalone copilot binary uses -p flag for non-interactive mode
 		// --silent outputs only the response (no stats), useful for scripting
-		args = []string{"-p", opts.Prompt, "--no-ask-user", "--allow-all-tools", "--silent"}
+		args = []string{"-p", opts.Prompt, "--no-ask-user", "--allow-all-tools", "--allow-all-urls", "--silent"}
+		// Add model if specified
+		if model != "" {
+			args = append(args, "--model", model)
+		}
 	}
 
 	// Build stdin content from files if provided

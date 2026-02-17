@@ -52,6 +52,7 @@ type ClaudeAgent struct {
 	timeout    time.Duration // Default timeout
 	runner     CommandRunner // Command executor (for testing)
 	skipPerms  bool          // Pass --dangerously-skip-permissions
+	model      string        // Default model to use
 }
 
 // ClaudeOption configures a ClaudeAgent.
@@ -75,6 +76,13 @@ func WithDefaultTimeout(d time.Duration) ClaudeOption {
 func WithDangerouslySkipPermissions(enabled bool) ClaudeOption {
 	return func(a *ClaudeAgent) {
 		a.skipPerms = enabled
+	}
+}
+
+// WithModel sets the default model to use.
+func WithModel(model string) ClaudeOption {
+	return func(a *ClaudeAgent) {
+		a.model = model
 	}
 }
 
@@ -122,6 +130,15 @@ func (a *ClaudeAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execut
 	args := []string{"--print"}
 	if a.skipPerms {
 		args = append(args, "--dangerously-skip-permissions")
+	}
+
+	// Add model if specified
+	model := opts.Model
+	if model == "" {
+		model = a.model
+	}
+	if model != "" {
+		args = append(args, "--model", model)
 	}
 
 	// Add prompt directly as argument

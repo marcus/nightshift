@@ -70,6 +70,7 @@ type ProvidersConfig struct {
 type ProviderConfig struct {
 	Enabled  bool   `mapstructure:"enabled"`
 	DataPath string `mapstructure:"data_path"` // Path to provider data directory
+	Model    string `mapstructure:"model"`     // Model to use (e.g., "claude-sonnet-4.5", "gpt-5.2")
 	// DangerouslySkipPermissions tells the CLI to skip interactive permission prompts.
 	DangerouslySkipPermissions bool `mapstructure:"dangerously_skip_permissions"`
 	// DangerouslyBypassApprovalsAndSandbox tells the CLI to bypass approvals and sandboxing.
