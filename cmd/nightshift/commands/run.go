@@ -182,11 +182,12 @@ func runRun(cmd *cobra.Command, args []string) error {
 	// Initialize providers
 	claudeProvider := providers.NewClaudeWithPath(cfg.ExpandedProviderPath("claude"))
 	codexProvider := providers.NewCodexWithPath(cfg.ExpandedProviderPath("codex"))
+	ollamaProvider := providers.NewOllamaWithPath(cfg.ExpandedProviderPath("ollama"))
 
 	// Initialize budget manager
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
+	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, budget.WithOllamaProvider(ollamaProvider), budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	// Determine projects to run
 	projects, err := resolveProjects(cfg, projectPath)

@@ -78,15 +78,33 @@ nightshift task run lint-fix --provider codex --dry-run
 ```bash
 nightshift budget                 # Current status
 nightshift budget --provider claude
+nightshift budget --provider codex
+nightshift budget --provider ollama
 nightshift budget snapshot --local-only
 nightshift budget history -n 10
 nightshift budget calibrate
 ```
+
+## Ollama Commands
+
+```bash
+nightshift ollama auth            # Set up cookie authentication
+```
+
+Ollama Cloud uses cookie-based authentication. See [Integrations > Ollama Cloud](/docs/integrations#ollama-cloud) for setup details.
+
+## Ollama Commands
+
+```bash
+nightshift ollama auth            # Set up cookie authentication
+```
+
+Ollama Cloud uses cookie-based authentication since it doesn't provide a public API. See [Integrations > Ollama Cloud](/docs/integrations#ollama-cloud) for setup details.
 
 ## Global Flags
 
 | Flag | Description |
 |------|-------------|
 | `--verbose` | Verbose output |
-| `--provider` | Select provider (claude, codex) |
+| `--provider` | Select provider (claude, codex, ollama) |
 | `--timeout` | Execution timeout (default 30m) |
