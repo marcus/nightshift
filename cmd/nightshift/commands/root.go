@@ -9,7 +9,7 @@ import (
 
 var (
 	// Version is set at build time
-	Version = "0.3.0"
+	Version = "0.3.2"
 )
 
 var rootCmd = &cobra.Command{

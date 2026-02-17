@@ -2,6 +2,17 @@
 
 All notable changes to nightshift are documented in this file.
 
+## [v0.3.2] - 2026-02-17
+
+### Bug Fixes
+- **Block task run in sensitive directories** — refuse to run when project path is `$HOME`, `/`, `/tmp`, `/var`, `/etc`, or `/usr` to prevent accidental credential exposure (#14, thanks @davemac)
+- **Fix codex exec for non-interactive runs** — switch from removed `--quiet` flag to `exec` subcommand for Codex 0.98.0 compatibility (#11, thanks @brandon93s)
+
+### Other
+- Bus-factor analyzer for code ownership concentration
+- Security audit improvements and linter fixes
+- Extended test coverage for snapshots, budget, setup, and backward compatibility
+
 ## [v0.3.1] - 2026-02-08
 
 ### Security
