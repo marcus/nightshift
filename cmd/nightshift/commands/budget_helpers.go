@@ -19,8 +19,12 @@ func resolveProviderList(cfg *config.Config, filter string) ([]string, error) {
 			if !cfg.Providers.Codex.Enabled {
 				return nil, fmt.Errorf("codex provider not enabled")
 			}
+		case "gemini":
+			if !cfg.Providers.Gemini.Enabled {
+				return nil, fmt.Errorf("gemini provider not enabled")
+			}
 		default:
-			return nil, fmt.Errorf("unknown provider: %s (valid: claude, codex)", filter)
+			return nil, fmt.Errorf("unknown provider: %s (valid: claude, codex, gemini)", filter)
 		}
 		return []string{filter}, nil
 	}
@@ -31,6 +35,9 @@ func resolveProviderList(cfg *config.Config, filter string) ([]string, error) {
 	}
 	if cfg.Providers.Codex.Enabled {
 		providerList = append(providerList, "codex")
+	}
+	if cfg.Providers.Gemini.Enabled {
+		providerList = append(providerList, "gemini")
 	}
 
 	return providerList, nil

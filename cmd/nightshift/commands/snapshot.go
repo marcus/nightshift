@@ -61,13 +61,13 @@ var budgetCalibrateCmd = &cobra.Command{
 }
 
 func init() {
-	budgetSnapshotCmd.Flags().StringP("provider", "p", "", "Provider to snapshot (claude, codex)")
+	budgetSnapshotCmd.Flags().StringP("provider", "p", "", "Provider to snapshot (claude, codex, gemini)")
 	budgetSnapshotCmd.Flags().Bool("local-only", false, "Skip tmux scraping and store local-only snapshot")
 
-	budgetHistoryCmd.Flags().StringP("provider", "p", "", "Provider to show history for (claude, codex)")
+	budgetHistoryCmd.Flags().StringP("provider", "p", "", "Provider to show history for (claude, codex, gemini)")
 	budgetHistoryCmd.Flags().IntP("n", "n", 20, "Number of snapshots to show")
 
-	budgetCalibrateCmd.Flags().StringP("provider", "p", "", "Provider to calibrate (claude, codex)")
+	budgetCalibrateCmd.Flags().StringP("provider", "p", "", "Provider to calibrate (claude, codex, gemini)")
 
 	budgetCmd.AddCommand(budgetSnapshotCmd)
 	budgetCmd.AddCommand(budgetHistoryCmd)
@@ -191,6 +191,8 @@ func providerDataSource(provider string) string {
 		return "stats-cache.json"
 	case "codex":
 		return "session JSONL files"
+	case "gemini":
+		return "session JSON files"
 	default:
 		return "local files"
 	}

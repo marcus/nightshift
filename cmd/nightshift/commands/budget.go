@@ -28,7 +28,7 @@ Shows spending across all providers or a specific provider.`,
 }
 
 func init() {
-	budgetCmd.Flags().StringP("provider", "p", "", "Show specific provider status (claude, codex)")
+	budgetCmd.Flags().StringP("provider", "p", "", "Show specific provider status (claude, codex, gemini)")
 	rootCmd.AddCommand(budgetCmd)
 }
 
@@ -48,6 +48,7 @@ func runBudget(filterProvider string) error {
 	// Initialize providers
 	var claude *providers.Claude
 	var codex *providers.Codex
+	var gemini *providers.Gemini
 
 	if cfg.Providers.Claude.Enabled {
 		dataPath := cfg.ExpandedProviderPath("claude")
@@ -67,10 +68,19 @@ func runBudget(filterProvider string) error {
 		}
 	}
 
+	if cfg.Providers.Gemini.Enabled {
+		dataPath := cfg.ExpandedProviderPath("gemini")
+		if dataPath != "" {
+			gemini = providers.NewGeminiWithPath(dataPath)
+		} else {
+			gemini = providers.NewGemini()
+		}
+	}
+
 	// Create budget manager
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	mgr := budget.NewManagerFromProviders(cfg, claude, codex, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
+	mgr := budget.NewManagerFromProviders(cfg, claude, codex, gemini, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	providerList, err := resolveProviderList(cfg, filterProvider)
 	if err != nil {
@@ -296,6 +306,8 @@ func printTokenAccountingNote(provider string, estimate budget.BudgetEstimate) {
 		fmt.Printf("  Note:         tokens from stats-cache.json; JSONL fallback if cache missing\n")
 	case "codex":
 		fmt.Printf("  Note:         %% from rate limit; tokens = billable (excludes cached input)\n")
+	case "gemini":
+		fmt.Printf("  Note:         tokens from session JSON files in ~/.gemini/tmp/\n")
 	}
 }
 

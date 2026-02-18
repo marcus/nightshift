@@ -182,11 +182,12 @@ func runRun(cmd *cobra.Command, args []string) error {
 	// Initialize providers
 	claudeProvider := providers.NewClaudeWithPath(cfg.ExpandedProviderPath("claude"))
 	codexProvider := providers.NewCodexWithPath(cfg.ExpandedProviderPath("codex"))
+	geminiProvider := providers.NewGeminiWithPath(cfg.ExpandedProviderPath("gemini"))
 
 	// Initialize budget manager
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
+	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, geminiProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	// Determine projects to run
 	projects, err := resolveProjects(cfg, projectPath)
@@ -263,7 +264,7 @@ type providerChoice struct {
 }
 
 // selectProvider picks the best available provider with budget remaining.
-// Order is determined by providers.preference (default: claude, codex).
+// Order is determined by providers.preference (default: claude, codex, gemini).
 // When ignoreBudget is true, budget-exhausted providers are still selected.
 func selectProvider(cfg *config.Config, budgetMgr *budget.Manager, log *logging.Logger, ignoreBudget bool) (*providerChoice, error) {
 	type candidate struct {
@@ -289,6 +290,14 @@ func selectProvider(cfg *config.Config, budgetMgr *budget.Manager, log *logging.
 					name:      "codex",
 					binary:    "codex",
 					makeAgent: func() agents.Agent { return newCodexAgentFromConfig(cfg) },
+				})
+			}
+		case "gemini":
+			if cfg.Providers.Gemini.Enabled {
+				candidates = append(candidates, candidate{
+					name:      "gemini",
+					binary:    "gemini",
+					makeAgent: func() agents.Agent { return newGeminiAgentFromConfig(cfg) },
 				})
 			}
 		}
@@ -344,7 +353,7 @@ func selectProvider(cfg *config.Config, budgetMgr *budget.Manager, log *logging.
 }
 
 func providerPreference(cfg *config.Config) []string {
-	defaults := []string{"claude", "codex"}
+	defaults := []string{"claude", "codex", "gemini"}
 	if cfg == nil || len(cfg.Providers.Preference) == 0 {
 		return defaults
 	}
@@ -356,7 +365,7 @@ func providerPreference(cfg *config.Config) []string {
 		if name == "" || seen[name] {
 			continue
 		}
-		if name != "claude" && name != "codex" {
+		if name != "claude" && name != "codex" && name != "gemini" {
 			continue
 		}
 		seen[name] = true

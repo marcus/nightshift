@@ -265,11 +265,12 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 	// Initialize providers
 	claudeProvider := providers.NewClaudeWithPath(cfg.ExpandedProviderPath("claude"))
 	codexProvider := providers.NewCodexWithPath(cfg.ExpandedProviderPath("codex"))
+	geminiProvider := providers.NewGeminiWithPath(cfg.ExpandedProviderPath("gemini"))
 
 	// Initialize budget manager
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
+	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, geminiProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	report := newRunReport(time.Now(), calculateRunBudgetStart(cfg, budgetMgr, log))
 
