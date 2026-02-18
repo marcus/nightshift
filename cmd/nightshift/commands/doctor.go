@@ -92,8 +92,8 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 	checkDaemon(add)
 
 	checkCLIs(cfg, add)
-	claudeProvider, codexProvider := checkProviders(cfg, add)
-	checkBudget(cfg, database, claudeProvider, codexProvider, add)
+	claudeProvider, codexProvider, geminiProvider := checkProviders(cfg, add)
+	checkBudget(cfg, database, claudeProvider, codexProvider, geminiProvider, add)
 	checkSnapshots(cfg, database, add)
 	checkTmux(cfg, add)
 
@@ -193,11 +193,19 @@ func checkCLIs(cfg *config.Config, add func(string, checkStatus, string)) {
 			add("codex.cli", statusOK, path)
 		}
 	}
+	if cfg.Providers.Gemini.Enabled {
+		if path, err := exec.LookPath("gemini"); err != nil {
+			add("gemini.cli", statusFail, "gemini not found in PATH")
+		} else {
+			add("gemini.cli", statusOK, path)
+		}
+	}
 }
 
-func checkProviders(cfg *config.Config, add func(string, checkStatus, string)) (*providers.Claude, *providers.Codex) {
+func checkProviders(cfg *config.Config, add func(string, checkStatus, string)) (*providers.Claude, *providers.Codex, *providers.Gemini) {
 	var claudeProvider *providers.Claude
 	var codexProvider *providers.Codex
+	var geminiProvider *providers.Gemini
 
 	mode := cfg.Budget.Mode
 	if mode == "" {
@@ -237,13 +245,28 @@ func checkProviders(cfg *config.Config, add func(string, checkStatus, string)) (
 		}
 	}
 
-	return claudeProvider, codexProvider
+	if cfg.Providers.Gemini.Enabled {
+		path := cfg.ExpandedProviderPath("gemini")
+		if _, err := os.Stat(path); err != nil {
+			add("gemini.data_path", statusFail, fmt.Sprintf("missing %s", path))
+		} else {
+			add("gemini.data_path", statusOK, path)
+		}
+		geminiProvider = providers.NewGeminiWithPath(path)
+		if pct, err := geminiProvider.GetUsedPercent(mode, int64(cfg.GetProviderBudget("gemini"))); err != nil {
+			add("gemini.usage", statusFail, err.Error())
+		} else {
+			add("gemini.usage", statusOK, fmt.Sprintf("%.1f%% used (%s)", pct, mode))
+		}
+	}
+
+	return claudeProvider, codexProvider, geminiProvider
 }
 
-func checkBudget(cfg *config.Config, database *db.DB, claudeProvider *providers.Claude, codexProvider *providers.Codex, add func(string, checkStatus, string)) {
+func checkBudget(cfg *config.Config, database *db.DB, claudeProvider *providers.Claude, codexProvider *providers.Codex, geminiProvider *providers.Gemini, add func(string, checkStatus, string)) {
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
+	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, geminiProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	if cfg.Providers.Claude.Enabled {
 		if allowance, err := budgetMgr.CalculateAllowance("claude"); err != nil {
@@ -260,16 +283,27 @@ func checkBudget(cfg *config.Config, database *db.DB, claudeProvider *providers.
 			add("budget.codex", statusOK, fmt.Sprintf("%.1f%% used, %d tokens available", allowance.UsedPercent, allowance.Allowance))
 		}
 	}
+
+	if cfg.Providers.Gemini.Enabled {
+		if allowance, err := budgetMgr.CalculateAllowance("gemini"); err != nil {
+			add("budget.gemini", statusFail, err.Error())
+		} else {
+			add("budget.gemini", statusOK, fmt.Sprintf("%.1f%% used, %d tokens available", allowance.UsedPercent, allowance.Allowance))
+		}
+	}
 }
 
 func checkSnapshots(cfg *config.Config, database *db.DB, add func(string, checkStatus, string)) {
 	collector := snapshots.NewCollector(database, nil, nil, nil, weekStartDayFromConfig(cfg))
 
-	for _, provider := range []string{"claude", "codex"} {
+	for _, provider := range []string{"claude", "codex", "gemini"} {
 		if provider == "claude" && !cfg.Providers.Claude.Enabled {
 			continue
 		}
 		if provider == "codex" && !cfg.Providers.Codex.Enabled {
+			continue
+		}
+		if provider == "gemini" && !cfg.Providers.Gemini.Enabled {
 			continue
 		}
 		latest, err := collector.GetLatest(provider, 1)
