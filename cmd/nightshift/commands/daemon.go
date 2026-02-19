@@ -64,9 +64,11 @@ var daemonStatusCmd = &cobra.Command{
 }
 
 var daemonForegroundFlag bool
+var daemonTimeoutFlag time.Duration
 
 func init() {
 	daemonStartCmd.Flags().BoolVarP(&daemonForegroundFlag, "foreground", "f", false, "Run in foreground (don't daemonize)")
+	daemonStartCmd.Flags().DurationVar(&daemonTimeoutFlag, "timeout", orchestrator.DefaultAgentTimeout, "Per-agent execution timeout")
 	daemonCmd.AddCommand(daemonStartCmd)
 	daemonCmd.AddCommand(daemonStopCmd)
 	daemonCmd.AddCommand(daemonStatusCmd)
@@ -155,7 +157,7 @@ func runDaemonStart(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("getting executable: %w", err)
 	}
 
-	daemonCmd := exec.Command(executable, "daemon", "start", "--foreground")
+	daemonCmd := exec.Command(executable, "daemon", "start", "--foreground", "--timeout", daemonTimeoutFlag.String())
 	daemonCmd.Stdout = nil
 	daemonCmd.Stderr = nil
 	daemonCmd.Stdin = nil
@@ -322,7 +324,7 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 			orchestrator.WithAgent(choice.agent),
 			orchestrator.WithConfig(orchestrator.Config{
 				MaxIterations: 3,
-				AgentTimeout:  30 * time.Minute,
+				AgentTimeout:  daemonTimeoutFlag,
 			}),
 			orchestrator.WithLogger(logging.Component("orchestrator")),
 		)
