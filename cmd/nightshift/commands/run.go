@@ -110,6 +110,7 @@ func init() {
 	runCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 	runCmd.Flags().Bool("random-task", false, "Pick a random task from eligible tasks")
 	runCmd.Flags().Bool("no-color", false, "Disable colored output")
+	runCmd.Flags().Duration("timeout", orchestrator.DefaultAgentTimeout, "Per-agent execution timeout")
 	rootCmd.AddCommand(runCmd)
 }
 
@@ -122,6 +123,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	ignoreBudget, _ := cmd.Flags().GetBool("ignore-budget")
 	yes, _ := cmd.Flags().GetBool("yes")
 	randomTask, _ := cmd.Flags().GetBool("random-task")
+	agentTimeout, _ := cmd.Flags().GetDuration("timeout")
 
 	if randomTask && taskFilter != "" {
 		return fmt.Errorf("--random-task and --task are mutually exclusive")
@@ -231,6 +233,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		ignoreBudget: ignoreBudget,
 		dryRun:       dryRun,
 		yes:          yes,
+		agentTimeout: agentTimeout,
 		log:          log,
 	}
 	if !dryRun {
@@ -251,6 +254,7 @@ type executeRunParams struct {
 	ignoreBudget bool
 	dryRun       bool
 	yes          bool
+	agentTimeout time.Duration
 	report       *runReport
 	log          *logging.Logger
 }
@@ -628,7 +632,7 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 			orchestrator.WithAgent(choice.agent),
 			orchestrator.WithConfig(orchestrator.Config{
 				MaxIterations: 3,
-				AgentTimeout:  30 * time.Minute,
+				AgentTimeout:  p.agentTimeout,
 			}),
 			orchestrator.WithLogger(logging.Component("orchestrator")),
 		}
