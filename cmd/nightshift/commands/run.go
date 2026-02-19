@@ -87,6 +87,7 @@ Flags:
   --ignore-budget    Bypass budget checks (use with caution).
   --yes / -y         Skip the confirmation prompt.
   --dry-run          Show preflight summary and exit without executing.
+  --branch / -b      Base branch for new feature branches (defaults to current branch).
 
 Examples:
   nightshift run                              # Interactive: preflight + prompt
@@ -96,7 +97,8 @@ Examples:
   nightshift run --max-tasks 3                # Up to 3 tasks per project
   nightshift run --random-task                # Pick a random eligible task
   nightshift run --ignore-budget              # Run even if budget exhausted
-  nightshift run -p ./my-project -t lint-fix  # Specific project + task`,
+  nightshift run -p ./my-project -t lint-fix  # Specific project + task
+  nightshift run --branch develop             # Use develop as base branch`,
 	RunE: runRun,
 }
 
@@ -109,6 +111,7 @@ func init() {
 	runCmd.Flags().Bool("ignore-budget", false, "Bypass budget checks (use with caution)")
 	runCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 	runCmd.Flags().Bool("random-task", false, "Pick a random task from eligible tasks")
+	runCmd.Flags().StringP("branch", "b", "", "Base branch for new feature branches (defaults to current branch)")
 	runCmd.Flags().Bool("no-color", false, "Disable colored output")
 	rootCmd.AddCommand(runCmd)
 }
@@ -122,6 +125,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 	ignoreBudget, _ := cmd.Flags().GetBool("ignore-budget")
 	yes, _ := cmd.Flags().GetBool("yes")
 	randomTask, _ := cmd.Flags().GetBool("random-task")
+
+	branch, _ := cmd.Flags().GetString("branch")
 
 	if randomTask && taskFilter != "" {
 		return fmt.Errorf("--random-task and --task are mutually exclusive")
@@ -204,6 +209,13 @@ func runRun(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Resolve branch: use flag value or detect current branch from first project
+	if branch == "" {
+		if detected, err := orchestrator.CurrentBranch(ctx, projects[0]); err == nil {
+			branch = detected
+		}
+	}
+
 	// Register custom tasks from config
 	tasks.ClearCustom()
 	if err := tasks.RegisterCustomTasksFromConfig(cfg.Tasks.Custom); err != nil {
@@ -231,6 +243,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		ignoreBudget: ignoreBudget,
 		dryRun:       dryRun,
 		yes:          yes,
+		branch:       branch,
 		log:          log,
 	}
 	if !dryRun {
@@ -251,6 +264,7 @@ type executeRunParams struct {
 	ignoreBudget bool
 	dryRun       bool
 	yes          bool
+	branch       string
 	report       *runReport
 	log          *logging.Logger
 }
@@ -381,6 +395,7 @@ type preflightPlan struct {
 	projects     []preflightProject
 	skipReasons  []string // global skip reasons (e.g., no provider)
 	ignoreBudget bool
+	branch       string // base branch for feature branches
 }
 
 // buildPreflight performs the planning phase: resolve provider, select tasks
@@ -388,6 +403,7 @@ type preflightPlan struct {
 func buildPreflight(p executeRunParams) (*preflightPlan, error) {
 	plan := &preflightPlan{
 		ignoreBudget: p.ignoreBudget,
+		branch:       p.branch,
 	}
 
 	for _, projectPath := range p.projects {
@@ -473,6 +489,11 @@ func buildPreflight(p executeRunParams) (*preflightPlan, error) {
 // displayPreflight renders the preflight summary to the given writer.
 func displayPreflight(w io.Writer, plan *preflightPlan) {
 	_, _ = fmt.Fprintf(w, "\n=== Preflight Summary ===\n")
+
+	// Show branch info
+	if plan.branch != "" {
+		_, _ = fmt.Fprintf(w, "Branch: %s\n", plan.branch)
+	}
 
 	// Show provider info from first project that has one
 	for _, pp := range plan.projects {
@@ -676,6 +697,7 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 				TaskScore: scoredTask.Score,
 				CostTier:  scoredTask.Definition.CostTier.String(),
 				RunStart:  projectStart,
+				Branch:    p.branch,
 			})
 
 			// Execute via orchestrator
@@ -779,6 +801,7 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 			Tasks:      projectTaskTypes,
 			TokensUsed: projectTokensUsed,
 			Status:     projectStatus,
+			Branch:     p.branch,
 		})
 	}
 
