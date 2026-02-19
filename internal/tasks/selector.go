@@ -14,9 +14,9 @@ import (
 type Selector struct {
 	cfg                *config.Config
 	state              *state.State
-	contextMentions    map[string]bool    // Tasks mentioned in claude.md/agents.md
-	taskSources        map[string]bool    // Tasks from td/github issues
-	simulatedCooldowns map[string]bool    // task:project keys simulated as on cooldown (for preview)
+	contextMentions    map[string]bool // Tasks mentioned in claude.md/agents.md
+	taskSources        map[string]bool // Tasks from td/github issues
+	simulatedCooldowns map[string]bool // task:project keys simulated as on cooldown (for preview)
 }
 
 // NewSelector creates a new task selector.

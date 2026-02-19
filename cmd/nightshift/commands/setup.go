@@ -800,7 +800,7 @@ func (m *setupModel) handleSafetyInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.safetyCursor--
 		}
 	case "down", "j":
-		if m.safetyCursor < 1 {
+		if m.safetyCursor < 2 {
 			m.safetyCursor++
 		}
 	case " ":
@@ -809,6 +809,8 @@ func (m *setupModel) handleSafetyInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cfg.Providers.Claude.DangerouslySkipPermissions = !m.cfg.Providers.Claude.DangerouslySkipPermissions
 		case 1:
 			m.cfg.Providers.Codex.DangerouslyBypassApprovalsAndSandbox = !m.cfg.Providers.Codex.DangerouslyBypassApprovalsAndSandbox
+		case 2:
+			m.cfg.Providers.Copilot.DangerouslySkipPermissions = !m.cfg.Providers.Copilot.DangerouslySkipPermissions
 		}
 	case "enter":
 		return m, m.setStep(stepTaskPreset)
@@ -1502,6 +1504,16 @@ func renderEnvChecks(cfg *config.Config) string {
 	} else {
 		b.WriteString(fmt.Sprintf("  %s %s\n", styleOk.Render("OK:"), "tmux available"))
 	}
+	// Check for Copilot CLI (gh or copilot binary)
+	_, ghErr := execLookPath("gh")
+	_, copilotErr := execLookPath("copilot")
+	if ghErr != nil && copilotErr != nil {
+		b.WriteString(fmt.Sprintf("  %s %s\n", styleWarn.Render("Note:"), "Copilot CLI not found (install via 'gh' or native 'copilot')"))
+	} else if ghErr == nil {
+		b.WriteString(fmt.Sprintf("  %s %s\n", styleOk.Render("OK:"), "gh CLI available (use 'gh copilot')"))
+	} else {
+		b.WriteString(fmt.Sprintf("  %s %s\n", styleOk.Render("OK:"), "copilot CLI available"))
+	}
 	if cfg.Providers.Claude.Enabled {
 		if _, err := os.Stat(cfg.ExpandedProviderPath("claude")); err != nil {
 			b.WriteString(fmt.Sprintf("  %s %s\n", styleWarn.Render("Note:"), "Claude data path not found"))
@@ -1553,6 +1565,11 @@ func renderSafetyFields(b *strings.Builder, m *setupModel) {
 			label:     "Codex:  --dangerously-bypass-approvals-and-sandbox",
 			enabled:   m.cfg.Providers.Codex.DangerouslyBypassApprovalsAndSandbox,
 			available: m.cfg.Providers.Codex.Enabled,
+		},
+		{
+			label:     "Copilot: --allow-all-tools",
+			enabled:   m.cfg.Providers.Copilot.DangerouslySkipPermissions,
+			available: m.cfg.Providers.Copilot.Enabled,
 		},
 	}
 
@@ -1661,6 +1678,7 @@ func runSnapshot(cfg *config.Config) (string, error) {
 		database,
 		providers.NewClaudeWithPath(cfg.ExpandedProviderPath("claude")),
 		providers.NewCodexWithPath(cfg.ExpandedProviderPath("codex")),
+		providers.NewCopilotWithPath(cfg.ExpandedProviderPath("copilot")),
 		scraper,
 		weekStartDayFromConfig(cfg),
 	)
@@ -1679,6 +1697,14 @@ func runSnapshot(cfg *config.Config) (string, error) {
 		snapshot, err := collector.TakeSnapshot(ctx, "codex")
 		if err != nil {
 			lines = append(lines, fmt.Sprintf("codex: error: %v", err))
+		} else {
+			lines = append(lines, formatSnapshotLine(snapshot))
+		}
+	}
+	if cfg.Providers.Copilot.Enabled {
+		snapshot, err := collector.TakeSnapshot(ctx, "copilot")
+		if err != nil {
+			lines = append(lines, fmt.Sprintf("copilot: error: %v", err))
 		} else {
 			lines = append(lines, formatSnapshotLine(snapshot))
 		}

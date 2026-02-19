@@ -18,9 +18,9 @@ const (
 type Event struct {
 	Type      EventType
 	Time      time.Time
-	Phase     TaskStatus     // which phase: StatusPlanning, StatusExecuting, StatusReviewing
-	Iteration int            // current iteration (1-based)
-	MaxIter   int            // max iterations configured
+	Phase     TaskStatus // which phase: StatusPlanning, StatusExecuting, StatusReviewing
+	Iteration int        // current iteration (1-based)
+	MaxIter   int        // max iterations configured
 	TaskID    string
 	TaskTitle string
 	Message   string         // human-readable message

@@ -265,11 +265,12 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 	// Initialize providers
 	claudeProvider := providers.NewClaudeWithPath(cfg.ExpandedProviderPath("claude"))
 	codexProvider := providers.NewCodexWithPath(cfg.ExpandedProviderPath("codex"))
+	copilotProvider := providers.NewCopilotWithPath(cfg.ExpandedProviderPath("copilot"))
 
 	// Initialize budget manager
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
+	budgetMgr := budget.NewManagerFromProviders(cfg, claudeProvider, codexProvider, copilotProvider, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	report := newRunReport(time.Now(), calculateRunBudgetStart(cfg, budgetMgr, log))
 
@@ -554,6 +555,7 @@ func takeSnapshot(ctx context.Context, cfg *config.Config, database *db.DB, log 
 		database,
 		providers.NewClaudeWithPath(cfg.ExpandedProviderPath("claude")),
 		providers.NewCodexWithPath(cfg.ExpandedProviderPath("codex")),
+		providers.NewCopilotWithPath(cfg.ExpandedProviderPath("copilot")),
 		scraper,
 		weekStartDayFromConfig(cfg),
 	)
@@ -582,7 +584,7 @@ func takeSnapshot(ctx context.Context, cfg *config.Config, database *db.DB, log 
 }
 
 func pruneSnapshots(ctx context.Context, cfg *config.Config, database *db.DB, log *logging.Logger) {
-	collector := snapshots.NewCollector(database, nil, nil, nil, weekStartDayFromConfig(cfg))
+	collector := snapshots.NewCollector(database, nil, nil, nil, nil, weekStartDayFromConfig(cfg))
 	deleted, err := collector.Prune(cfg.Budget.SnapshotRetentionDays)
 	if err != nil {
 		log.Warnf("snapshot prune: %v", err)

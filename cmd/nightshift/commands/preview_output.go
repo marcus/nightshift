@@ -57,7 +57,7 @@ func renderPreviewText(result *previewResult, opts previewTextOptions) string {
 
 	b.WriteString(styles.Section.Render("Summary"))
 	b.WriteString("\n")
-	fmt.Fprintf(b, "  Provider: %s (preview picks first enabled: claude -> codex)\n", result.Provider)
+	fmt.Fprintf(b, "  Provider: %s (preview picks first enabled: claude -> codex -> copilot)\n", result.Provider)
 	fmt.Fprintf(b, "  Budget mode: %s (max %d%%, reserve %d%%)\n", result.BudgetMode, result.MaxPercent, result.ReservePercent)
 	if result.ConfigSources != nil {
 		fmt.Fprintf(b, "  Config global: %s (%s)\n", result.ConfigSources.GlobalPath, configLoadedLabel(result.ConfigSources.GlobalExists))

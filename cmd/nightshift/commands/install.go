@@ -14,14 +14,14 @@ import (
 
 // Service type constants
 const (
-	ServiceLaunchd  = "launchd"
-	ServiceSystemd  = "systemd"
-	ServiceCron     = "cron"
+	ServiceLaunchd = "launchd"
+	ServiceSystemd = "systemd"
+	ServiceCron    = "cron"
 )
 
 // File paths for installed services
 const (
-	launchdPlistName  = "com.nightshift.agent.plist"
+	launchdPlistName   = "com.nightshift.agent.plist"
 	systemdServiceName = "nightshift.service"
 	systemdTimerName   = "nightshift.timer"
 	cronMarker         = "# nightshift managed cron entry"
@@ -564,4 +564,3 @@ func getLogPath(logType string) string {
 		return filepath.Join(logDir, "nightshift.log")
 	}
 }
-

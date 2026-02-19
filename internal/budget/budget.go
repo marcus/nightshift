@@ -29,6 +29,15 @@ type CodexUsageProvider interface {
 	GetResetTime(mode string) (time.Time, error)
 }
 
+// CopilotUsageProvider extends UsageProvider for Copilot-specific usage methods.
+// Note: Copilot uses monthly request limits, not weekly token budgets.
+// The monthlyLimit parameter represents max premium requests per month.
+type CopilotUsageProvider interface {
+	UsageProvider
+	GetUsedPercent(mode string, monthlyLimit int64) (float64, error)
+	GetResetTime(mode string) (time.Time, error)
+}
+
 // BudgetEstimate provides a resolved weekly budget with metadata.
 type BudgetEstimate struct {
 	WeeklyTokens int64
@@ -62,17 +71,19 @@ type Manager struct {
 	cfg          *config.Config
 	claude       ClaudeUsageProvider
 	codex        CodexUsageProvider
+	copilot      CopilotUsageProvider
 	budgetSource BudgetSource
 	trend        TrendAnalyzer
 	nowFunc      func() time.Time // for testing
 }
 
 // NewManager creates a budget manager with the given configuration and providers.
-func NewManager(cfg *config.Config, claude ClaudeUsageProvider, codex CodexUsageProvider, opts ...Option) *Manager {
+func NewManager(cfg *config.Config, claude ClaudeUsageProvider, codex CodexUsageProvider, copilot CopilotUsageProvider, opts ...Option) *Manager {
 	mgr := &Manager{
 		cfg:     cfg,
 		claude:  claude,
 		codex:   codex,
+		copilot: copilot,
 		nowFunc: time.Now,
 	}
 	for _, opt := range opts {
@@ -297,6 +308,16 @@ func (m *Manager) GetUsedPercent(provider string) (float64, error) {
 		}
 		return m.codex.GetUsedPercent(mode, weeklyBudget)
 
+	case "copilot":
+		if m.copilot == nil {
+			return 0, fmt.Errorf("copilot provider not configured")
+		}
+		// Copilot uses monthly request limits, not weekly token budgets
+		// Convert weekly budget to monthly limit for consistency
+		// Note: This is a simplification; actual monthly limits should be configured separately
+		monthlyLimit := weeklyBudget * 4 // Approximate: 4 weeks per month
+		return m.copilot.GetUsedPercent(mode, monthlyLimit)
+
 	default:
 		return 0, fmt.Errorf("unknown provider: %s", provider)
 	}
@@ -312,6 +333,9 @@ func (m *Manager) usedPercentSource(provider string) string {
 		if reporter, ok := m.codex.(UsedPercentSourceProvider); ok {
 			return reporter.LastUsedPercentSource()
 		}
+	case "copilot":
+		// Copilot tracks locally, so source is always "local-tracking"
+		return "local-tracking"
 	}
 	return ""
 }
@@ -342,6 +366,27 @@ func (m *Manager) DaysUntilWeeklyReset(provider string) (int, error) {
 		}
 		if resetTime.IsZero() {
 			return 7, nil // No reset time available
+		}
+
+		duration := resetTime.Sub(now)
+		days := int(math.Ceil(duration.Hours() / 24))
+		if days <= 0 {
+			return 1, nil // At least 1 day
+		}
+		return days, nil
+
+	case "copilot":
+		// Copilot resets monthly on the 1st at 00:00:00 UTC
+		// Calculate days until next month's 1st
+		if m.copilot == nil {
+			return 30, nil // Default fallback (approximate month)
+		}
+		resetTime, err := m.copilot.GetResetTime("weekly")
+		if err != nil {
+			return 30, nil // Fallback on error
+		}
+		if resetTime.IsZero() {
+			return 30, nil // No reset time available
 		}
 
 		duration := resetTime.Sub(now)
@@ -423,9 +468,10 @@ func (t *Tracker) Remaining() int64 {
 }
 
 // NewManagerFromProviders is a convenience constructor that accepts the concrete provider types.
-func NewManagerFromProviders(cfg *config.Config, claude *providers.Claude, codex *providers.Codex, opts ...Option) *Manager {
+func NewManagerFromProviders(cfg *config.Config, claude *providers.Claude, codex *providers.Codex, copilot *providers.Copilot, opts ...Option) *Manager {
 	var claudeProvider ClaudeUsageProvider
 	var codexProvider CodexUsageProvider
+	var copilotProvider CopilotUsageProvider
 
 	if claude != nil {
 		claudeProvider = claude
@@ -433,6 +479,9 @@ func NewManagerFromProviders(cfg *config.Config, claude *providers.Claude, codex
 	if codex != nil {
 		codexProvider = codex
 	}
+	if copilot != nil {
+		copilotProvider = copilot
+	}
 
-	return NewManager(cfg, claudeProvider, codexProvider, opts...)
+	return NewManager(cfg, claudeProvider, codexProvider, copilotProvider, opts...)
 }

@@ -47,7 +47,7 @@ Use --json for structured output.`,
 }
 
 var taskRunCmd = &cobra.Command{
-	Use:   "run <task-type> --provider <claude|codex>",
+	Use:   "run <task-type> --provider <claude|codex|copilot>",
 	Short: "Run a task immediately",
 	Long: `Execute a task immediately against a specific provider.
 
@@ -66,7 +66,7 @@ func init() {
 	taskShowCmd.Flags().Bool("json", false, "Output as JSON")
 	taskShowCmd.Flags().StringP("project", "p", "", "Project directory (used in prompt context)")
 
-	taskRunCmd.Flags().String("provider", "", "Provider to run against (claude, codex)")
+	taskRunCmd.Flags().String("provider", "", "Provider to run against (claude, codex, copilot)")
 	taskRunCmd.Flags().StringP("project", "p", "", "Project directory to run in")
 	taskRunCmd.Flags().Bool("dry-run", false, "Show prompt without executing")
 	taskRunCmd.Flags().Duration("timeout", 30*time.Minute, "Execution timeout")

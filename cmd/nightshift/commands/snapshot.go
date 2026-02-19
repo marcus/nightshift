@@ -61,13 +61,13 @@ var budgetCalibrateCmd = &cobra.Command{
 }
 
 func init() {
-	budgetSnapshotCmd.Flags().StringP("provider", "p", "", "Provider to snapshot (claude, codex)")
+	budgetSnapshotCmd.Flags().StringP("provider", "p", "", "Provider to snapshot (claude, codex, copilot)")
 	budgetSnapshotCmd.Flags().Bool("local-only", false, "Skip tmux scraping and store local-only snapshot")
 
-	budgetHistoryCmd.Flags().StringP("provider", "p", "", "Provider to show history for (claude, codex)")
+	budgetHistoryCmd.Flags().StringP("provider", "p", "", "Provider to show history for (claude, codex, copilot)")
 	budgetHistoryCmd.Flags().IntP("n", "n", 20, "Number of snapshots to show")
 
-	budgetCalibrateCmd.Flags().StringP("provider", "p", "", "Provider to calibrate (claude, codex)")
+	budgetCalibrateCmd.Flags().StringP("provider", "p", "", "Provider to calibrate (claude, codex, copilot)")
 
 	budgetCmd.AddCommand(budgetSnapshotCmd)
 	budgetCmd.AddCommand(budgetHistoryCmd)
@@ -113,6 +113,7 @@ func runBudgetSnapshot(cmd *cobra.Command, filterProvider string, localOnly bool
 		database,
 		providers.NewClaudeWithPath(cfg.ExpandedProviderPath("claude")),
 		providers.NewCodexWithPath(cfg.ExpandedProviderPath("codex")),
+		providers.NewCopilotWithPath(cfg.ExpandedProviderPath("copilot")),
 		scraper,
 		weekStartDayFromConfig(cfg),
 	)
@@ -299,7 +300,7 @@ func runBudgetHistory(filterProvider string, n int) error {
 		return nil
 	}
 
-	collector := snapshots.NewCollector(database, nil, nil, nil, weekStartDayFromConfig(cfg))
+	collector := snapshots.NewCollector(database, nil, nil, nil, nil, weekStartDayFromConfig(cfg))
 
 	for _, provider := range providerList {
 		history, err := collector.GetLatest(provider, n)

@@ -13,9 +13,9 @@ type OwnershipMetrics struct {
 	// GiniCoefficient measures inequality (0 = equal, 1 = max inequality)
 	GiniCoefficient float64 `json:"gini_coefficient"`
 	// Top 1, 3, 5 ownership percentages
-	Top1Percent  float64 `json:"top_1_percent"`
-	Top3Percent  float64 `json:"top_3_percent"`
-	Top5Percent  float64 `json:"top_5_percent"`
+	Top1Percent float64 `json:"top_1_percent"`
+	Top3Percent float64 `json:"top_3_percent"`
+	Top5Percent float64 `json:"top_5_percent"`
 	// Risk level assessment
 	RiskLevel string `json:"risk_level"` // low, medium, high, critical
 	// Number of contributors
@@ -104,7 +104,7 @@ func calculateGini(authors []CommitAuthor, total int) float64 {
 	}
 
 	// Gini formula: (2 * sum) / (n * total) - (n + 1) / n
-	gini := (2.0 * cumSum) / (float64(n) * float64(total)) - (float64(n)+1.0)/float64(n)
+	gini := (2.0*cumSum)/(float64(n)*float64(total)) - (float64(n)+1.0)/float64(n)
 	return math.Min(math.Max(gini, 0), 1)
 }
 

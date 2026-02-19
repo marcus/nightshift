@@ -28,7 +28,7 @@ Shows spending across all providers or a specific provider.`,
 }
 
 func init() {
-	budgetCmd.Flags().StringP("provider", "p", "", "Show specific provider status (claude, codex)")
+	budgetCmd.Flags().StringP("provider", "p", "", "Show specific provider status (claude, codex, copilot)")
 	rootCmd.AddCommand(budgetCmd)
 }
 
@@ -48,6 +48,7 @@ func runBudget(filterProvider string) error {
 	// Initialize providers
 	var claude *providers.Claude
 	var codex *providers.Codex
+	var copilot *providers.Copilot
 
 	if cfg.Providers.Claude.Enabled {
 		dataPath := cfg.ExpandedProviderPath("claude")
@@ -67,10 +68,19 @@ func runBudget(filterProvider string) error {
 		}
 	}
 
+	if cfg.Providers.Copilot.Enabled {
+		dataPath := cfg.ExpandedProviderPath("copilot")
+		if dataPath != "" {
+			copilot = providers.NewCopilotWithPath(dataPath)
+		} else {
+			copilot = providers.NewCopilot()
+		}
+	}
+
 	// Create budget manager
 	cal := calibrator.New(database, cfg)
 	trend := trends.NewAnalyzer(database, cfg.Budget.SnapshotRetentionDays)
-	mgr := budget.NewManagerFromProviders(cfg, claude, codex, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
+	mgr := budget.NewManagerFromProviders(cfg, claude, codex, copilot, budget.WithBudgetSource(cal), budget.WithTrendAnalyzer(trend))
 
 	providerList, err := resolveProviderList(cfg, filterProvider)
 	if err != nil {
@@ -92,7 +102,7 @@ func runBudget(filterProvider string) error {
 	fmt.Println()
 
 	// Print status for each provider
-	snapCollector := snapshots.NewCollector(database, nil, nil, nil, weekStartDayFromConfig(cfg))
+	snapCollector := snapshots.NewCollector(database, nil, nil, nil, nil, weekStartDayFromConfig(cfg))
 	for _, provName := range providerList {
 		if err := printProviderBudget(mgr, cfg, provName, cal, snapCollector, codex); err != nil {
 			fmt.Printf("%s: error: %v\n\n", provName, err)

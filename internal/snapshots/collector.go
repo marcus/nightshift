@@ -32,6 +32,12 @@ type CodexUsage interface {
 	GetWeeklyTokens() (int64, error)
 }
 
+// CopilotUsage defines local usage access for Copilot.
+type CopilotUsage interface {
+	GetTodayTokens() (int64, error)
+	GetWeeklyTokens() (int64, error)
+}
+
 // Snapshot represents a stored usage snapshot.
 type Snapshot struct {
 	ID               int64
@@ -62,12 +68,13 @@ type Collector struct {
 	db           *db.DB
 	claude       ClaudeUsage
 	codex        CodexUsage
+	copilot      CopilotUsage
 	scraper      UsageScraper
 	weekStartDay time.Weekday
 }
 
 // NewCollector creates a snapshot collector.
-func NewCollector(database *db.DB, claude ClaudeUsage, codex CodexUsage, scraper UsageScraper, weekStartDay time.Weekday) *Collector {
+func NewCollector(database *db.DB, claude ClaudeUsage, codex CodexUsage, copilot CopilotUsage, scraper UsageScraper, weekStartDay time.Weekday) *Collector {
 	if weekStartDay < time.Sunday || weekStartDay > time.Saturday {
 		weekStartDay = time.Monday
 	}
@@ -75,6 +82,7 @@ func NewCollector(database *db.DB, claude ClaudeUsage, codex CodexUsage, scraper
 		db:           database,
 		claude:       claude,
 		codex:        codex,
+		copilot:      copilot,
 		scraper:      scraper,
 		weekStartDay: weekStartDay,
 	}
@@ -142,6 +150,15 @@ func (c *Collector) TakeSnapshot(ctx context.Context, provider string) (Snapshot
 				weeklyResetTime = result.WeeklyResetTime
 			}
 		}
+	case "copilot":
+		if c.copilot == nil {
+			return Snapshot{}, errors.New("copilot provider is nil")
+		}
+		localWeekly, localDaily, err = copilotTokenTotals(c.copilot)
+		if err != nil {
+			return Snapshot{}, err
+		}
+		// Note: Copilot doesn't support tmux scraping yet
 	default:
 		return Snapshot{}, fmt.Errorf("unknown provider: %s", provider)
 	}
@@ -390,6 +407,19 @@ func codexTokenTotals(codex CodexUsage) (int64, int64, error) {
 		return 0, 0, fmt.Errorf("get weekly tokens: %w", err)
 	}
 	daily, err := codex.GetTodayTokens()
+	if err != nil {
+		return 0, 0, fmt.Errorf("get today tokens: %w", err)
+	}
+	return weekly, daily, nil
+}
+
+// copilotTokenTotals returns weekly and daily token totals from Copilot usage files.
+func copilotTokenTotals(copilot CopilotUsage) (int64, int64, error) {
+	weekly, err := copilot.GetWeeklyTokens()
+	if err != nil {
+		return 0, 0, fmt.Errorf("get weekly tokens: %w", err)
+	}
+	daily, err := copilot.GetTodayTokens()
 	if err != nil {
 		return 0, 0, fmt.Errorf("get today tokens: %w", err)
 	}
