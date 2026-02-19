@@ -2,6 +2,14 @@
 
 All notable changes to nightshift are documented in this file.
 
+## [v0.3.3] - 2026-02-19
+
+### Features
+- **Branch selection support** — select which branch to run tasks against (#12, thanks @andrew-t-james-wc)
+
+### Fixes
+- **gofmt formatting** — fix gofmt formatting across multiple files (#17, thanks @cedricfarinazzo)
+
 ## [v0.3.2] - 2026-02-17
 
 ### Bug Fixes
