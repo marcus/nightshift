@@ -9,13 +9,13 @@ import (
 
 // BusFactorResult represents a stored bus-factor analysis result.
 type BusFactorResult struct {
-	ID            int64             `json:"id"`
-	Component     string            `json:"component"`
-	Timestamp     time.Time         `json:"timestamp"`
-	Metrics       *OwnershipMetrics `json:"metrics"`
-	Contributors  []CommitAuthor    `json:"contributors"`
-	RiskLevel     string            `json:"risk_level"`
-	ReportPath    string            `json:"report_path,omitempty"`
+	ID           int64             `json:"id"`
+	Component    string            `json:"component"`
+	Timestamp    time.Time         `json:"timestamp"`
+	Metrics      *OwnershipMetrics `json:"metrics"`
+	Contributors []CommitAuthor    `json:"contributors"`
+	RiskLevel    string            `json:"risk_level"`
+	ReportPath   string            `json:"report_path,omitempty"`
 }
 
 // Store saves a bus-factor result to the database.
