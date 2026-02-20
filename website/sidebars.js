@@ -10,7 +10,7 @@ const sidebars = {
     {
       type: 'category',
       label: 'Usage',
-      items: ['tasks', 'budget', 'scheduling'],
+      items: ['tasks', 'task-reference', 'budget', 'scheduling'],
     },
     {
       type: 'category',
