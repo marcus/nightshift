@@ -306,6 +306,19 @@ func selectProvider(cfg *config.Config, budgetMgr *budget.Manager, log *logging.
 					makeAgent: func() agents.Agent { return newCodexAgentFromConfig(cfg) },
 				})
 			}
+		case "copilot":
+			if cfg.Providers.Copilot.Enabled {
+				// Check for both gh and standalone copilot binary
+				binary := "copilot"
+				if _, err := exec.LookPath("copilot"); err != nil {
+					binary = "gh"
+				}
+				candidates = append(candidates, candidate{
+					name:      "copilot",
+					binary:    binary,
+					makeAgent: func() agents.Agent { return newCopilotAgentFromConfig(cfg) },
+				})
+			}
 		}
 	}
 
@@ -359,7 +372,7 @@ func selectProvider(cfg *config.Config, budgetMgr *budget.Manager, log *logging.
 }
 
 func providerPreference(cfg *config.Config) []string {
-	defaults := []string{"claude", "codex"}
+	defaults := []string{"claude", "codex", "copilot"}
 	if cfg == nil || len(cfg.Providers.Preference) == 0 {
 		return defaults
 	}
@@ -371,7 +384,7 @@ func providerPreference(cfg *config.Config) []string {
 		if name == "" || seen[name] {
 			continue
 		}
-		if name != "claude" && name != "codex" {
+		if name != "claude" && name != "codex" && name != "copilot" {
 			continue
 		}
 		seen[name] = true

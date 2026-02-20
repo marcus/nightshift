@@ -111,7 +111,7 @@ func (g *Generator) renderMarkdown(summary *Summary, results *RunResults) string
 	var buf bytes.Buffer
 
 	// Header
-	buf.WriteString(fmt.Sprintf("# Nightshift Summary - %s\n\n", summary.Date.Format("2006-01-02")))
+	fmt.Fprintf(&buf, "# Nightshift Summary - %s\n\n", summary.Date.Format("2006-01-02"))
 
 	// Budget section
 	buf.WriteString("## Budget\n")
@@ -119,9 +119,9 @@ func (g *Generator) renderMarkdown(summary *Summary, results *RunResults) string
 	if summary.BudgetStart > 0 {
 		usedPercent = (summary.BudgetUsed * 100) / summary.BudgetStart
 	}
-	buf.WriteString(fmt.Sprintf("- Started with: %s tokens\n", formatTokens(summary.BudgetStart)))
-	buf.WriteString(fmt.Sprintf("- Used: %s tokens (%d%%)\n", formatTokens(summary.BudgetUsed), usedPercent))
-	buf.WriteString(fmt.Sprintf("- Remaining: %s tokens\n\n", formatTokens(summary.BudgetRemaining)))
+	fmt.Fprintf(&buf, "- Started with: %s tokens\n", formatTokens(summary.BudgetStart))
+	fmt.Fprintf(&buf, "- Used: %s tokens (%d%%)\n", formatTokens(summary.BudgetUsed), usedPercent)
+	fmt.Fprintf(&buf, "- Remaining: %s tokens\n\n", formatTokens(summary.BudgetRemaining))
 
 	// Projects processed section
 	if len(summary.ProjectCounts) > 0 {
@@ -145,7 +145,7 @@ func (g *Generator) renderMarkdown(summary *Summary, results *RunResults) string
 			if p.count != 1 {
 				taskWord = "tasks"
 			}
-			buf.WriteString(fmt.Sprintf("%d. **%s** (%d %s)\n", i+1, filepath.Base(p.name), p.count, taskWord))
+			fmt.Fprintf(&buf, "%d. **%s** (%d %s)\n", i+1, filepath.Base(p.name), p.count, taskWord)
 		}
 		buf.WriteString("\n")
 	}
@@ -163,7 +163,7 @@ func (g *Generator) renderMarkdown(summary *Summary, results *RunResults) string
 	if len(summary.FailedTasks) > 0 {
 		buf.WriteString("## Tasks Failed\n")
 		for _, task := range summary.FailedTasks {
-			buf.WriteString(fmt.Sprintf("- **%s**: %s\n", task.Title, task.SkipReason))
+			fmt.Fprintf(&buf, "- **%s**: %s\n", task.Title, task.SkipReason)
 		}
 		buf.WriteString("\n")
 	}
@@ -176,7 +176,7 @@ func (g *Generator) renderMarkdown(summary *Summary, results *RunResults) string
 			if reason == "" {
 				reason = "insufficient budget"
 			}
-			buf.WriteString(fmt.Sprintf("- %s (%s)\n", task.Title, reason))
+			fmt.Fprintf(&buf, "- %s (%s)\n", task.Title, reason)
 		}
 		buf.WriteString("\n")
 	}
@@ -186,7 +186,7 @@ func (g *Generator) renderMarkdown(summary *Summary, results *RunResults) string
 	if len(whatsNext) > 0 {
 		buf.WriteString("## What's Next?\n")
 		for _, item := range whatsNext {
-			buf.WriteString(fmt.Sprintf("- %s\n", item))
+			fmt.Fprintf(&buf, "- %s\n", item)
 		}
 		buf.WriteString("\n")
 	}
@@ -194,7 +194,7 @@ func (g *Generator) renderMarkdown(summary *Summary, results *RunResults) string
 	// Run duration
 	if !results.StartTime.IsZero() && !results.EndTime.IsZero() {
 		duration := results.EndTime.Sub(results.StartTime)
-		buf.WriteString(fmt.Sprintf("---\n*Run duration: %s*\n", formatDuration(duration)))
+		fmt.Fprintf(&buf, "---\n*Run duration: %s*\n", formatDuration(duration))
 	}
 
 	return buf.String()
@@ -398,26 +398,26 @@ func (g *Generator) formatSlackSummary(summary *Summary) string {
 	if summary.BudgetStart > 0 {
 		usedPercent = (summary.BudgetUsed * 100) / summary.BudgetStart
 	}
-	buf.WriteString(fmt.Sprintf("*Budget:* %s used (%d%%) of %s\n\n",
-		formatTokens(summary.BudgetUsed), usedPercent, formatTokens(summary.BudgetStart)))
+	fmt.Fprintf(&buf, "*Budget:* %s used (%d%%) of %s\n\n",
+		formatTokens(summary.BudgetUsed), usedPercent, formatTokens(summary.BudgetStart))
 
 	// Tasks completed
 	if len(summary.CompletedTasks) > 0 {
-		buf.WriteString(fmt.Sprintf("*Tasks Completed:* %d\n", len(summary.CompletedTasks)))
+		fmt.Fprintf(&buf, "*Tasks Completed:* %d\n", len(summary.CompletedTasks))
 		for _, task := range summary.CompletedTasks {
-			buf.WriteString(fmt.Sprintf("  - %s\n", task.Title))
+			fmt.Fprintf(&buf, "  - %s\n", task.Title)
 		}
 		buf.WriteString("\n")
 	}
 
 	// Projects
 	if len(summary.ProjectCounts) > 0 {
-		buf.WriteString(fmt.Sprintf("*Projects:* %d processed\n", len(summary.ProjectCounts)))
+		fmt.Fprintf(&buf, "*Projects:* %d processed\n", len(summary.ProjectCounts))
 	}
 
 	// Skipped
 	if len(summary.SkippedTasks) > 0 {
-		buf.WriteString(fmt.Sprintf("\n_Skipped %d tasks (budget constraints)_", len(summary.SkippedTasks)))
+		fmt.Fprintf(&buf, "\n_Skipped %d tasks (budget constraints)_", len(summary.SkippedTasks))
 	}
 
 	return buf.String()

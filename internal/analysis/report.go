@@ -87,8 +87,8 @@ func (rg *ReportGenerator) RenderMarkdown(report *Report) string {
 	var buf bytes.Buffer
 
 	// Header
-	buf.WriteString(fmt.Sprintf("# Bus Factor Analysis - %s\n\n", report.Component))
-	buf.WriteString(fmt.Sprintf("*Generated: %s*\n\n", report.ReportedAt))
+	fmt.Fprintf(&buf, "# Bus Factor Analysis - %s\n\n", report.Component)
+	fmt.Fprintf(&buf, "*Generated: %s*\n\n", report.ReportedAt)
 
 	// Metrics section
 	buf.WriteString("## Ownership Metrics\n\n")
