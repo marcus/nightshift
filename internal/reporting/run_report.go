@@ -34,22 +34,22 @@ func RenderRunReport(results *RunResults, logPath string) (string, error) {
 	}
 
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("# Nightshift Run - %s\n\n", results.StartTime.Format("2006-01-02 15:04")))
+	fmt.Fprintf(&buf, "# Nightshift Run - %s\n\n", results.StartTime.Format("2006-01-02 15:04"))
 
 	buf.WriteString("## Summary\n")
 	duration := results.EndTime.Sub(results.StartTime)
-	buf.WriteString(fmt.Sprintf("- Duration: %s\n", formatDuration(duration)))
+	fmt.Fprintf(&buf, "- Duration: %s\n", formatDuration(duration))
 	if results.StartBudget > 0 {
-		buf.WriteString(fmt.Sprintf("- Budget: %s start, %s used, %s remaining\n",
+		fmt.Fprintf(&buf, "- Budget: %s start, %s used, %s remaining\n",
 			formatTokens(results.StartBudget),
 			formatTokens(results.UsedBudget),
 			formatTokens(results.RemainingBudget),
-		))
+		)
 	}
-	buf.WriteString(fmt.Sprintf("- Tasks: %d completed, %d failed, %d skipped\n",
-		len(completed), len(failed), len(skipped)))
+	fmt.Fprintf(&buf, "- Tasks: %d completed, %d failed, %d skipped\n",
+		len(completed), len(failed), len(skipped))
 	if logPath != "" {
-		buf.WriteString(fmt.Sprintf("- Logs: %s\n", logPath))
+		fmt.Fprintf(&buf, "- Logs: %s\n", logPath)
 	}
 	buf.WriteString("\n")
 

@@ -40,18 +40,26 @@ func newClaudeAgentFromConfig(cfg *config.Config) *agents.ClaudeAgent {
 	if cfg == nil {
 		return agents.NewClaudeAgent()
 	}
-	return agents.NewClaudeAgent(
+	opts := []agents.ClaudeOption{
 		agents.WithDangerouslySkipPermissions(cfg.Providers.Claude.DangerouslySkipPermissions),
-	)
+	}
+	if cfg.Providers.Claude.Model != "" {
+		opts = append(opts, agents.WithModel(cfg.Providers.Claude.Model))
+	}
+	return agents.NewClaudeAgent(opts...)
 }
 
 func newCodexAgentFromConfig(cfg *config.Config) *agents.CodexAgent {
 	if cfg == nil {
 		return agents.NewCodexAgent()
 	}
-	return agents.NewCodexAgent(
+	opts := []agents.CodexOption{
 		agents.WithDangerouslyBypassApprovalsAndSandbox(cfg.Providers.Codex.DangerouslyBypassApprovalsAndSandbox),
-	)
+	}
+	if cfg.Providers.Codex.Model != "" {
+		opts = append(opts, agents.WithCodexModel(cfg.Providers.Codex.Model))
+	}
+	return agents.NewCodexAgent(opts...)
 }
 
 func newCopilotAgentFromConfig(cfg *config.Config) *agents.CopilotAgent {
@@ -70,9 +78,8 @@ func newCopilotAgentFromConfig(cfg *config.Config) *agents.CopilotAgent {
 	opts := []agents.CopilotOption{
 		agents.WithCopilotBinaryPath(binaryPath),
 	}
-	if cfg.Providers.Copilot.DangerouslySkipPermissions {
-		// When enabled, this should pass --allow-all-tools
-		// Currently handled via config, future: add agent option
+	if cfg.Providers.Copilot.Model != "" {
+		opts = append(opts, agents.WithCopilotModel(cfg.Providers.Copilot.Model))
 	}
 	return agents.NewCopilotAgent(opts...)
 }
