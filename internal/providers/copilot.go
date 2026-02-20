@@ -24,9 +24,7 @@ import (
 // - No way to query remaining quota from GitHub servers
 // - Assumes each prompt execution = 1 premium request (conservative estimate)
 type Copilot struct {
-	dataPath     string    // Path to ~/.copilot for tracking data
-	requestCount int64     // Local request counter
-	lastReset    time.Time // Last monthly reset timestamp
+	dataPath string // Path to ~/.copilot for tracking data
 }
 
 // CopilotUsageData persists usage tracking between sessions.

@@ -65,14 +65,8 @@ func newCopilotAgentFromConfig(cfg *config.Config) *agents.CopilotAgent {
 		binaryPath = "copilot"
 	}
 
-	// Copilot uses DangerouslySkipPermissions for --allow-all-tools flag
-	// Note: The agent already uses --no-ask-user for autonomous mode
 	opts := []agents.CopilotOption{
 		agents.WithCopilotBinaryPath(binaryPath),
-	}
-	if cfg.Providers.Copilot.DangerouslySkipPermissions {
-		// When enabled, this should pass --allow-all-tools
-		// Currently handled via config, future: add agent option
 	}
 	return agents.NewCopilotAgent(opts...)
 }
