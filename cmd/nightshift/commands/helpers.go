@@ -81,9 +81,5 @@ func newCopilotAgentFromConfig(cfg *config.Config) *agents.CopilotAgent {
 	if cfg.Providers.Copilot.Model != "" {
 		opts = append(opts, agents.WithCopilotModel(cfg.Providers.Copilot.Model))
 	}
-	if cfg.Providers.Copilot.DangerouslySkipPermissions {
-		// When enabled, this should pass --allow-all-tools
-		// Currently handled via config, future: add agent option
-	}
 	return agents.NewCopilotAgent(opts...)
 }
