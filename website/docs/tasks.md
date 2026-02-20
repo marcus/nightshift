@@ -5,7 +5,7 @@ title: Tasks
 
 # Tasks
 
-Nightshift includes 20+ built-in tasks organized by category.
+Nightshift includes 59 built-in tasks organized by category. See the [Task Reference](/docs/task-reference) for a complete list.
 
 ## Browse Tasks
 
@@ -41,10 +41,10 @@ nightshift task show lint-fix --prompt-only
 
 | Tier | Token Usage | Examples |
 |------|-------------|----------|
-| `low` | Minimal | lint-fix, dead-imports |
-| `medium` | Moderate | docs-backfill, dead-code |
-| `high` | Significant | bug-finder, security-audit |
-| `veryhigh` | Large | full-refactor, test-generation |
+| `low` | Minimal | lint-fix, docs-backfill |
+| `medium` | Moderate | dead-code, test-gap |
+| `high` | Significant | bug-finder, security-footgun |
+| `veryhigh` | Large | migration-rehearsal, contract-fuzzer |
 
 ## Run a Single Task
 
