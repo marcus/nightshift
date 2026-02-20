@@ -58,6 +58,7 @@ const (
 	stepProjects
 	stepBudget
 	stepSafety
+	stepModel
 	stepTaskPreset
 	stepTaskSelect
 	stepSchedule
@@ -72,6 +73,52 @@ const (
 	nightshiftPlanIgnore        = ".nightshift-plan"
 	nightshiftPlanIgnoreComment = "# Nightshift plan artifacts (keep out of version control)"
 )
+
+type modelOption struct {
+	label string
+	value string // empty = use CLI default
+}
+
+var claudeModels = []modelOption{
+	{label: "default", value: ""},
+	{label: "claude-opus-4-6", value: "claude-opus-4-6"},
+	{label: "claude-sonnet-4-6", value: "claude-sonnet-4-6"},
+	{label: "claude-haiku-4-5", value: "claude-haiku-4-5"},
+}
+
+var codexModels = []modelOption{
+	{label: "default", value: ""},
+	{label: "gpt-5.3-codex", value: "gpt-5.3-codex"},
+	{label: "gpt-5.3-codex-spark", value: "gpt-5.3-codex-spark"},
+	{label: "gpt-5.2-codex", value: "gpt-5.2-codex"},
+	{label: "gpt-5.2", value: "gpt-5.2"},
+	{label: "gpt-5.1-codex-max", value: "gpt-5.1-codex-max"},
+	{label: "gpt-5.1-codex", value: "gpt-5.1-codex"},
+	{label: "gpt-5.1", value: "gpt-5.1"},
+	{label: "gpt-5-codex", value: "gpt-5-codex"},
+	{label: "gpt-5", value: "gpt-5"},
+}
+
+var copilotModels = []modelOption{
+	{label: "default", value: ""},
+	{label: "claude-sonnet-4.6", value: "claude-sonnet-4.6"},
+	{label: "claude-sonnet-4.5", value: "claude-sonnet-4.5"},
+	{label: "claude-haiku-4.5", value: "claude-haiku-4.5"},
+	{label: "claude-opus-4.6", value: "claude-opus-4.6"},
+	{label: "claude-opus-4.6-fast", value: "claude-opus-4.6-fast"},
+	{label: "claude-opus-4.5", value: "claude-opus-4.5"},
+	{label: "claude-sonnet-4", value: "claude-sonnet-4"},
+	{label: "gemini-3-pro-preview", value: "gemini-3-pro-preview"},
+	{label: "gpt-5.3-codex", value: "gpt-5.3-codex"},
+	{label: "gpt-5.2-codex", value: "gpt-5.2-codex"},
+	{label: "gpt-5.2", value: "gpt-5.2"},
+	{label: "gpt-5.1-codex-max", value: "gpt-5.1-codex-max"},
+	{label: "gpt-5.1-codex", value: "gpt-5.1-codex"},
+	{label: "gpt-5.1", value: "gpt-5.1"},
+	{label: "gpt-5.1-codex-mini", value: "gpt-5.1-codex-mini"},
+	{label: "gpt-5-mini", value: "gpt-5-mini"},
+	{label: "gpt-4.1", value: "gpt-4.1"},
+}
 
 type setupModel struct {
 	step setupStep
@@ -96,6 +143,11 @@ type setupModel struct {
 	budgetErr     string
 
 	safetyCursor int
+
+	modelCursor      int
+	claudeModelIdx   int
+	codexModelIdx    int
+	copilotModelIdx  int
 
 	taskPresetCursor int
 	taskCursor       int
@@ -246,6 +298,9 @@ func newSetupModel() (*setupModel, error) {
 		scheduleInput:    scheduleInput,
 		spinner:          spin,
 		nightshiftInPath: nightshiftInPath,
+		claudeModelIdx:   modelIndex(claudeModels, cfg.Providers.Claude.Model),
+		codexModelIdx:    modelIndex(codexModels, cfg.Providers.Codex.Model),
+		copilotModelIdx:  modelIndex(copilotModels, cfg.Providers.Copilot.Model),
 	}
 
 	return model, nil
@@ -283,6 +338,8 @@ func (m *setupModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleBudgetInput(msg)
 		case stepSafety:
 			return m.handleSafetyInput(msg)
+		case stepModel:
+			return m.handleModelInput(msg)
 		case stepTaskPreset:
 			return m.handlePresetInput(msg)
 		case stepTaskSelect:
@@ -404,6 +461,12 @@ func (m *setupModel) View() string {
 		b.WriteString("We default them ON; you can turn them off here.\n\n")
 		b.WriteString("Use ↑/↓ to select, space to toggle.\n\n")
 		renderSafetyFields(&b, m)
+		b.WriteString("\nPress Enter to continue.\n")
+	case stepModel:
+		b.WriteString(styleAccent.Render("Model selection"))
+		b.WriteString("\n")
+		b.WriteString("Choose the model for each provider. Use ↑/↓ to select a row, ←/→ to cycle models.\n\n")
+		renderModelFields(&b, m)
 		b.WriteString("\nPress Enter to continue.\n")
 	case stepTaskPreset:
 		b.WriteString(styleAccent.Render("Task presets (derived from registry)"))
@@ -813,7 +876,7 @@ func (m *setupModel) handleSafetyInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cfg.Providers.Copilot.DangerouslySkipPermissions = !m.cfg.Providers.Copilot.DangerouslySkipPermissions
 		}
 	case "enter":
-		return m, m.setStep(stepTaskPreset)
+		return m, m.setStep(stepModel)
 	}
 	return m, nil
 }
@@ -1592,6 +1655,93 @@ func renderSafetyFields(b *strings.Builder, m *setupModel) {
 	b.WriteString("\n")
 }
 
+func renderModelFields(b *strings.Builder, m *setupModel) {
+	rows := []struct {
+		label     string
+		models    []modelOption
+		idx       int
+		available bool
+	}{
+		{"Claude ", claudeModels, m.claudeModelIdx, m.cfg.Providers.Claude.Enabled},
+		{"Codex  ", codexModels, m.codexModelIdx, m.cfg.Providers.Codex.Enabled},
+		{"Copilot", copilotModels, m.copilotModelIdx, m.cfg.Providers.Copilot.Enabled},
+	}
+	for i, row := range rows {
+		cursor := " "
+		if i == m.modelCursor {
+			cursor = ">"
+		}
+		selected := row.models[row.idx].label
+		avail := ""
+		if !row.available {
+			avail = " (provider disabled)"
+		}
+		fmt.Fprintf(b, " %s %s  ← %s →%s\n", cursor, row.label, selected, avail)
+	}
+	b.WriteString(styleNote.Render("Tip: 'default' lets the CLI pick its built-in model."))
+	b.WriteString("\n")
+}
+
+func (m *setupModel) handleModelInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "up", "k":
+		if m.modelCursor > 0 {
+			m.modelCursor--
+		}
+	case "down", "j":
+		if m.modelCursor < 2 {
+			m.modelCursor++
+		}
+	case "left", "h":
+		switch m.modelCursor {
+		case 0:
+			if m.claudeModelIdx > 0 {
+				m.claudeModelIdx--
+			}
+		case 1:
+			if m.codexModelIdx > 0 {
+				m.codexModelIdx--
+			}
+		case 2:
+			if m.copilotModelIdx > 0 {
+				m.copilotModelIdx--
+			}
+		}
+	case "right", "l":
+		switch m.modelCursor {
+		case 0:
+			if m.claudeModelIdx < len(claudeModels)-1 {
+				m.claudeModelIdx++
+			}
+		case 1:
+			if m.codexModelIdx < len(codexModels)-1 {
+				m.codexModelIdx++
+			}
+		case 2:
+			if m.copilotModelIdx < len(copilotModels)-1 {
+				m.copilotModelIdx++
+			}
+		}
+	case "enter":
+		m.cfg.Providers.Claude.Model = claudeModels[m.claudeModelIdx].value
+		m.cfg.Providers.Codex.Model = codexModels[m.codexModelIdx].value
+		m.cfg.Providers.Copilot.Model = copilotModels[m.copilotModelIdx].value
+		return m, m.setStep(stepTaskPreset)
+	}
+	return m, nil
+}
+
+// modelIndex returns the index of the given model value in a model list, defaulting to 0.
+func modelIndex(models []modelOption, value string) int {
+	for i, m := range models {
+		if m.value == value {
+			return i
+		}
+	}
+	return 0
+}
+
+
 func renderScheduleFields(b *strings.Builder, m *setupModel) {
 	fields := []string{
 		fmt.Sprintf("Start time: %s", m.scheduleStart),
@@ -1783,6 +1933,7 @@ func setupSteps(includePathStep bool) []setupStepInfo {
 		{step: stepProjects, label: "Projects"},
 		{step: stepBudget, label: "Budget"},
 		{step: stepSafety, label: "Safety"},
+		{step: stepModel, label: "Models"},
 		{step: stepTaskPreset, label: "Task presets"},
 		{step: stepTaskSelect, label: "Task selection"},
 		{step: stepSchedule, label: "Schedule"},
