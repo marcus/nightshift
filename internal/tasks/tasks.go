@@ -482,10 +482,50 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 72 * time.Hour,
 	},
 	TaskPIIScanner: {
-		Type:            TaskPIIScanner,
-		Category:        CategoryAnalysis,
-		Name:            "PII Exposure Scanner",
-		Description:     "Scan for potential PII exposure",
+		Type:     TaskPIIScanner,
+		Category: CategoryAnalysis,
+		Name:     "PII Exposure Scanner",
+		Description: `Scan the repository for potential PII (Personally Identifiable Information) exposure. ` +
+			`Search all source files, configs, scripts, and data files for these categories:` +
+			"\n\n" +
+			`1. HARDCODED PII PATTERNS — Look for literals matching: email addresses, phone numbers, ` +
+			`SSNs (NNN-NN-NNNN), credit card numbers (13-19 digits), IP addresses used as identifiers, ` +
+			`street addresses, dates of birth, passport/driver-license numbers, and full person names ` +
+			`in structured data (JSON, YAML, CSV, SQL seeds, fixtures, test data).` +
+			"\n\n" +
+			`2. PII IN LOGS & ERROR MESSAGES — Find log/print/error statements that interpolate variables ` +
+			`likely holding PII (user email, name, phone, address, SSN, token). Flag fmt.Sprintf, ` +
+			`log.Printf, slog, zerolog, zap, logrus, or equivalent calls where PII fields appear ` +
+			`unredacted. Check error-wrapping chains (fmt.Errorf, errors.Wrap) for embedded PII.` +
+			"\n\n" +
+			`3. ENV & SECRET FILES — Check .env, .env.*, config.yaml, config.json, docker-compose ` +
+			`environment blocks, and CI workflow files for plaintext secrets, API keys, tokens, ` +
+			`or credentials that could expose user data.` +
+			"\n\n" +
+			`4. UNENCRYPTED STORAGE — Identify database columns, struct fields, or file writes that ` +
+			`store PII without encryption or hashing (e.g., plaintext password fields, raw SSN columns, ` +
+			`unmasked credit card storage).` +
+			"\n\n" +
+			`5. GITIGNORE GAPS — Verify .gitignore covers .env*, *.pem, *.key, credentials.*, ` +
+			`secrets.*, and common data-dump extensions (.sql, .csv, .xlsx containing user data). ` +
+			`Flag tracked files that should be ignored.` +
+			"\n\n" +
+			`OUTPUT FORMAT — For each finding, report:` +
+			"\n" +
+			`- file: path relative to repo root` +
+			"\n" +
+			`- line: line number(s)` +
+			"\n" +
+			`- category: one of [hardcoded-pii, pii-in-logs, env-secret, unencrypted-storage, gitignore-gap]` +
+			"\n" +
+			`- severity: critical / high / medium / low` +
+			"\n" +
+			`- detail: what was found and why it's a risk` +
+			"\n" +
+			`- recommendation: specific fix (redact, hash, encrypt, add to .gitignore, use env var, etc.)` +
+			"\n\n" +
+			`Exclude vendored/third-party code. Treat test fixtures with realistic-looking PII as medium ` +
+			`severity (prefer obviously fake data). Summarize total findings by category and severity at the end.`,
 		CostTier:        CostMedium,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 72 * time.Hour,
