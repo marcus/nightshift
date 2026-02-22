@@ -121,6 +121,12 @@ func (a *CodexAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execute
 	// Check for context timeout
 	if ctx.Err() == context.DeadlineExceeded {
 		result.Error = fmt.Sprintf("timeout after %v", timeout)
+		if stderr != "" {
+			result.Error = fmt.Sprintf("timeout after %v; stderr: %s", timeout, truncate(stderr, 2000))
+		}
+		if stdout != "" {
+			result.Output = stdout
+		}
 		result.ExitCode = -1
 		return result, ctx.Err()
 	}
@@ -132,6 +138,9 @@ func (a *CodexAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execute
 			result.Error = stderr
 		} else {
 			result.Error = err.Error()
+			if stderr != "" {
+				result.Error = fmt.Sprintf("%s; stderr: %s", err.Error(), truncate(stderr, 2000))
+			}
 		}
 		return result, err
 	}

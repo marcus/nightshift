@@ -40,3 +40,11 @@ type ExecuteResult struct {
 func (r *ExecuteResult) IsSuccess() bool {
 	return r.ExitCode == 0 && r.Error == ""
 }
+
+// truncate returns s trimmed to maxLen characters, appending "..." if truncated.
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
