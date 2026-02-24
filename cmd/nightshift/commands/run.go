@@ -356,7 +356,7 @@ func providerPreference(cfg *config.Config) []string {
 		if name == "" || seen[name] {
 			continue
 		}
-		if name != "claude" && name != "codex" {
+		if name != "claude" && name != "codex" && name != "opencode" {
 			continue
 		}
 		seen[name] = true

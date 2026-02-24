@@ -1,8 +1,11 @@
 // Package providers defines interfaces and implementations for AI coding agents.
-// Supports multiple backends: Claude Code, Codex CLI, etc.
+// Supports multiple backends: Claude Code, Codex CLI, Opencode, etc.
 package providers
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Provider is the interface all AI coding agents must implement.
 type Provider interface {
@@ -18,10 +21,27 @@ type Provider interface {
 
 // Task represents work to be done by a provider.
 type Task struct {
-	// TODO: Add task fields (prompt, files, etc.)
+	// Prompt is the instruction for the AI agent
+	Prompt string
+
+	// Files contains file paths to be processed
+	Files []string
+
+	// Context provides additional context for the task
+	Context map[string]interface{}
 }
 
 // Result holds the outcome of a provider execution.
 type Result struct {
-	// TODO: Add result fields (output, tokens used, etc.)
+	// Output is the generated content from the AI agent
+	Output string
+
+	// TokensUsed tracks the number of tokens consumed
+	TokensUsed int64
+
+	// Duration is how long the execution took
+	Duration time.Duration
+
+	// Error contains any error that occurred during execution
+	Error error
 }

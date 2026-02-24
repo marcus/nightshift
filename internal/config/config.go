@@ -59,8 +59,9 @@ type BudgetConfig struct {
 
 // ProvidersConfig defines AI provider settings.
 type ProvidersConfig struct {
-	Claude ProviderConfig `mapstructure:"claude"`
-	Codex  ProviderConfig `mapstructure:"codex"`
+	Claude   ProviderConfig `mapstructure:"claude"`
+	Codex    ProviderConfig `mapstructure:"codex"`
+	Opencode ProviderConfig `mapstructure:"opencode"`
 	// Preference sets provider order (e.g., ["claude", "codex"]).
 	Preference []string `mapstructure:"preference"`
 }
@@ -252,6 +253,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("providers.codex.data_path", DefaultCodexDataPath)
 	// SECURITY: Default to false to require explicit opt-in for bypassing approvals/sandbox
 	v.SetDefault("providers.codex.dangerously_bypass_approvals_and_sandbox", false)
+	v.SetDefault("providers.opencode.enabled", false)
+	v.SetDefault("providers.opencode.data_path", "~/.opencode")
+	// SECURITY: Default to false to require explicit opt-in for bypassing approvals/sandbox
+	v.SetDefault("providers.opencode.dangerously_bypass_approvals_and_sandbox", false)
 
 	// Logging defaults
 	v.SetDefault("logging.level", DefaultLogLevel)
@@ -550,6 +555,8 @@ func (c *Config) ExpandedProviderPath(provider string) string {
 		return expandPath(c.Providers.Claude.DataPath)
 	case "codex":
 		return expandPath(c.Providers.Codex.DataPath)
+	case "opencode":
+		return expandPath(c.Providers.Opencode.DataPath)
 	default:
 		return ""
 	}

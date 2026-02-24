@@ -24,8 +24,14 @@ func agentByName(cfg *config.Config, provider string) (agents.Agent, error) {
 			return nil, fmt.Errorf("codex CLI not found in PATH")
 		}
 		return a, nil
+	case "opencode":
+		a := newOpencodeAgentFromConfig(cfg)
+		if !a.Available() {
+			return nil, fmt.Errorf("opencode CLI not found in PATH")
+		}
+		return a, nil
 	default:
-		return nil, fmt.Errorf("unknown provider: %s (supported: claude, codex)", provider)
+		return nil, fmt.Errorf("unknown provider: %s (supported: claude, codex, opencode)", provider)
 	}
 }
 
@@ -36,6 +42,13 @@ func newClaudeAgentFromConfig(cfg *config.Config) *agents.ClaudeAgent {
 	return agents.NewClaudeAgent(
 		agents.WithDangerouslySkipPermissions(cfg.Providers.Claude.DangerouslySkipPermissions),
 	)
+}
+
+func newOpencodeAgentFromConfig(cfg *config.Config) *agents.OpencodeAgent {
+	if cfg == nil {
+		return agents.NewOpencodeAgent()
+	}
+	return agents.NewOpencodeAgent()
 }
 
 func newCodexAgentFromConfig(cfg *config.Config) *agents.CodexAgent {

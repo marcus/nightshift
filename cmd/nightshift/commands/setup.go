@@ -1516,6 +1516,13 @@ func renderEnvChecks(cfg *config.Config) string {
 			b.WriteString(fmt.Sprintf("  %s %s\n", styleOk.Render("OK:"), "Codex data path found"))
 		}
 	}
+	if cfg.Providers.Opencode.Enabled {
+		if _, err := os.Stat(cfg.ExpandedProviderPath("opencode")); err != nil {
+			b.WriteString(fmt.Sprintf("  %s %s\n", styleWarn.Render("Note:"), "Opencode data path not found"))
+		} else {
+			b.WriteString(fmt.Sprintf("  %s %s\n", styleOk.Render("OK:"), "Opencode data path found"))
+		}
+	}
 	return b.String()
 }
 
