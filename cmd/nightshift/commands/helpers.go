@@ -70,9 +70,6 @@ func newCopilotAgentFromConfig(cfg *config.Config) *agents.CopilotAgent {
 	opts := []agents.CopilotOption{
 		agents.WithCopilotBinaryPath(binaryPath),
 	}
-	if cfg.Providers.Copilot.DangerouslySkipPermissions {
-		// When enabled, this should pass --allow-all-tools
-		// Currently handled via config, future: add agent option
-	}
+	// TODO: when DangerouslySkipPermissions is enabled, pass --allow-all-tools flag to copilot agent
 	return agents.NewCopilotAgent(opts...)
 }
