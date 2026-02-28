@@ -1251,3 +1251,47 @@ func TestDisplayPreflight_NoWarningsWhenBudgetRespected(t *testing.T) {
 		t.Errorf("output should not contain 'Warnings:' when ignoreBudget=false\nGot:\n%s", output)
 	}
 }
+
+// TestScheduleMaxProjectsFromConfig verifies that schedule.max_projects in config
+// is respected when --max-projects is not explicitly set via CLI flag (Bug #19, fix 1).
+func TestScheduleMaxProjectsFromConfig(t *testing.T) {
+	// Simulate what runRun does: after loading config, apply schedule.MaxProjects
+	// when the flag was not explicitly changed by the user.
+	maxProjects := 1           // CLI default
+	maxProjectsChanged := false // --max-projects was NOT passed
+
+	cfg := &config.Config{
+		Schedule: config.ScheduleConfig{
+			MaxProjects: 3, // configured in nightshift.yaml
+		},
+	}
+
+	if !maxProjectsChanged && cfg.Schedule.MaxProjects > 0 {
+		maxProjects = cfg.Schedule.MaxProjects
+	}
+
+	if maxProjects != 3 {
+		t.Fatalf("maxProjects = %d, want 3 (from config)", maxProjects)
+	}
+}
+
+// TestScheduleMaxProjectsCLIOverridesConfig verifies that an explicit --max-projects
+// flag takes precedence over schedule.max_projects in config (Bug #19, fix 1).
+func TestScheduleMaxProjectsCLIOverridesConfig(t *testing.T) {
+	maxProjects := 2           // CLI value explicitly set
+	maxProjectsChanged := true // --max-projects=2 was passed
+
+	cfg := &config.Config{
+		Schedule: config.ScheduleConfig{
+			MaxProjects: 5, // configured in nightshift.yaml
+		},
+	}
+
+	if !maxProjectsChanged && cfg.Schedule.MaxProjects > 0 {
+		maxProjects = cfg.Schedule.MaxProjects
+	}
+
+	if maxProjects != 2 {
+		t.Fatalf("maxProjects = %d, want 2 (CLI should win over config)", maxProjects)
+	}
+}

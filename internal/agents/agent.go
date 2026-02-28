@@ -25,7 +25,6 @@ type ExecuteOptions struct {
 	WorkDir string        // Working directory for execution
 	Files   []string      // Optional file paths to include as context
 	Timeout time.Duration // Execution timeout (0 = default)
-	Model   string        // Model to use (optional, uses agent default if empty)
 }
 
 // ExecuteResult holds the outcome of an agent execution.
@@ -40,4 +39,12 @@ type ExecuteResult struct {
 // IsSuccess returns true if the execution succeeded.
 func (r *ExecuteResult) IsSuccess() bool {
 	return r.ExitCode == 0 && r.Error == ""
+}
+
+// truncate returns s trimmed to maxLen characters, appending "..." if truncated.
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }

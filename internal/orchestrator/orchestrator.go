@@ -445,10 +445,24 @@ func (o *Orchestrator) plan(ctx context.Context, task *tasks.Task, workDir strin
 		Timeout: o.config.AgentTimeout,
 	})
 	if err != nil {
+		if execResult != nil && execResult.Output != "" {
+			o.logger.WarnCtx("agent produced partial output before error", map[string]any{
+				"output_len": len(execResult.Output),
+				"output":     truncateStr(execResult.Output, 1000),
+				"error":      execResult.Error,
+			})
+		}
 		return nil, fmt.Errorf("agent execution: %w", err)
 	}
 
 	if !execResult.IsSuccess() {
+		if execResult.Output != "" {
+			o.logger.WarnCtx("agent produced output but reported error", map[string]any{
+				"output_len": len(execResult.Output),
+				"output":     truncateStr(execResult.Output, 1000),
+				"error":      execResult.Error,
+			})
+		}
 		return nil, fmt.Errorf("agent returned error: %s", execResult.Error)
 	}
 
@@ -492,10 +506,26 @@ func (o *Orchestrator) implement(ctx context.Context, task *tasks.Task, plan *Pl
 		Timeout: o.config.AgentTimeout,
 	})
 	if err != nil {
+		if execResult != nil && execResult.Output != "" {
+			o.logger.WarnCtx("agent produced partial output before error", map[string]any{
+				"phase":      "implement",
+				"output_len": len(execResult.Output),
+				"output":     truncateStr(execResult.Output, 1000),
+				"error":      execResult.Error,
+			})
+		}
 		return nil, fmt.Errorf("agent execution: %w", err)
 	}
 
 	if !execResult.IsSuccess() {
+		if execResult.Output != "" {
+			o.logger.WarnCtx("agent produced output but reported error", map[string]any{
+				"phase":      "implement",
+				"output_len": len(execResult.Output),
+				"output":     truncateStr(execResult.Output, 1000),
+				"error":      execResult.Error,
+			})
+		}
 		return nil, fmt.Errorf("agent returned error: %s", execResult.Error)
 	}
 
@@ -590,10 +620,26 @@ func (o *Orchestrator) review(ctx context.Context, task *tasks.Task, impl *Imple
 		Timeout: o.config.AgentTimeout,
 	})
 	if err != nil {
+		if execResult != nil && execResult.Output != "" {
+			o.logger.WarnCtx("agent produced partial output before error", map[string]any{
+				"phase":      "review",
+				"output_len": len(execResult.Output),
+				"output":     truncateStr(execResult.Output, 1000),
+				"error":      execResult.Error,
+			})
+		}
 		return nil, fmt.Errorf("agent execution: %w", err)
 	}
 
 	if !execResult.IsSuccess() {
+		if execResult.Output != "" {
+			o.logger.WarnCtx("agent produced output but reported error", map[string]any{
+				"phase":      "review",
+				"output_len": len(execResult.Output),
+				"output":     truncateStr(execResult.Output, 1000),
+				"error":      execResult.Error,
+			})
+		}
 		return nil, fmt.Errorf("agent returned error: %s", execResult.Error)
 	}
 
@@ -888,4 +934,12 @@ func CurrentBranch(ctx context.Context, workDir string) (string, error) {
 		return "", fmt.Errorf("git rev-parse --abbrev-ref HEAD: %w", err)
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// truncateStr returns s trimmed to maxLen characters, appending "..." if truncated.
+func truncateStr(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }

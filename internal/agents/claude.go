@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -26,6 +27,14 @@ func (r *ExecRunner) Run(ctx context.Context, name string, args []string, dir st
 	cmd := exec.CommandContext(ctx, name, args...)
 	if dir != "" {
 		cmd.Dir = dir
+	}
+
+	// Use process group so timeout kills the entire process tree,
+	// not just the direct child (e.g. Node wrapper leaves Rust child alive).
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cancel = func() error {
+		// Kill the entire process group (negative PID)
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}
 
 	var stdoutBuf, stderrBuf bytes.Buffer
@@ -52,7 +61,6 @@ type ClaudeAgent struct {
 	timeout    time.Duration // Default timeout
 	runner     CommandRunner // Command executor (for testing)
 	skipPerms  bool          // Pass --dangerously-skip-permissions
-	model      string        // Default model to use
 }
 
 // ClaudeOption configures a ClaudeAgent.
@@ -76,13 +84,6 @@ func WithDefaultTimeout(d time.Duration) ClaudeOption {
 func WithDangerouslySkipPermissions(enabled bool) ClaudeOption {
 	return func(a *ClaudeAgent) {
 		a.skipPerms = enabled
-	}
-}
-
-// WithModel sets the default model to use.
-func WithModel(model string) ClaudeOption {
-	return func(a *ClaudeAgent) {
-		a.model = model
 	}
 }
 
@@ -132,15 +133,6 @@ func (a *ClaudeAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execut
 		args = append(args, "--dangerously-skip-permissions")
 	}
 
-	// Add model if specified
-	model := opts.Model
-	if model == "" {
-		model = a.model
-	}
-	if model != "" {
-		args = append(args, "--model", model)
-	}
-
 	// Add prompt directly as argument
 	if opts.Prompt != "" {
 		args = append(args, opts.Prompt)
@@ -171,6 +163,12 @@ func (a *ClaudeAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execut
 	// Check for context timeout
 	if ctx.Err() == context.DeadlineExceeded {
 		result.Error = fmt.Sprintf("timeout after %v", timeout)
+		if stderr != "" {
+			result.Error = fmt.Sprintf("timeout after %v; stderr: %s", timeout, truncate(stderr, 2000))
+		}
+		if stdout != "" {
+			result.Output = stdout
+		}
 		result.ExitCode = -1
 		return result, ctx.Err()
 	}
@@ -182,6 +180,9 @@ func (a *ClaudeAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execut
 			result.Error = stderr
 		} else {
 			result.Error = err.Error()
+			if stderr != "" {
+				result.Error = fmt.Sprintf("%s; stderr: %s", err.Error(), truncate(stderr, 2000))
+			}
 		}
 		return result, err
 	}

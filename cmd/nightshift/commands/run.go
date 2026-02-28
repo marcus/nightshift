@@ -122,6 +122,8 @@ func runRun(cmd *cobra.Command, args []string) error {
 	taskFilter, _ := cmd.Flags().GetString("task")
 	maxProjects, _ := cmd.Flags().GetInt("max-projects")
 	maxTasks, _ := cmd.Flags().GetInt("max-tasks")
+	maxProjectsChanged := cmd.Flags().Changed("max-projects")
+	maxTasksChanged := cmd.Flags().Changed("max-tasks")
 	ignoreBudget, _ := cmd.Flags().GetBool("ignore-budget")
 	yes, _ := cmd.Flags().GetBool("yes")
 	randomTask, _ := cmd.Flags().GetBool("random-task")
@@ -157,6 +159,14 @@ func runRun(cmd *cobra.Command, args []string) error {
 	cfg, err := loadConfig(projectPath)
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
+	}
+
+	// Apply config defaults for max-projects and max-tasks if not set via CLI flag.
+	if !maxProjectsChanged && cfg.Schedule.MaxProjects > 0 {
+		maxProjects = cfg.Schedule.MaxProjects
+	}
+	if !maxTasksChanged && cfg.Schedule.MaxTasks > 0 {
+		maxTasks = cfg.Schedule.MaxTasks
 	}
 
 	// Initialize logging

@@ -77,14 +77,23 @@ func (c *Calibrator) Calibrate(provider string) (CalibrationResult, error) {
 	}
 
 	if len(snapshots) == 0 {
-		budgetTokens := int64(c.cfg.GetProviderBudget(provider))
-		return CalibrationResult{
-			InferredBudget: budgetTokens,
-			Confidence:     "none",
-			SampleCount:    0,
-			Variance:       0,
-			Source:         "config",
-		}, nil
+		// No samples for the current week (e.g., at a day/week boundary before any
+		// new snapshots arrive). Fall back to the previous week's samples so the
+		// budget estimate doesn't collapse to the raw config value and trigger a
+		// false "budget exhausted" report with 0% usage.
+		prevSnapshots, prevErr := c.loadPreviousWeeklySamples(provider)
+		if prevErr == nil && len(prevSnapshots) > 0 {
+			snapshots = prevSnapshots
+		} else {
+			budgetTokens := int64(c.cfg.GetProviderBudget(provider))
+			return CalibrationResult{
+				InferredBudget: budgetTokens,
+				Confidence:     "none",
+				SampleCount:    0,
+				Variance:       0,
+				Source:         "config",
+			}, nil
+		}
 	}
 
 	filtered := snapshots
@@ -161,17 +170,20 @@ func (c *Calibrator) GetBudget(provider string) (budget.BudgetEstimate, error) {
 	}, nil
 }
 
-func (c *Calibrator) loadWeeklySamples(provider string) ([]float64, error) {
+// loadPreviousWeeklySamples fetches calibration samples from the week prior to the
+// current one. Used as a fallback when the current week has no data yet (e.g., at
+// a week boundary before any snapshots are recorded).
+func (c *Calibrator) loadPreviousWeeklySamples(provider string) ([]float64, error) {
+	prevWeekStart := startOfWeek(time.Now(), c.weekStartDay).AddDate(0, 0, -7)
 	if provider == "codex" {
-		return c.loadCodexWeeklySamples()
+		return c.loadWeeklySamplesForWeek("codex", prevWeekStart)
 	}
-	return c.loadClaudeWeeklySamples(provider)
+	return c.loadWeeklySamplesForWeek(provider, prevWeekStart)
 }
 
-// loadClaudeWeeklySamples infers budget from local_tokens / scraped_pct.
-func (c *Calibrator) loadClaudeWeeklySamples(provider string) ([]float64, error) {
-	weekStart := startOfWeek(time.Now(), c.weekStartDay)
-
+// loadWeeklySamplesForWeek is the generic implementation used by both current and
+// previous week queries.
+func (c *Calibrator) loadWeeklySamplesForWeek(provider string, weekStart time.Time) ([]float64, error) {
 	rows, err := c.db.SQL().Query(
 		`SELECT local_tokens, scraped_pct
 		 FROM snapshots
@@ -207,46 +219,26 @@ func (c *Calibrator) loadClaudeWeeklySamples(provider string) ([]float64, error)
 	return values, nil
 }
 
+func (c *Calibrator) loadWeeklySamples(provider string) ([]float64, error) {
+	if provider == "codex" {
+		return c.loadCodexWeeklySamples()
+	}
+	return c.loadClaudeWeeklySamples(provider)
+}
+
+// loadClaudeWeeklySamples infers budget from local_tokens / scraped_pct.
+func (c *Calibrator) loadClaudeWeeklySamples(provider string) ([]float64, error) {
+	weekStart := startOfWeek(time.Now(), c.weekStartDay)
+	return c.loadWeeklySamplesForWeek(provider, weekStart)
+}
+
 // loadCodexWeeklySamples infers budget from local_tokens / scraped_pct.
 // Same approach as Claude: if we know local usage in tokens and the scraped
 // percentage, we can infer the total budget. Falls back to config budget
 // if no snapshots have local token data.
 func (c *Calibrator) loadCodexWeeklySamples() ([]float64, error) {
 	weekStart := startOfWeek(time.Now(), c.weekStartDay)
-
-	// Try snapshots with both local_tokens and scraped_pct (preferred)
-	rows, err := c.db.SQL().Query(
-		`SELECT local_tokens, scraped_pct
-		 FROM snapshots
-		 WHERE provider = 'codex'
-		 AND week_start = ?
-		 AND scraped_pct IS NOT NULL
-		 AND scraped_pct BETWEEN 10 AND 95
-		 AND local_tokens > 0`,
-		weekStart,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("query codex snapshots: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	values := make([]float64, 0)
-	for rows.Next() {
-		var localTokens int64
-		var scrapedPct float64
-		if err := rows.Scan(&localTokens, &scrapedPct); err != nil {
-			return nil, fmt.Errorf("scan codex snapshot: %w", err)
-		}
-		if scrapedPct <= 0 {
-			continue
-		}
-		inferred := float64(localTokens) / (scrapedPct / 100)
-		values = append(values, inferred)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate codex snapshots: %w", err)
-	}
-	return values, nil
+	return c.loadWeeklySamplesForWeek("codex", weekStart)
 }
 
 func parseWeekStartDay(cfg *config.Config) time.Weekday {

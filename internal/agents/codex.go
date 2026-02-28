@@ -18,7 +18,6 @@ type CodexAgent struct {
 	timeout    time.Duration // Default timeout
 	runner     CommandRunner // Command executor (for testing)
 	bypassPerm bool          // Pass --dangerously-bypass-approvals-and-sandbox
-	model      string        // Default model to use
 }
 
 // CodexOption configures a CodexAgent.
@@ -42,13 +41,6 @@ func WithCodexDefaultTimeout(d time.Duration) CodexOption {
 func WithDangerouslyBypassApprovalsAndSandbox(enabled bool) CodexOption {
 	return func(a *CodexAgent) {
 		a.bypassPerm = enabled
-	}
-}
-
-// WithCodexModel sets the default model to use.
-func WithCodexModel(model string) CodexOption {
-	return func(a *CodexAgent) {
-		a.model = model
 	}
 }
 
@@ -99,15 +91,6 @@ func (a *CodexAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execute
 		args = append(args, "--dangerously-bypass-approvals-and-sandbox")
 	}
 
-	// Add model if specified
-	model := opts.Model
-	if model == "" {
-		model = a.model
-	}
-	if model != "" {
-		args = append(args, "--model", model)
-	}
-
 	// Add prompt directly as argument
 	if opts.Prompt != "" {
 		args = append(args, opts.Prompt)
@@ -138,6 +121,12 @@ func (a *CodexAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execute
 	// Check for context timeout
 	if ctx.Err() == context.DeadlineExceeded {
 		result.Error = fmt.Sprintf("timeout after %v", timeout)
+		if stderr != "" {
+			result.Error = fmt.Sprintf("timeout after %v; stderr: %s", timeout, truncate(stderr, 2000))
+		}
+		if stdout != "" {
+			result.Output = stdout
+		}
 		result.ExitCode = -1
 		return result, ctx.Err()
 	}
@@ -149,6 +138,9 @@ func (a *CodexAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execute
 			result.Error = stderr
 		} else {
 			result.Error = err.Error()
+			if stderr != "" {
+				result.Error = fmt.Sprintf("%s; stderr: %s", err.Error(), truncate(stderr, 2000))
+			}
 		}
 		return result, err
 	}

@@ -313,3 +313,40 @@ func TestCalibrateSkipsOutOfRange(t *testing.T) {
 		t.Fatalf("sample count = %d", result.SampleCount)
 	}
 }
+
+// TestCalibrateWeekBoundaryFallsBackToPreviousWeek verifies that at a week
+// boundary (no snapshots for the new week yet), the calibrator falls back to
+// previous-week data rather than reporting a 0-token budget that would
+// incorrectly appear as "exhausted" (Bug #19, fix 2).
+func TestCalibrateWeekBoundaryFallsBackToPreviousWeek(t *testing.T) {
+	cfg := &config.Config{
+		Budget: config.BudgetConfig{
+			BillingMode:      "subscription",
+			CalibrateEnabled: true,
+			WeeklyTokens:     0, // intentionally unset — relies on calibration
+			WeekStartDay:     "monday",
+		},
+	}
+	cal, database := newTestCalibrator(t, cfg)
+
+	// Insert snapshots for the PREVIOUS week only.
+	prevWeekStart := startOfWeek(time.Now(), time.Monday).AddDate(0, 0, -7)
+	prev := prevWeekStart.Add(2 * time.Hour) // some point in the previous week
+	insertSnapshot(t, database, "claude", 300000, 30, prev)
+	insertSnapshot(t, database, "claude", 310000, 30, prev.Add(1*time.Hour))
+	insertSnapshot(t, database, "claude", 290000, 30, prev.Add(2*time.Hour))
+
+	// No snapshots for the current week — simulates fresh-week / day boundary.
+	result, err := cal.Calibrate("claude")
+	if err != nil {
+		t.Fatalf("Calibrate error: %v", err)
+	}
+
+	// Should use previous-week data, not fall through to config (which is 0).
+	if result.InferredBudget <= 0 {
+		t.Fatalf("expected positive InferredBudget from previous week, got %d", result.InferredBudget)
+	}
+	if result.Source != "calibrated" {
+		t.Fatalf("source = %s, want calibrated", result.Source)
+	}
+}
