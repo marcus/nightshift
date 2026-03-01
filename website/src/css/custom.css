@@ -894,3 +894,8 @@ html[data-theme='dark'] .footer {
     animation: none;
   }
 }
+
+/* Fix mobile navbar sidebar: prevent secondary panel from translating off-screen */
+.navbar-sidebar__items--show-secondary {
+  transform: none !important;
+}
