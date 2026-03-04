@@ -97,7 +97,8 @@ func TestValidate_InvalidLogFormat(t *testing.T) {
 func TestValidate_ValidConfig(t *testing.T) {
 	cfg := &Config{
 		Schedule: ScheduleConfig{
-			Cron: "0 2 * * *",
+			Cron:            "0 2 * * *",
+			ProjectParallel: true,
 		},
 		Budget: BudgetConfig{
 			Mode:           "daily",
@@ -257,6 +258,7 @@ func TestLoadFromPaths_WithYAML(t *testing.T) {
 	configContent := `
 schedule:
   cron: "0 3 * * *"
+  project_parallelism: true
 budget:
   mode: weekly
   max_percent: 20
@@ -275,6 +277,9 @@ logging:
 
 	if cfg.Schedule.Cron != "0 3 * * *" {
 		t.Errorf("Schedule.Cron = %q, want %q", cfg.Schedule.Cron, "0 3 * * *")
+	}
+	if !cfg.Schedule.ProjectParallel {
+		t.Errorf("Schedule.ProjectParallel = %v, want true", cfg.Schedule.ProjectParallel)
 	}
 	if cfg.Budget.Mode != "weekly" {
 		t.Errorf("Budget.Mode = %q, want %q", cfg.Budget.Mode, "weekly")

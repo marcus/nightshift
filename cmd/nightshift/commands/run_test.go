@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1306,4 +1307,167 @@ func TestScheduleMaxProjectsCLIOverridesConfig(t *testing.T) {
 	if maxProjects != 2 {
 		t.Fatalf("maxProjects = %d, want 2 (CLI should win over config)", maxProjects)
 	}
+}
+
+func TestBuildPreflight_ProjectParallelIgnoresMaxProjects(t *testing.T) {
+	p0 := t.TempDir()
+	p1 := t.TempDir()
+	p2 := t.TempDir()
+
+	params := newPreflightParams(t, []string{p0, p1, p2})
+	params.maxProjects = 1
+	params.projectParallel = true
+
+	plan, err := buildPreflight(params)
+	if err != nil {
+		t.Fatalf("buildPreflight: %v", err)
+	}
+
+	if len(plan.projects) != 3 {
+		t.Fatalf("plan.projects len = %d, want 3 (maxProjects ignored in parallel mode)", len(plan.projects))
+	}
+
+	eligible := 0
+	for _, pp := range plan.projects {
+		if pp.skipReason == "" {
+			eligible++
+		}
+	}
+	if eligible != 3 {
+		t.Fatalf("eligible projects = %d, want 3", eligible)
+	}
+}
+
+func TestExecuteProjects_RunsProjectsInParallel(t *testing.T) {
+	projects := makeTestExecutionProjects(3)
+	gate := make(chan struct{})
+	started := make(chan struct{}, len(projects))
+
+	var mu sync.Mutex
+	running := 0
+	maxRunning := 0
+
+	runProject := func(ctx context.Context, pp preflightProject) (projectRunCounts, error) {
+		mu.Lock()
+		running++
+		if running > maxRunning {
+			maxRunning = running
+		}
+		mu.Unlock()
+
+		started <- struct{}{}
+
+		select {
+		case <-ctx.Done():
+			return projectRunCounts{}, ctx.Err()
+		case <-gate:
+		}
+
+		mu.Lock()
+		running--
+		mu.Unlock()
+
+		return projectRunCounts{
+			tasksRun:       1,
+			tasksCompleted: 1,
+		}, nil
+	}
+
+	var (
+		counts projectRunCounts
+		err    error
+	)
+	done := make(chan struct{})
+	go func() {
+		counts, err = executeProjects(context.Background(), projects, true, runProject)
+		close(done)
+	}()
+
+	for i := 0; i < len(projects); i++ {
+		select {
+		case <-started:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timed out waiting for project %d to start", i+1)
+		}
+	}
+
+	close(gate)
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("executeProjects did not complete")
+	}
+
+	if err != nil {
+		t.Fatalf("executeProjects: %v", err)
+	}
+	if maxRunning < 2 {
+		t.Fatalf("maxRunning = %d, want >= 2 for parallel execution", maxRunning)
+	}
+	if counts.tasksRun != len(projects) {
+		t.Fatalf("tasksRun = %d, want %d", counts.tasksRun, len(projects))
+	}
+	if counts.tasksCompleted != len(projects) {
+		t.Fatalf("tasksCompleted = %d, want %d", counts.tasksCompleted, len(projects))
+	}
+}
+
+func TestExecuteProjects_SerialWhenParallelismDisabled(t *testing.T) {
+	projects := makeTestExecutionProjects(4)
+
+	var mu sync.Mutex
+	running := 0
+	maxRunning := 0
+
+	runProject := func(ctx context.Context, pp preflightProject) (projectRunCounts, error) {
+		mu.Lock()
+		running++
+		if running > maxRunning {
+			maxRunning = running
+		}
+		mu.Unlock()
+
+		time.Sleep(25 * time.Millisecond)
+
+		mu.Lock()
+		running--
+		mu.Unlock()
+
+		return projectRunCounts{
+			tasksRun:       1,
+			tasksCompleted: 1,
+		}, nil
+	}
+
+	counts, err := executeProjects(context.Background(), projects, false, runProject)
+	if err != nil {
+		t.Fatalf("executeProjects: %v", err)
+	}
+
+	if maxRunning != 1 {
+		t.Fatalf("maxRunning = %d, want 1", maxRunning)
+	}
+	if counts.tasksRun != len(projects) {
+		t.Fatalf("tasksRun = %d, want %d", counts.tasksRun, len(projects))
+	}
+}
+
+func makeTestExecutionProjects(n int) []preflightProject {
+	out := make([]preflightProject, 0, n)
+	for i := 0; i < n; i++ {
+		out = append(out, preflightProject{
+			path: fmt.Sprintf("/tmp/project-%d", i),
+			tasks: []tasks.ScoredTask{
+				{
+					Definition: tasks.TaskDefinition{
+						Type: tasks.TaskLintFix,
+						Name: "Lint Fixes",
+					},
+					Score: float64(i + 1),
+				},
+			},
+		})
+	}
+	return out
 }

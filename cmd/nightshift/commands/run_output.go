@@ -213,6 +213,13 @@ func displayPreflightColored(plan *preflightPlan) {
 			s.Label.Render("Branch:"),
 			s.Value.Render(plan.branch))
 	}
+	parallelMode := "disabled"
+	if plan.projectParallel {
+		parallelMode = "enabled"
+	}
+	fmt.Printf("  %s %s\n",
+		s.Label.Render("Project Parallelism:"),
+		s.Value.Render(parallelMode))
 
 	// Show provider info from first project that has one
 	for _, pp := range plan.projects {

@@ -291,7 +291,7 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 	// Create task selector
 	selector := tasks.NewSelector(cfg, st)
 
-	var tasksRun, tasksCompleted, tasksFailed int
+	runnableProjects := make([]preflightProject, 0, len(projects))
 
 	// Process each project
 	for _, projectPath := range projects {
@@ -321,15 +321,6 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 			break
 		}
 
-		orch := orchestrator.New(
-			orchestrator.WithAgent(choice.agent),
-			orchestrator.WithConfig(orchestrator.Config{
-				MaxIterations: 3,
-				AgentTimeout:  daemonTimeoutFlag,
-			}),
-			orchestrator.WithLogger(logging.Component("orchestrator")),
-		)
-
 		// Select tasks
 		selectedTasks := selector.SelectTopN(allowance.Allowance, projectPath, 5)
 		if len(selectedTasks) == 0 {
@@ -345,147 +336,28 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 			continue
 		}
 
-		log.InfoCtx("processing project", map[string]any{
-			"project":  projectPath,
-			"tasks":    len(selectedTasks),
-			"budget":   allowance.Allowance,
-			"provider": choice.name,
+		runnableProjects = append(runnableProjects, preflightProject{
+			path:     projectPath,
+			tasks:    selectedTasks,
+			provider: choice,
 		})
+	}
 
-		// Execute each selected task
-		projectStart := time.Now()
-		projectTaskTypes := make([]string, 0, len(selectedTasks))
-		projectTokensUsed := 0
-		projectCompleted := 0
-		projectFailed := 0
-		for _, scoredTask := range selectedTasks {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-			}
-
-			tasksRun++
-			projectTaskTypes = append(projectTaskTypes, string(scoredTask.Definition.Type))
-
-			// Create task instance
-			taskInstance := &tasks.Task{
-				ID:          fmt.Sprintf("%s:%s", scoredTask.Definition.Type, projectPath),
-				Title:       scoredTask.Definition.Name,
-				Description: scoredTask.Definition.Description,
-				Priority:    int(scoredTask.Score),
-				Type:        scoredTask.Definition.Type,
-			}
-
-			// Mark as assigned
-			st.MarkAssigned(taskInstance.ID, projectPath, string(scoredTask.Definition.Type))
-
-			// Execute via orchestrator
-			result, err := orch.RunTask(ctx, taskInstance, projectPath)
-
-			// Clear assignment
-			st.ClearAssigned(taskInstance.ID)
-
-			if err != nil {
-				tasksFailed++
-				projectFailed++
-				log.Errorf("task %s failed: %v", taskInstance.ID, err)
-				if report != nil {
-					report.addTask(reporting.TaskResult{
-						Project:    projectPath,
-						TaskType:   string(scoredTask.Definition.Type),
-						Title:      scoredTask.Definition.Name,
-						Status:     "failed",
-						TokensUsed: 0,
-						Duration:   result.Duration,
-					})
-				}
-				continue
-			}
-
-			// Record result
-			switch result.Status {
-			case orchestrator.StatusCompleted:
-				tasksCompleted++
-				projectCompleted++
-				st.RecordTaskRun(projectPath, string(scoredTask.Definition.Type))
-				log.InfoCtx("task completed", map[string]any{
-					"task":       taskInstance.ID,
-					"iterations": result.Iterations,
-					"duration":   result.Duration.String(),
-				})
-				_, maxTok := scoredTask.Definition.EstimatedTokens()
-				projectTokensUsed += maxTok
-				if report != nil {
-					report.addTask(reporting.TaskResult{
-						Project:    projectPath,
-						TaskType:   string(scoredTask.Definition.Type),
-						Title:      scoredTask.Definition.Name,
-						Status:     "completed",
-						OutputType: result.OutputType,
-						OutputRef:  result.OutputRef,
-						TokensUsed: maxTok,
-						Duration:   result.Duration,
-					})
-				}
-			case orchestrator.StatusAbandoned:
-				tasksFailed++
-				projectFailed++
-				log.Warnf("task %s abandoned: %s", taskInstance.ID, result.Error)
-				if report != nil {
-					report.addTask(reporting.TaskResult{
-						Project:    projectPath,
-						TaskType:   string(scoredTask.Definition.Type),
-						Title:      scoredTask.Definition.Name,
-						Status:     "failed",
-						SkipReason: result.Error,
-						Duration:   result.Duration,
-					})
-				}
-			default:
-				tasksFailed++
-				projectFailed++
-				log.Errorf("task %s failed: %s", taskInstance.ID, result.Error)
-				if report != nil {
-					report.addTask(reporting.TaskResult{
-						Project:    projectPath,
-						TaskType:   string(scoredTask.Definition.Type),
-						Title:      scoredTask.Definition.Name,
-						Status:     "failed",
-						SkipReason: result.Error,
-						Duration:   result.Duration,
-					})
-				}
-			}
-		}
-
-		// Record project run
-		st.RecordProjectRun(projectPath)
-		projectStatus := "partial"
-		if projectFailed == 0 && projectCompleted > 0 {
-			projectStatus = "success"
-		}
-		if projectCompleted == 0 && projectFailed > 0 {
-			projectStatus = "failed"
-		}
-		st.AddRunRecord(state.RunRecord{
-			StartTime:  projectStart,
-			EndTime:    time.Now(),
-			Provider:   choice.name,
-			Project:    projectPath,
-			Tasks:      projectTaskTypes,
-			TokensUsed: projectTokensUsed,
-			Status:     projectStatus,
-		})
+	counts, err := executeProjects(ctx, runnableProjects, cfg.Schedule.ProjectParallel, func(projectCtx context.Context, pp preflightProject) (projectRunCounts, error) {
+		return executeDaemonProject(projectCtx, pp, st, report, log)
+	})
+	if err != nil {
+		log.Info("run cancelled")
+		return err
 	}
 
 	// Summary
 	duration := time.Since(start)
 	log.InfoCtx("scheduled run complete", map[string]any{
 		"duration":  duration.String(),
-		"tasks_run": tasksRun,
-		"completed": tasksCompleted,
-		"failed":    tasksFailed,
+		"tasks_run": counts.tasksRun,
+		"completed": counts.tasksCompleted,
+		"failed":    counts.tasksFailed,
 		"projects":  len(projects),
 	})
 
@@ -494,6 +366,157 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 	}
 
 	return nil
+}
+
+func executeDaemonProject(ctx context.Context, pp preflightProject, st *state.State, report *runReport, log *logging.Logger) (projectRunCounts, error) {
+	counts := projectRunCounts{}
+	choice := pp.provider
+	projectPath := pp.path
+	selectedTasks := pp.tasks
+
+	log.InfoCtx("processing project", map[string]any{
+		"project":  projectPath,
+		"tasks":    len(selectedTasks),
+		"budget":   choice.allowance.Allowance,
+		"provider": choice.name,
+	})
+
+	orch := orchestrator.New(
+		orchestrator.WithAgent(choice.agent),
+		orchestrator.WithConfig(orchestrator.Config{
+			MaxIterations: 3,
+			AgentTimeout:  daemonTimeoutFlag,
+		}),
+		orchestrator.WithLogger(logging.Component("orchestrator")),
+	)
+
+	projectStart := time.Now()
+	projectTaskTypes := make([]string, 0, len(selectedTasks))
+	projectTokensUsed := 0
+	projectCompleted := 0
+	projectFailed := 0
+
+	for _, scoredTask := range selectedTasks {
+		select {
+		case <-ctx.Done():
+			return counts, ctx.Err()
+		default:
+		}
+
+		counts.tasksRun++
+		projectTaskTypes = append(projectTaskTypes, string(scoredTask.Definition.Type))
+
+		// Create task instance
+		taskInstance := &tasks.Task{
+			ID:          fmt.Sprintf("%s:%s", scoredTask.Definition.Type, projectPath),
+			Title:       scoredTask.Definition.Name,
+			Description: scoredTask.Definition.Description,
+			Priority:    int(scoredTask.Score),
+			Type:        scoredTask.Definition.Type,
+		}
+
+		// Mark as assigned
+		st.MarkAssigned(taskInstance.ID, projectPath, string(scoredTask.Definition.Type))
+
+		// Execute via orchestrator
+		result, err := orch.RunTask(ctx, taskInstance, projectPath)
+
+		// Clear assignment
+		st.ClearAssigned(taskInstance.ID)
+
+		if err != nil {
+			counts.tasksFailed++
+			projectFailed++
+			log.Errorf("task %s failed: %v", taskInstance.ID, err)
+			if report != nil {
+				report.addTask(reporting.TaskResult{
+					Project:    projectPath,
+					TaskType:   string(scoredTask.Definition.Type),
+					Title:      scoredTask.Definition.Name,
+					Status:     "failed",
+					TokensUsed: 0,
+					Duration:   result.Duration,
+				})
+			}
+			continue
+		}
+
+		// Record result
+		switch result.Status {
+		case orchestrator.StatusCompleted:
+			counts.tasksCompleted++
+			projectCompleted++
+			st.RecordTaskRun(projectPath, string(scoredTask.Definition.Type))
+			log.InfoCtx("task completed", map[string]any{
+				"task":       taskInstance.ID,
+				"iterations": result.Iterations,
+				"duration":   result.Duration.String(),
+			})
+			_, maxTok := scoredTask.Definition.EstimatedTokens()
+			projectTokensUsed += maxTok
+			if report != nil {
+				report.addTask(reporting.TaskResult{
+					Project:    projectPath,
+					TaskType:   string(scoredTask.Definition.Type),
+					Title:      scoredTask.Definition.Name,
+					Status:     "completed",
+					OutputType: result.OutputType,
+					OutputRef:  result.OutputRef,
+					TokensUsed: maxTok,
+					Duration:   result.Duration,
+				})
+			}
+		case orchestrator.StatusAbandoned:
+			counts.tasksFailed++
+			projectFailed++
+			log.Warnf("task %s abandoned: %s", taskInstance.ID, result.Error)
+			if report != nil {
+				report.addTask(reporting.TaskResult{
+					Project:    projectPath,
+					TaskType:   string(scoredTask.Definition.Type),
+					Title:      scoredTask.Definition.Name,
+					Status:     "failed",
+					SkipReason: result.Error,
+					Duration:   result.Duration,
+				})
+			}
+		default:
+			counts.tasksFailed++
+			projectFailed++
+			log.Errorf("task %s failed: %s", taskInstance.ID, result.Error)
+			if report != nil {
+				report.addTask(reporting.TaskResult{
+					Project:    projectPath,
+					TaskType:   string(scoredTask.Definition.Type),
+					Title:      scoredTask.Definition.Name,
+					Status:     "failed",
+					SkipReason: result.Error,
+					Duration:   result.Duration,
+				})
+			}
+		}
+	}
+
+	// Record project run
+	st.RecordProjectRun(projectPath)
+	projectStatus := "partial"
+	if projectFailed == 0 && projectCompleted > 0 {
+		projectStatus = "success"
+	}
+	if projectCompleted == 0 && projectFailed > 0 {
+		projectStatus = "failed"
+	}
+	st.AddRunRecord(state.RunRecord{
+		StartTime:  projectStart,
+		EndTime:    time.Now(),
+		Provider:   choice.name,
+		Project:    projectPath,
+		Tasks:      projectTaskTypes,
+		TokensUsed: projectTokensUsed,
+		Status:     projectStatus,
+	})
+
+	return counts, nil
 }
 
 type tmuxScraper struct{}

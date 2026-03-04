@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/marcus/nightshift/internal/budget"
@@ -14,6 +15,7 @@ import (
 type runReport struct {
 	results    *reporting.RunResults
 	usedBudget int
+	mu         sync.Mutex
 }
 
 func newRunReport(start time.Time, startBudget int) *runReport {
@@ -30,6 +32,8 @@ func newRunReport(start time.Time, startBudget int) *runReport {
 }
 
 func (r *runReport) addTask(task reporting.TaskResult) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.results.Tasks = append(r.results.Tasks, task)
 	r.usedBudget += task.TokensUsed
 }
@@ -38,6 +42,8 @@ func (r *runReport) finalize(cfg *config.Config, log *logging.Logger) {
 	if r == nil || r.results == nil || cfg == nil {
 		return
 	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	r.results.EndTime = time.Now()
 	r.results.UsedBudget = r.usedBudget

@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -80,6 +81,7 @@ executing anything.
 Flags:
   --max-projects N   Limit how many projects are processed (default 1).
                      Ignored when --project is set.
+                     Ignored when schedule.project_parallelism is true.
   --max-tasks N      Limit how many tasks run per project (default 1).
                      Ignored when --task is set.
   --random-task      Pick a random task from eligible tasks (exactly 1).
@@ -106,7 +108,7 @@ func init() {
 	runCmd.Flags().Bool("dry-run", false, "Simulate execution without making changes")
 	runCmd.Flags().StringP("project", "p", "", "Path to project directory")
 	runCmd.Flags().StringP("task", "t", "", "Run specific task by name")
-	runCmd.Flags().Int("max-projects", 1, "Max projects to process per run (ignored when --project is set)")
+	runCmd.Flags().Int("max-projects", 1, "Max projects to process per run (ignored when --project is set or schedule.project_parallelism=true)")
 	runCmd.Flags().Int("max-tasks", 1, "Max tasks to run per project (ignored when --task is set)")
 	runCmd.Flags().Bool("ignore-budget", false, "Bypass budget checks (use with caution)")
 	runCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
@@ -170,6 +172,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if !maxTasksChanged && cfg.Schedule.MaxTasks > 0 {
 		maxTasks = cfg.Schedule.MaxTasks
 	}
+	projectParallel := cfg.Schedule.ProjectParallel
 
 	// Initialize logging
 	if err := initLogging(cfg); err != nil {
@@ -240,21 +243,22 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 
 	params := executeRunParams{
-		cfg:          cfg,
-		budgetMgr:    budgetMgr,
-		selector:     selector,
-		st:           st,
-		projects:     projects,
-		taskFilter:   taskFilter,
-		maxProjects:  maxProjects,
-		maxTasks:     maxTasks,
-		randomTask:   randomTask,
-		ignoreBudget: ignoreBudget,
-		dryRun:       dryRun,
-		yes:          yes,
-		branch:       branch,
-		agentTimeout: agentTimeout,
-		log:          log,
+		cfg:             cfg,
+		budgetMgr:       budgetMgr,
+		selector:        selector,
+		st:              st,
+		projects:        projects,
+		taskFilter:      taskFilter,
+		maxProjects:     maxProjects,
+		maxTasks:        maxTasks,
+		projectParallel: projectParallel,
+		randomTask:      randomTask,
+		ignoreBudget:    ignoreBudget,
+		dryRun:          dryRun,
+		yes:             yes,
+		branch:          branch,
+		agentTimeout:    agentTimeout,
+		log:             log,
 	}
 	if !dryRun {
 		params.report = newRunReport(time.Now(), calculateRunBudgetStart(cfg, budgetMgr, log))
@@ -263,22 +267,24 @@ func runRun(cmd *cobra.Command, args []string) error {
 }
 
 type executeRunParams struct {
-	cfg          *config.Config
-	budgetMgr    *budget.Manager
-	selector     *tasks.Selector
-	st           *state.State
-	projects     []string
-	taskFilter   string
-	maxProjects  int
-	maxTasks     int
-	randomTask   bool
-	ignoreBudget bool
-	dryRun       bool
-	yes          bool
-	branch       string
-	agentTimeout time.Duration
-	report       *runReport
-	log          *logging.Logger
+	cfg             *config.Config
+	budgetMgr       *budget.Manager
+	selector        *tasks.Selector
+	st              *state.State
+	projects        []string
+	taskFilter      string
+	maxProjects     int
+	maxTasks        int
+	randomTask      bool
+	ignoreBudget    bool
+	dryRun          bool
+	yes             bool
+	branch          string
+	projectParallel bool
+	agentTimeout    time.Duration
+	report          *runReport
+	log             *logging.Logger
+	outputMu        *sync.Mutex
 }
 
 // providerChoice holds a selected provider's agent and name.
@@ -421,24 +427,38 @@ type preflightProject struct {
 
 // preflightPlan collects all planned work before execution.
 type preflightPlan struct {
-	projects     []preflightProject
-	skipReasons  []string // global skip reasons (e.g., no provider)
-	ignoreBudget bool
-	branch       string // base branch for feature branches
+	projects        []preflightProject
+	skipReasons     []string // global skip reasons (e.g., no provider)
+	ignoreBudget    bool
+	branch          string // base branch for feature branches
+	projectParallel bool
+}
+
+type projectRunCounts struct {
+	tasksRun       int
+	tasksCompleted int
+	tasksFailed    int
 }
 
 // buildPreflight performs the planning phase: resolve provider, select tasks
 // per project, but does NOT execute anything.
 func buildPreflight(p executeRunParams) (*preflightPlan, error) {
 	plan := &preflightPlan{
-		ignoreBudget: p.ignoreBudget,
-		branch:       p.branch,
+		ignoreBudget:    p.ignoreBudget,
+		branch:          p.branch,
+		projectParallel: p.projectParallel,
+	}
+
+	maxProjects := p.maxProjects
+	if p.projectParallel {
+		// Binary mode: process all eligible projects in parallel.
+		maxProjects = 0
 	}
 
 	eligibleCount := 0
 	for _, projectPath := range p.projects {
 		// Apply --max-projects limit (counts only eligible, non-skipped projects)
-		if p.maxProjects > 0 && eligibleCount >= p.maxProjects {
+		if maxProjects > 0 && eligibleCount >= maxProjects {
 			break
 		}
 
@@ -532,6 +552,11 @@ func displayPreflight(w io.Writer, plan *preflightPlan) {
 	if plan.branch != "" {
 		_, _ = fmt.Fprintf(w, "Branch: %s\n", plan.branch)
 	}
+	parallelMode := "disabled"
+	if plan.projectParallel {
+		parallelMode = "enabled"
+	}
+	_, _ = fmt.Fprintf(w, "Project Parallelism: %s\n", parallelMode)
 
 	// Show provider info from first project that has one
 	for _, pp := range plan.projects {
@@ -622,10 +647,13 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 	}
 
 	// Execute based on the plan
-	var tasksRun, tasksCompleted, tasksFailed int
 	var skipReasons []string
 	skipReasons = append(skipReasons, plan.skipReasons...)
+	if plan.projectParallel {
+		p.outputMu = &sync.Mutex{}
+	}
 
+	runnableProjects := make([]preflightProject, 0, len(plan.projects))
 	for _, pp := range plan.projects {
 		select {
 		case <-ctx.Done():
@@ -656,196 +684,24 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 		if len(pp.tasks) == 0 {
 			continue
 		}
-
-		choice := pp.provider
-		projectPath := pp.path
-
-		if isInteractive() {
-			displayProjectHeaderColored(projectPath, choice.name, choice.allowance, len(pp.tasks), pp.tasks)
-		} else {
-			fmt.Printf("\n=== Project: %s ===\n", projectPath)
-			fmt.Printf("Provider: %s\n", choice.name)
-			fmt.Printf("Budget: %d tokens available (%.1f%% used, mode=%s)\n",
-				choice.allowance.Allowance, choice.allowance.UsedPercent, choice.allowance.Mode)
-
-			fmt.Printf("Selected %d task(s):\n", len(pp.tasks))
-			for i, st := range pp.tasks {
-				minTok, maxTok := st.Definition.EstimatedTokens()
-				fmt.Printf("  %d. %s (score=%.1f, cost=%s, tokens=%d-%d)\n",
-					i+1, st.Definition.Name, st.Score, st.Definition.CostTier, minTok, maxTok)
-			}
-		}
-
-		// Create orchestrator with the selected agent
-		var renderer *liveRenderer
-		if isInteractive() {
-			renderer = newLiveRenderer()
-			defer renderer.cleanup()
-		}
-
-		orchOpts := []orchestrator.Option{
-			orchestrator.WithAgent(choice.agent),
-			orchestrator.WithConfig(orchestrator.Config{
-				MaxIterations: 3,
-				AgentTimeout:  p.agentTimeout,
-			}),
-			orchestrator.WithLogger(logging.Component("orchestrator")),
-		}
-		if renderer != nil {
-			orchOpts = append(orchOpts, orchestrator.WithEventHandler(renderer.HandleEvent))
-		}
-		orch := orchestrator.New(orchOpts...)
-
-		projectStart := time.Now()
-		projectTaskTypes := make([]string, 0, len(pp.tasks))
-		projectTokensUsed := 0
-		projectCompleted := 0
-		projectFailed := 0
-
-		// Execute each selected task
-		for _, scoredTask := range pp.tasks {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			default:
-			}
-
-			tasksRun++
-			if !isInteractive() {
-				fmt.Printf("\n--- Running: %s (via %s) ---\n", scoredTask.Definition.Name, choice.name)
-			}
-			projectTaskTypes = append(projectTaskTypes, string(scoredTask.Definition.Type))
-
-			// Create task instance
-			taskInstance := &tasks.Task{
-				ID:          fmt.Sprintf("%s:%s", scoredTask.Definition.Type, projectPath),
-				Title:       scoredTask.Definition.Name,
-				Description: scoredTask.Definition.Description,
-				Priority:    int(scoredTask.Score),
-				Type:        scoredTask.Definition.Type,
-			}
-
-			// Mark as assigned
-			p.st.MarkAssigned(taskInstance.ID, projectPath, string(scoredTask.Definition.Type))
-
-			// Inject run metadata for PR traceability
-			orch.SetRunMetadata(&orchestrator.RunMetadata{
-				Provider:  choice.name,
-				TaskType:  string(scoredTask.Definition.Type),
-				TaskScore: scoredTask.Score,
-				CostTier:  scoredTask.Definition.CostTier.String(),
-				RunStart:  projectStart,
-				Branch:    p.branch,
-			})
-
-			// Execute via orchestrator
-			result, err := orch.RunTask(ctx, taskInstance, projectPath)
-
-			// Clear assignment
-			p.st.ClearAssigned(taskInstance.ID)
-
-			if err != nil {
-				tasksFailed++
-				projectFailed++
-				if !isInteractive() {
-					fmt.Printf("  FAILED: %v\n", err)
-				}
-				p.log.Errorf("task %s failed: %v", taskInstance.ID, err)
-				if p.report != nil {
-					p.report.addTask(reporting.TaskResult{
-						Project:    projectPath,
-						TaskType:   string(scoredTask.Definition.Type),
-						Title:      scoredTask.Definition.Name,
-						Status:     "failed",
-						TokensUsed: 0,
-						Duration:   result.Duration,
-					})
-				}
-				continue
-			}
-
-			// Record result
-			switch result.Status {
-			case orchestrator.StatusCompleted:
-				tasksCompleted++
-				projectCompleted++
-				if !isInteractive() {
-					fmt.Printf("  COMPLETED in %d iteration(s) (%s)\n", result.Iterations, result.Duration)
-				}
-				p.st.RecordTaskRun(projectPath, string(scoredTask.Definition.Type))
-				_, maxTok := scoredTask.Definition.EstimatedTokens()
-				projectTokensUsed += maxTok
-				if p.report != nil {
-					p.report.addTask(reporting.TaskResult{
-						Project:    projectPath,
-						TaskType:   string(scoredTask.Definition.Type),
-						Title:      scoredTask.Definition.Name,
-						Status:     "completed",
-						OutputType: result.OutputType,
-						OutputRef:  result.OutputRef,
-						TokensUsed: maxTok,
-						Duration:   result.Duration,
-					})
-				}
-			case orchestrator.StatusAbandoned:
-				tasksFailed++
-				projectFailed++
-				if !isInteractive() {
-					fmt.Printf("  ABANDONED after %d iteration(s): %s\n", result.Iterations, result.Error)
-				}
-				if p.report != nil {
-					p.report.addTask(reporting.TaskResult{
-						Project:    projectPath,
-						TaskType:   string(scoredTask.Definition.Type),
-						Title:      scoredTask.Definition.Name,
-						Status:     "failed",
-						SkipReason: result.Error,
-						Duration:   result.Duration,
-					})
-				}
-			default:
-				tasksFailed++
-				projectFailed++
-				if !isInteractive() {
-					fmt.Printf("  FAILED: %s\n", result.Error)
-				}
-				if p.report != nil {
-					p.report.addTask(reporting.TaskResult{
-						Project:    projectPath,
-						TaskType:   string(scoredTask.Definition.Type),
-						Title:      scoredTask.Definition.Name,
-						Status:     "failed",
-						SkipReason: result.Error,
-						Duration:   result.Duration,
-					})
-				}
-			}
-		}
-
-		// Record project run
-		p.st.RecordProjectRun(projectPath)
-		projectStatus := "partial"
-		if projectFailed == 0 && projectCompleted > 0 {
-			projectStatus = "success"
-		}
-		if projectCompleted == 0 && projectFailed > 0 {
-			projectStatus = "failed"
-		}
-		p.st.AddRunRecord(state.RunRecord{
-			StartTime:  projectStart,
-			EndTime:    time.Now(),
-			Provider:   choice.name,
-			Project:    projectPath,
-			Tasks:      projectTaskTypes,
-			TokensUsed: projectTokensUsed,
-			Status:     projectStatus,
-			Branch:     p.branch,
-		})
+		runnableProjects = append(runnableProjects, pp)
 	}
+
+	counts, err := executeProjects(ctx, runnableProjects, plan.projectParallel, func(projectCtx context.Context, project preflightProject) (projectRunCounts, error) {
+		return executeProject(projectCtx, p, project)
+	})
+	if err != nil {
+		p.log.Info("run cancelled")
+		return err
+	}
+
+	tasksRun := counts.tasksRun
+	tasksCompleted := counts.tasksCompleted
+	tasksFailed := counts.tasksFailed
 
 	// Summary
 	duration := time.Since(start)
-	if isInteractive() {
+	if isInteractive() && !plan.projectParallel {
 		displayRunSummaryColored(duration, tasksRun, tasksCompleted, tasksFailed, skipReasons)
 	} else {
 		fmt.Printf("\n=== Run Complete ===\n")
@@ -873,6 +729,271 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 	}
 
 	return nil
+}
+
+func withOutputLock(mu *sync.Mutex, fn func()) {
+	if mu != nil {
+		mu.Lock()
+		defer mu.Unlock()
+	}
+	fn()
+}
+
+func executeProjects(ctx context.Context, projects []preflightProject, parallel bool, runProject func(context.Context, preflightProject) (projectRunCounts, error)) (projectRunCounts, error) {
+	totals := projectRunCounts{}
+	if len(projects) == 0 {
+		return totals, nil
+	}
+
+	if !parallel || len(projects) == 1 {
+		for _, pp := range projects {
+			select {
+			case <-ctx.Done():
+				return totals, ctx.Err()
+			default:
+			}
+
+			counts, err := runProject(ctx, pp)
+			if err != nil {
+				return totals, err
+			}
+			totals.tasksRun += counts.tasksRun
+			totals.tasksCompleted += counts.tasksCompleted
+			totals.tasksFailed += counts.tasksFailed
+		}
+		return totals, nil
+	}
+
+	type projectResult struct {
+		counts projectRunCounts
+		err    error
+	}
+
+	resultCh := make(chan projectResult, len(projects))
+
+	var wg sync.WaitGroup
+	for _, pp := range projects {
+		wg.Add(1)
+		go func(project preflightProject) {
+			defer wg.Done()
+			if ctx.Err() != nil {
+				resultCh <- projectResult{err: ctx.Err()}
+				return
+			}
+			counts, err := runProject(ctx, project)
+			resultCh <- projectResult{counts: counts, err: err}
+		}(pp)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultCh)
+	}()
+
+	var firstErr error
+	for result := range resultCh {
+		totals.tasksRun += result.counts.tasksRun
+		totals.tasksCompleted += result.counts.tasksCompleted
+		totals.tasksFailed += result.counts.tasksFailed
+		if firstErr == nil && result.err != nil {
+			firstErr = result.err
+		}
+	}
+
+	return totals, firstErr
+}
+
+func executeProject(ctx context.Context, p executeRunParams, pp preflightProject) (projectRunCounts, error) {
+	counts := projectRunCounts{}
+	choice := pp.provider
+	projectPath := pp.path
+	interactive := isInteractive() && !p.projectParallel
+
+	if interactive {
+		displayProjectHeaderColored(projectPath, choice.name, choice.allowance, len(pp.tasks), pp.tasks)
+	} else {
+		withOutputLock(p.outputMu, func() {
+			fmt.Printf("\n=== Project: %s ===\n", projectPath)
+			fmt.Printf("Provider: %s\n", choice.name)
+			fmt.Printf("Budget: %d tokens available (%.1f%% used, mode=%s)\n",
+				choice.allowance.Allowance, choice.allowance.UsedPercent, choice.allowance.Mode)
+
+			fmt.Printf("Selected %d task(s):\n", len(pp.tasks))
+			for i, st := range pp.tasks {
+				minTok, maxTok := st.Definition.EstimatedTokens()
+				fmt.Printf("  %d. %s (score=%.1f, cost=%s, tokens=%d-%d)\n",
+					i+1, st.Definition.Name, st.Score, st.Definition.CostTier, minTok, maxTok)
+			}
+		})
+	}
+
+	var renderer *liveRenderer
+	if interactive {
+		renderer = newLiveRenderer()
+		defer renderer.cleanup()
+	}
+
+	orchOpts := []orchestrator.Option{
+		orchestrator.WithAgent(choice.agent),
+		orchestrator.WithConfig(orchestrator.Config{
+			MaxIterations: 3,
+			AgentTimeout:  p.agentTimeout,
+		}),
+		orchestrator.WithLogger(logging.Component("orchestrator")),
+	}
+	if renderer != nil {
+		orchOpts = append(orchOpts, orchestrator.WithEventHandler(renderer.HandleEvent))
+	}
+	orch := orchestrator.New(orchOpts...)
+
+	projectStart := time.Now()
+	projectTaskTypes := make([]string, 0, len(pp.tasks))
+	projectTokensUsed := 0
+	projectCompleted := 0
+	projectFailed := 0
+
+	for _, scoredTask := range pp.tasks {
+		select {
+		case <-ctx.Done():
+			return counts, ctx.Err()
+		default:
+		}
+
+		counts.tasksRun++
+		if !interactive {
+			withOutputLock(p.outputMu, func() {
+				fmt.Printf("\n--- Running: %s (via %s) ---\n", scoredTask.Definition.Name, choice.name)
+			})
+		}
+		projectTaskTypes = append(projectTaskTypes, string(scoredTask.Definition.Type))
+
+		taskInstance := &tasks.Task{
+			ID:          fmt.Sprintf("%s:%s", scoredTask.Definition.Type, projectPath),
+			Title:       scoredTask.Definition.Name,
+			Description: scoredTask.Definition.Description,
+			Priority:    int(scoredTask.Score),
+			Type:        scoredTask.Definition.Type,
+		}
+
+		p.st.MarkAssigned(taskInstance.ID, projectPath, string(scoredTask.Definition.Type))
+
+		orch.SetRunMetadata(&orchestrator.RunMetadata{
+			Provider:  choice.name,
+			TaskType:  string(scoredTask.Definition.Type),
+			TaskScore: scoredTask.Score,
+			CostTier:  scoredTask.Definition.CostTier.String(),
+			RunStart:  projectStart,
+			Branch:    p.branch,
+		})
+
+		result, err := orch.RunTask(ctx, taskInstance, projectPath)
+		p.st.ClearAssigned(taskInstance.ID)
+
+		if err != nil {
+			counts.tasksFailed++
+			projectFailed++
+			if !interactive {
+				withOutputLock(p.outputMu, func() {
+					fmt.Printf("  FAILED: %v\n", err)
+				})
+			}
+			p.log.Errorf("task %s failed: %v", taskInstance.ID, err)
+			if p.report != nil {
+				p.report.addTask(reporting.TaskResult{
+					Project:    projectPath,
+					TaskType:   string(scoredTask.Definition.Type),
+					Title:      scoredTask.Definition.Name,
+					Status:     "failed",
+					TokensUsed: 0,
+					Duration:   result.Duration,
+				})
+			}
+			continue
+		}
+
+		switch result.Status {
+		case orchestrator.StatusCompleted:
+			counts.tasksCompleted++
+			projectCompleted++
+			if !interactive {
+				withOutputLock(p.outputMu, func() {
+					fmt.Printf("  COMPLETED in %d iteration(s) (%s)\n", result.Iterations, result.Duration)
+				})
+			}
+			p.st.RecordTaskRun(projectPath, string(scoredTask.Definition.Type))
+			_, maxTok := scoredTask.Definition.EstimatedTokens()
+			projectTokensUsed += maxTok
+			if p.report != nil {
+				p.report.addTask(reporting.TaskResult{
+					Project:    projectPath,
+					TaskType:   string(scoredTask.Definition.Type),
+					Title:      scoredTask.Definition.Name,
+					Status:     "completed",
+					OutputType: result.OutputType,
+					OutputRef:  result.OutputRef,
+					TokensUsed: maxTok,
+					Duration:   result.Duration,
+				})
+			}
+		case orchestrator.StatusAbandoned:
+			counts.tasksFailed++
+			projectFailed++
+			if !interactive {
+				withOutputLock(p.outputMu, func() {
+					fmt.Printf("  ABANDONED after %d iteration(s): %s\n", result.Iterations, result.Error)
+				})
+			}
+			if p.report != nil {
+				p.report.addTask(reporting.TaskResult{
+					Project:    projectPath,
+					TaskType:   string(scoredTask.Definition.Type),
+					Title:      scoredTask.Definition.Name,
+					Status:     "failed",
+					SkipReason: result.Error,
+					Duration:   result.Duration,
+				})
+			}
+		default:
+			counts.tasksFailed++
+			projectFailed++
+			if !interactive {
+				withOutputLock(p.outputMu, func() {
+					fmt.Printf("  FAILED: %s\n", result.Error)
+				})
+			}
+			if p.report != nil {
+				p.report.addTask(reporting.TaskResult{
+					Project:    projectPath,
+					TaskType:   string(scoredTask.Definition.Type),
+					Title:      scoredTask.Definition.Name,
+					Status:     "failed",
+					SkipReason: result.Error,
+					Duration:   result.Duration,
+				})
+			}
+		}
+	}
+
+	p.st.RecordProjectRun(projectPath)
+	projectStatus := "partial"
+	if projectFailed == 0 && projectCompleted > 0 {
+		projectStatus = "success"
+	}
+	if projectCompleted == 0 && projectFailed > 0 {
+		projectStatus = "failed"
+	}
+	p.st.AddRunRecord(state.RunRecord{
+		StartTime:  projectStart,
+		EndTime:    time.Now(),
+		Provider:   choice.name,
+		Project:    projectPath,
+		Tasks:      projectTaskTypes,
+		TokensUsed: projectTokensUsed,
+		Status:     projectStatus,
+		Branch:     p.branch,
+	})
+
+	return counts, nil
 }
 
 // loadConfig loads configuration from the appropriate paths.
