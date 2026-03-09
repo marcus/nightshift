@@ -18,10 +18,13 @@ type Provider interface {
 
 // Task represents work to be done by a provider.
 type Task struct {
-	// TODO: Add task fields (prompt, files, etc.)
+	Prompt  string   // The prompt/task description
+	WorkDir string   // Working directory for execution
+	Files   []string // Optional file paths to include as context
 }
 
 // Result holds the outcome of a provider execution.
 type Result struct {
-	// TODO: Add result fields (output, tokens used, etc.)
+	Output   string // Agent's text output
+	ExitCode int    // Process exit code
 }

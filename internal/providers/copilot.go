@@ -15,16 +15,36 @@ import (
 // Usage tracking approach:
 // GitHub Copilot CLI does not expose usage metrics via API or local files like
 // Codex or Claude. We track usage by counting requests made through this provider.
-// Each request counts as 1 premium request. Premium requests reset monthly on the
-// 1st at 00:00:00 UTC according to GitHub's documented behavior.
+// Each request counts as 1 premium request (PRU). Premium requests reset monthly
+// on the 1st at 00:00:00 UTC according to GitHub's documented behavior.
+//
+// PRU cost varies by model (multiplier applied to base request):
+//   - GPT-4.1:        0x (free for most tasks)
+//   - Claude Sonnet:   1x (standard)
+//   - GPT-4o:          1x (standard)
+//   - Claude Opus 4:  10x (expensive, use for complex tasks)
+//   - o3-pro:         50x (very expensive)
 //
 // Limitations:
 // - No authoritative usage data from GitHub API (not exposed)
 // - Request counting only tracks usage through nightshift, not external usage
 // - No way to query remaining quota from GitHub servers
-// - Assumes each prompt execution = 1 premium request (conservative estimate)
+// - PRU multiplier estimates may drift as GitHub updates pricing
 type Copilot struct {
 	dataPath string // Path to ~/.copilot for tracking data
+	agent    CopilotExecutor
+}
+
+// CopilotExecutor is satisfied by agents.CopilotAgent (avoids import cycle).
+type CopilotExecutor interface {
+	Execute(ctx context.Context, opts CopilotExecOptions) (stdout string, exitCode int, err error)
+}
+
+// CopilotExecOptions mirrors agents.ExecuteOptions for the provider layer.
+type CopilotExecOptions struct {
+	Prompt  string
+	WorkDir string
+	Files   []string
 }
 
 // CopilotUsageData persists usage tracking between sessions.
@@ -32,6 +52,32 @@ type CopilotUsageData struct {
 	RequestCount int64     `json:"request_count"`
 	LastReset    time.Time `json:"last_reset"` // UTC timestamp of last monthly reset
 	Month        string    `json:"month"`      // "YYYY-MM" of current tracking period
+}
+
+// PRUMultiplier maps model identifiers to their premium request multipliers.
+// Source: GitHub Copilot billing documentation.
+var PRUMultiplier = map[string]float64{
+	"gpt-4.1":        0,
+	"gpt-4.1-mini":   0.25,
+	"gpt-4o":         1,
+	"gpt-4o-mini":    0.25,
+	"claude-sonnet":  1,
+	"claude-haiku":   0.25,
+	"claude-opus":    10,
+	"o1":             10,
+	"o3-mini":        0.33,
+	"o3-pro":         50,
+	"gemini-flash":   0.25,
+	"gemini-pro":     1,
+}
+
+// EstimatePRUCost returns the PRU cost for a single request using the given model.
+// Unknown models default to 1 PRU (standard rate).
+func EstimatePRUCost(model string) float64 {
+	if mult, ok := PRUMultiplier[model]; ok {
+		return mult
+	}
+	return 1 // conservative default
 }
 
 // NewCopilot creates a Copilot provider with default data path.
@@ -49,20 +95,41 @@ func NewCopilotWithPath(dataPath string) *Copilot {
 	}
 }
 
+// SetAgent attaches an executor (typically agents.CopilotAgent) for task execution.
+func (c *Copilot) SetAgent(agent CopilotExecutor) {
+	c.agent = agent
+}
+
 // Name returns "copilot".
 func (c *Copilot) Name() string {
 	return "copilot"
 }
 
 // Execute runs a task via GitHub Copilot CLI.
-// Implementation note: GitHub Copilot CLI uses 'gh copilot' commands.
+// Delegates to the attached CopilotExecutor (agent) and increments the request counter.
 func (c *Copilot) Execute(ctx context.Context, task Task) (Result, error) {
-	// TODO: Implement - spawn gh copilot CLI process
-	// According to GitHub docs, commands are:
-	// - gh copilot explain <code>
-	// - gh copilot suggest <prompt>
-	// For nightshift agent usage, we'd use 'gh copilot suggest' with prompts
-	return Result{}, nil
+	if c.agent == nil {
+		return Result{}, fmt.Errorf("copilot agent not configured; call SetAgent first")
+	}
+
+	stdout, exitCode, err := c.agent.Execute(ctx, CopilotExecOptions{
+		Prompt: task.Prompt,
+	})
+
+	// Track the request regardless of outcome
+	_ = c.IncrementRequestCount()
+
+	if err != nil {
+		return Result{
+			Output:   stdout,
+			ExitCode: exitCode,
+		}, fmt.Errorf("copilot execution: %w", err)
+	}
+
+	return Result{
+		Output:   stdout,
+		ExitCode: exitCode,
+	}, nil
 }
 
 // Cost returns Copilot's token pricing (cents per 1K tokens).

@@ -1,10 +1,124 @@
 package providers
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
 )
+
+// mockCopilotExecutor implements CopilotExecutor for testing.
+type mockCopilotExecutor struct {
+	stdout   string
+	exitCode int
+	err      error
+	called   bool
+	lastOpts CopilotExecOptions
+}
+
+func (m *mockCopilotExecutor) Execute(_ context.Context, opts CopilotExecOptions) (string, int, error) {
+	m.called = true
+	m.lastOpts = opts
+	return m.stdout, m.exitCode, m.err
+}
+
+func TestCopilot_Execute_WithAgent(t *testing.T) {
+	tmpDir := t.TempDir()
+	provider := NewCopilotWithPath(tmpDir)
+
+	mock := &mockCopilotExecutor{
+		stdout:   "fixed lint issues in main.go",
+		exitCode: 0,
+	}
+	provider.SetAgent(mock)
+
+	result, err := provider.Execute(context.Background(), Task{Prompt: "fix lint"})
+	if err != nil {
+		t.Fatalf("Execute() error: %v", err)
+	}
+	if !mock.called {
+		t.Fatal("expected agent Execute to be called")
+	}
+	if mock.lastOpts.Prompt != "fix lint" {
+		t.Errorf("prompt = %q, want %q", mock.lastOpts.Prompt, "fix lint")
+	}
+	if result.Output != "fixed lint issues in main.go" {
+		t.Errorf("output = %q, want %q", result.Output, "fixed lint issues in main.go")
+	}
+	if result.ExitCode != 0 {
+		t.Errorf("exit code = %d, want 0", result.ExitCode)
+	}
+
+	// Should have incremented request count
+	count, err := provider.GetRequestCount()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Errorf("request count = %d, want 1", count)
+	}
+}
+
+func TestCopilot_Execute_NoAgent(t *testing.T) {
+	tmpDir := t.TempDir()
+	provider := NewCopilotWithPath(tmpDir)
+
+	_, err := provider.Execute(context.Background(), Task{Prompt: "fix lint"})
+	if err == nil {
+		t.Fatal("expected error when no agent configured")
+	}
+}
+
+func TestCopilot_Execute_AgentError(t *testing.T) {
+	tmpDir := t.TempDir()
+	provider := NewCopilotWithPath(tmpDir)
+
+	mock := &mockCopilotExecutor{
+		stdout:   "partial output",
+		exitCode: 1,
+		err:      fmt.Errorf("process exited with code 1"),
+	}
+	provider.SetAgent(mock)
+
+	result, err := provider.Execute(context.Background(), Task{Prompt: "fix lint"})
+	if err == nil {
+		t.Fatal("expected error from agent failure")
+	}
+	// Should still capture partial output
+	if result.Output != "partial output" {
+		t.Errorf("output = %q, want %q", result.Output, "partial output")
+	}
+
+	// Should still increment request count (we made the request)
+	count, _ := provider.GetRequestCount()
+	if count != 1 {
+		t.Errorf("request count = %d, want 1 (should count even on error)", count)
+	}
+}
+
+func TestEstimatePRUCost(t *testing.T) {
+	tests := []struct {
+		model    string
+		expected float64
+	}{
+		{"gpt-4.1", 0},
+		{"gpt-4o", 1},
+		{"claude-sonnet", 1},
+		{"claude-opus", 10},
+		{"o3-pro", 50},
+		{"unknown-model", 1}, // default
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.model, func(t *testing.T) {
+			cost := EstimatePRUCost(tt.model)
+			if cost != tt.expected {
+				t.Errorf("EstimatePRUCost(%q) = %v, want %v", tt.model, cost, tt.expected)
+			}
+		})
+	}
+}
 
 func TestNewCopilot_Defaults(t *testing.T) {
 	provider := NewCopilot()
