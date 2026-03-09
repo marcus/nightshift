@@ -82,10 +82,10 @@ type ProviderConfig struct {
 type ProjectConfig struct {
 	Path     string   `mapstructure:"path"`
 	Priority int      `mapstructure:"priority"`
-	Tasks    []string `mapstructure:"tasks"`   // Task overrides for this project
-	Config   string   `mapstructure:"config"`  // Per-project config file
-	Pattern  string   `mapstructure:"pattern"` // Glob pattern for discovery
-	Exclude  []string `mapstructure:"exclude"` // Paths to exclude
+	Tasks    []string `mapstructure:"tasks"`    // Task overrides for this project
+	Config   string   `mapstructure:"config"`   // Per-project config file
+	Pattern  string   `mapstructure:"pattern"`  // Glob pattern for discovery
+	Exclude  []string `mapstructure:"exclude"`  // Paths to exclude
 	DraftPR  bool     `mapstructure:"draft_pr"` // Open PRs as drafts
 }
 
@@ -567,9 +567,11 @@ func (c *Config) ExpandedProviderPath(provider string) string {
 }
 
 // ProjectByPath returns the ProjectConfig for the given path, or nil if not found.
+// Both the input path and configured paths are expanded to handle tilde notation.
 func (c *Config) ProjectByPath(path string) *ProjectConfig {
+	normalized := expandPath(path)
 	for i := range c.Projects {
-		if expandPath(c.Projects[i].Path) == path {
+		if expandPath(c.Projects[i].Path) == normalized {
 			return &c.Projects[i]
 		}
 	}

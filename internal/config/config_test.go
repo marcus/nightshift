@@ -604,10 +604,16 @@ func TestValidate_CustomTaskDuplicateType(t *testing.T) {
 }
 
 func TestProjectByPath(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("failed to get home dir: %v", err)
+	}
+
 	cfg := &Config{
 		Projects: []ProjectConfig{
 			{Path: "/home/user/project-a", DraftPR: true},
 			{Path: "/home/user/project-b", DraftPR: false},
+			{Path: "~/project-c", DraftPR: true},
 		},
 	}
 
@@ -630,5 +636,20 @@ func TestProjectByPath(t *testing.T) {
 	pc = cfg.ProjectByPath("/nonexistent")
 	if pc != nil {
 		t.Error("expected nil for nonexistent path")
+	}
+
+	// Tilde expansion: lookup with expanded path should match ~/project-c
+	pc = cfg.ProjectByPath(home + "/project-c")
+	if pc == nil {
+		t.Fatal("expected to find project-c via expanded path")
+	}
+	if !pc.DraftPR {
+		t.Error("expected DraftPR to be true for project-c")
+	}
+
+	// Tilde expansion: lookup with tilde should also match
+	pc = cfg.ProjectByPath("~/project-c")
+	if pc == nil {
+		t.Fatal("expected to find project-c via tilde path")
 	}
 }
