@@ -246,7 +246,7 @@ func checkProviders(cfg *config.Config, add func(string, checkStatus, string)) (
 			add("copilot.data_path", statusOK, path)
 		}
 		copilotProvider = providers.NewCopilotWithPath(path)
-		monthlyLimit := int64(cfg.GetProviderBudget("copilot"))
+		monthlyLimit := cfg.GetCopilotMonthlyLimit()
 		if pct, err := copilotProvider.GetUsedPercent(mode, monthlyLimit); err != nil {
 			add("copilot.usage", statusFail, err.Error())
 		} else {

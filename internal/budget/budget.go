@@ -312,10 +312,8 @@ func (m *Manager) GetUsedPercent(provider string) (float64, error) {
 		if m.copilot == nil {
 			return 0, fmt.Errorf("copilot provider not configured")
 		}
-		// Copilot uses monthly request limits, not weekly token budgets
-		// Convert weekly budget to monthly limit for consistency
-		// Note: This is a simplification; actual monthly limits should be configured separately
-		monthlyLimit := weeklyBudget * 4 // Approximate: 4 weeks per month
+		// Use config-driven monthly limit (plan preset, explicit, or fallback)
+		monthlyLimit := m.cfg.GetCopilotMonthlyLimit()
 		return m.copilot.GetUsedPercent(mode, monthlyLimit)
 
 	default:

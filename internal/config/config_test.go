@@ -154,6 +154,99 @@ func TestGetProviderBudget(t *testing.T) {
 	}
 }
 
+func TestGetCopilotMonthlyLimit(t *testing.T) {
+	tests := []struct {
+		name     string
+		cfg      Config
+		expected int64
+	}{
+		{
+			name: "explicit monthly limit takes priority",
+			cfg: Config{
+				Providers: ProvidersConfig{
+					Copilot: ProviderConfig{
+						MonthlyLimit: 500,
+						CopilotPlan:  "pro", // ignored when MonthlyLimit is set
+					},
+				},
+				Budget: BudgetConfig{WeeklyTokens: 100},
+			},
+			expected: 500,
+		},
+		{
+			name: "plan preset: free",
+			cfg: Config{
+				Providers: ProvidersConfig{
+					Copilot: ProviderConfig{CopilotPlan: "free"},
+				},
+			},
+			expected: 50,
+		},
+		{
+			name: "plan preset: pro",
+			cfg: Config{
+				Providers: ProvidersConfig{
+					Copilot: ProviderConfig{CopilotPlan: "pro"},
+				},
+			},
+			expected: 300,
+		},
+		{
+			name: "plan preset: pro_plus",
+			cfg: Config{
+				Providers: ProvidersConfig{
+					Copilot: ProviderConfig{CopilotPlan: "pro_plus"},
+				},
+			},
+			expected: 1500,
+		},
+		{
+			name: "plan preset: business",
+			cfg: Config{
+				Providers: ProvidersConfig{
+					Copilot: ProviderConfig{CopilotPlan: "business"},
+				},
+			},
+			expected: 300,
+		},
+		{
+			name: "plan preset: enterprise",
+			cfg: Config{
+				Providers: ProvidersConfig{
+					Copilot: ProviderConfig{CopilotPlan: "enterprise"},
+				},
+			},
+			expected: 1000,
+		},
+		{
+			name: "fallback to weekly tokens * 4",
+			cfg: Config{
+				Budget: BudgetConfig{WeeklyTokens: 200},
+			},
+			expected: 800,
+		},
+		{
+			name: "unknown plan falls back to weekly tokens * 4",
+			cfg: Config{
+				Providers: ProvidersConfig{
+					Copilot: ProviderConfig{CopilotPlan: "unknown_plan"},
+				},
+				Budget: BudgetConfig{WeeklyTokens: 150},
+			},
+			expected: 600,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.cfg.GetCopilotMonthlyLimit()
+			if got != tt.expected {
+				t.Errorf("GetCopilotMonthlyLimit() = %d, want %d", got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestNormalizeBudgetConfig(t *testing.T) {
 	cfg := &Config{
 		Budget: BudgetConfig{
