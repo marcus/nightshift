@@ -1,3 +1,5 @@
+// Package agents provides interfaces and implementations for spawning AI agents.
+//
 // claude.go implements the Agent interface for Claude Code CLI.
 package agents
 

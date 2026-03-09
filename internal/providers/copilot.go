@@ -1,3 +1,5 @@
+// Package providers defines interfaces and implementations for AI coding agents.
+//
 // copilot.go implements the Provider interface for GitHub Copilot CLI.
 package providers
 

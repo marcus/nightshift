@@ -1,3 +1,5 @@
+// Package agents provides interfaces and implementations for spawning AI agents.
+//
 // codex.go implements the Agent interface for OpenAI Codex CLI.
 package agents
 

@@ -1,3 +1,4 @@
+// Package reporting generates morning summary reports for nightshift runs.
 package reporting
 
 import (

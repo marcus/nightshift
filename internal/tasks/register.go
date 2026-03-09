@@ -1,3 +1,4 @@
+// Package tasks defines task structures and loading from various sources.
 package tasks
 
 import (

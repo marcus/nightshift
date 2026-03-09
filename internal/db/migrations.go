@@ -1,3 +1,4 @@
+// Package db provides SQLite-backed storage for nightshift state and snapshots.
 package db
 
 import (

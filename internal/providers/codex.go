@@ -1,3 +1,5 @@
+// Package providers defines interfaces and implementations for AI coding agents.
+//
 // codex.go implements the Provider interface for OpenAI Codex CLI.
 package providers
 

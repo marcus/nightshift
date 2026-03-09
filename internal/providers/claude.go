@@ -1,3 +1,5 @@
+// Package providers defines interfaces and implementations for AI coding agents.
+//
 // claude.go implements the Provider interface for Claude Code CLI.
 package providers
 

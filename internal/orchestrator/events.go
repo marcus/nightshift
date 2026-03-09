@@ -1,3 +1,4 @@
+// Package orchestrator coordinates AI agents working on tasks.
 package orchestrator
 
 import "time"

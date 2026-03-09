@@ -1,3 +1,4 @@
+// Package integrations provides readers for external configuration and task sources.
 package integrations
 
 import (
