@@ -952,6 +952,9 @@ func TestBuildImplementPrompt_DraftPR(t *testing.T) {
 	if !strings.Contains(prompt, "gh pr create --draft") {
 		t.Errorf("implement prompt should contain 'gh pr create --draft'\nGot:\n%s", prompt)
 	}
+	if !strings.Contains(prompt, "nightshift/draft") {
+		t.Errorf("implement prompt should contain fallback label 'nightshift/draft'\nGot:\n%s", prompt)
+	}
 }
 
 func TestBuildImplementPrompt_NoDraftPR(t *testing.T) {

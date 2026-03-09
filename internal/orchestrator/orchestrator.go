@@ -758,7 +758,7 @@ func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, 
 
 	prInstruction := "open a PR"
 	if o.runMeta != nil && o.runMeta.DraftPR {
-		prInstruction = "open a **draft** PR (use `gh pr create --draft` or equivalent)"
+		prInstruction = "open a **draft** PR (use `gh pr create --draft`). If draft creation fails (e.g. the repository plan does not support draft PRs), fall back to a regular PR and add the label `nightshift/draft` so it can be identified for review"
 	}
 
 	return fmt.Sprintf(`You are an implementation agent. Execute the plan for this task.
