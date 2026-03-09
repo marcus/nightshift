@@ -71,6 +71,7 @@ func init() {
 	taskRunCmd.Flags().Bool("dry-run", false, "Show prompt without executing")
 	taskRunCmd.Flags().Duration("timeout", 30*time.Minute, "Execution timeout")
 	taskRunCmd.Flags().StringP("branch", "b", "", "Base branch for new feature branches (defaults to current branch)")
+	taskRunCmd.Flags().Bool("draft", false, "Open PRs as drafts")
 	_ = taskRunCmd.MarkFlagRequired("provider")
 
 	taskCmd.AddCommand(taskListCmd)
@@ -183,6 +184,7 @@ func runTaskRun(cmd *cobra.Command, args []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	timeout, _ := cmd.Flags().GetDuration("timeout")
 	branch, _ := cmd.Flags().GetString("branch")
+	draftPR, _ := cmd.Flags().GetBool("draft")
 
 	def, err := tasks.GetDefinition(taskType)
 	if err != nil {
@@ -235,10 +237,17 @@ func runTaskRun(cmd *cobra.Command, args []string) error {
 	)
 
 	// Inject run metadata with branch for prompt generation
+	// draft_pr: use --draft flag, or fall back to project config
+	if !draftPR {
+		if pc := cfg.ProjectByPath(projectPath); pc != nil {
+			draftPR = pc.DraftPR
+		}
+	}
 	orch.SetRunMetadata(&orchestrator.RunMetadata{
 		Provider: provider,
 		TaskType: string(taskType),
 		Branch:   branch,
+		DraftPR:  draftPR,
 	})
 
 	prompt := orch.PlanPrompt(taskInstance)

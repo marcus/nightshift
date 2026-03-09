@@ -86,6 +86,7 @@ type ProjectConfig struct {
 	Config   string   `mapstructure:"config"`  // Per-project config file
 	Pattern  string   `mapstructure:"pattern"` // Glob pattern for discovery
 	Exclude  []string `mapstructure:"exclude"` // Paths to exclude
+	DraftPR  bool     `mapstructure:"draft_pr"` // Open PRs as drafts
 }
 
 // TasksConfig defines task selection settings.
@@ -563,4 +564,14 @@ func (c *Config) ExpandedProviderPath(provider string) string {
 	default:
 		return ""
 	}
+}
+
+// ProjectByPath returns the ProjectConfig for the given path, or nil if not found.
+func (c *Config) ProjectByPath(path string) *ProjectConfig {
+	for i := range c.Projects {
+		if expandPath(c.Projects[i].Path) == path {
+			return &c.Projects[i]
+		}
+	}
+	return nil
 }

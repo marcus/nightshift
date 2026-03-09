@@ -729,6 +729,10 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 			p.st.MarkAssigned(taskInstance.ID, projectPath, string(scoredTask.Definition.Type))
 
 			// Inject run metadata for PR traceability
+			draftPR := false
+			if pc := p.cfg.ProjectByPath(projectPath); pc != nil {
+				draftPR = pc.DraftPR
+			}
 			orch.SetRunMetadata(&orchestrator.RunMetadata{
 				Provider:  choice.name,
 				TaskType:  string(scoredTask.Definition.Type),
@@ -736,6 +740,7 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 				CostTier:  scoredTask.Definition.CostTier.String(),
 				RunStart:  projectStart,
 				Branch:    p.branch,
+				DraftPR:   draftPR,
 			})
 
 			// Execute via orchestrator

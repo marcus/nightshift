@@ -93,6 +93,7 @@ type RunMetadata struct {
 	CostTier  string
 	RunStart  time.Time
 	Branch    string // base branch for feature branches
+	DraftPR   bool   // open PRs as drafts
 }
 
 // Config holds orchestrator configuration.
@@ -755,6 +756,11 @@ func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, 
 		branchInstruction = fmt.Sprintf("\n   Checkout `%s` before creating your feature branch.", o.runMeta.Branch)
 	}
 
+	prInstruction := "open a PR"
+	if o.runMeta != nil && o.runMeta.DraftPR {
+		prInstruction = "open a **draft** PR (use `gh pr create --draft` or equivalent)"
+	}
+
 	return fmt.Sprintf(`You are an implementation agent. Execute the plan for this task.
 
 ## Task
@@ -770,7 +776,7 @@ Description: %s
 %s
 ## Instructions
 0. Before creating your branch, record the current branch name. Create and work on a new branch. Never modify or commit directly to the primary branch.%s
-   When finished, open a PR. After the PR is submitted, switch back to the original branch. If you cannot open a PR, leave the branch and explain next steps.
+   When finished, %s. After the PR is submitted, switch back to the original branch. If you cannot open a PR, leave the branch and explain next steps.
 1. If you create commits, include a concise message with these git trailers:
    Nightshift-Task: %s
    Nightshift-Ref: https://github.com/marcus/nightshift
@@ -783,7 +789,7 @@ Description: %s
   "files_modified": ["file1.go", ...],
   "summary": "what was done"
 }
-`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, task.Type)
+`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, prInstruction, task.Type)
 }
 
 func (o *Orchestrator) buildReviewPrompt(task *tasks.Task, impl *ImplementOutput) string {

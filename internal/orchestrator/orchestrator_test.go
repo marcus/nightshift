@@ -930,3 +930,68 @@ func TestRunTaskNoPRURL(t *testing.T) {
 		t.Errorf("OutputRef = %q, want empty", result.OutputRef)
 	}
 }
+
+func TestBuildImplementPrompt_DraftPR(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{DraftPR: true})
+
+	task := &tasks.Task{
+		ID:          "draft-test",
+		Title:       "Draft Test",
+		Description: "Test draft PR instruction",
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"step1"},
+		Description: "test plan",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+	if !strings.Contains(prompt, "draft") {
+		t.Errorf("implement prompt should contain draft instruction when DraftPR is true\nGot:\n%s", prompt)
+	}
+	if !strings.Contains(prompt, "gh pr create --draft") {
+		t.Errorf("implement prompt should contain 'gh pr create --draft'\nGot:\n%s", prompt)
+	}
+}
+
+func TestBuildImplementPrompt_NoDraftPR(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{DraftPR: false})
+
+	task := &tasks.Task{
+		ID:          "no-draft-test",
+		Title:       "No Draft Test",
+		Description: "Test regular PR instruction",
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"step1"},
+		Description: "test plan",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+	if strings.Contains(prompt, "gh pr create --draft") {
+		t.Errorf("implement prompt should not contain draft PR instruction when DraftPR is false\nGot:\n%s", prompt)
+	}
+	if !strings.Contains(prompt, "open a PR") {
+		t.Errorf("implement prompt should contain 'open a PR'\nGot:\n%s", prompt)
+	}
+}
+
+func TestBuildImplementPrompt_DraftPR_NoMetadata(t *testing.T) {
+	o := New() // no runMeta
+
+	task := &tasks.Task{
+		ID:          "no-meta-test",
+		Title:       "No Meta Test",
+		Description: "Test no metadata set",
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"step1"},
+		Description: "test plan",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+	if strings.Contains(prompt, "gh pr create --draft") {
+		t.Errorf("implement prompt should not contain draft PR instruction when no metadata\nGot:\n%s", prompt)
+	}
+}

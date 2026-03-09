@@ -602,3 +602,33 @@ func TestValidate_CustomTaskDuplicateType(t *testing.T) {
 		t.Errorf("expected ErrCustomTaskDuplicateType, got %v", err)
 	}
 }
+
+func TestProjectByPath(t *testing.T) {
+	cfg := &Config{
+		Projects: []ProjectConfig{
+			{Path: "/home/user/project-a", DraftPR: true},
+			{Path: "/home/user/project-b", DraftPR: false},
+		},
+	}
+
+	pc := cfg.ProjectByPath("/home/user/project-a")
+	if pc == nil {
+		t.Fatal("expected to find project-a")
+	}
+	if !pc.DraftPR {
+		t.Error("expected DraftPR to be true for project-a")
+	}
+
+	pc = cfg.ProjectByPath("/home/user/project-b")
+	if pc == nil {
+		t.Fatal("expected to find project-b")
+	}
+	if pc.DraftPR {
+		t.Error("expected DraftPR to be false for project-b")
+	}
+
+	pc = cfg.ProjectByPath("/nonexistent")
+	if pc != nil {
+		t.Error("expected nil for nonexistent path")
+	}
+}
