@@ -243,7 +243,8 @@ func (a *CopilotAgent) extractJSON(output []byte) []byte {
 	return nil
 }
 
-// Available checks if the gh binary is available in PATH and copilot extension is installed.
+// Available checks if the copilot binary is available.
+// Supports both standalone "copilot" and built-in "gh copilot" (modern gh versions).
 func (a *CopilotAgent) Available() bool {
 	// Check if binary is available
 	if _, err := exec.LookPath(a.binaryPath); err != nil {
@@ -251,21 +252,18 @@ func (a *CopilotAgent) Available() bool {
 	}
 
 	// If using standalone copilot binary, it's available
-	if a.binaryPath == "copilot" {
+	if a.binaryPath != "gh" {
 		return true
 	}
 
-	// If using gh, check if copilot extension is installed
-	// Run: gh extension list | grep copilot
-	cmd := exec.Command(a.binaryPath, "extension", "list")
-	output, err := cmd.Output()
-	if err != nil {
-		return false
+	// For gh: try running "gh copilot --version" to check if copilot is available
+	// (works for both built-in copilot and gh-copilot extension)
+	cmd := exec.Command(a.binaryPath, "copilot", "--version")
+	if err := cmd.Run(); err == nil {
+		return true
 	}
 
-	// Look for github/gh-copilot in the extension list
-	return strings.Contains(string(output), "github/gh-copilot") ||
-		strings.Contains(string(output), "gh-copilot")
+	return false
 }
 
 // Version returns the copilot CLI version.
