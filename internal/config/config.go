@@ -76,6 +76,17 @@ type ProviderConfig struct {
 	DangerouslySkipPermissions bool `mapstructure:"dangerously_skip_permissions"`
 	// DangerouslyBypassApprovalsAndSandbox tells the CLI to bypass approvals and sandboxing.
 	DangerouslyBypassApprovalsAndSandbox bool `mapstructure:"dangerously_bypass_approvals_and_sandbox"`
+
+	// MonthlyLimit sets the monthly premium request (PRU) limit for Copilot.
+	// If zero, falls back to CopilotPlan preset or weeklyTokens * 4.
+	// Only meaningful for the copilot provider.
+	MonthlyLimit int64 `mapstructure:"monthly_limit"`
+
+	// CopilotPlan sets the GitHub Copilot plan for automatic PRU limit detection.
+	// Valid values: "free" (50), "pro" (300), "pro_plus" (1500),
+	// "business" (300), "enterprise" (1000).
+	// If empty, uses MonthlyLimit or falls back to weeklyTokens * 4.
+	CopilotPlan string `mapstructure:"copilot_plan"`
 }
 
 // ProjectConfig defines a project to manage.
@@ -496,6 +507,34 @@ func (c *Config) GetProviderBudget(provider string) int {
 		}
 	}
 	return c.Budget.WeeklyTokens
+}
+
+// CopilotPlanLimits maps Copilot plan names to monthly PRU limits.
+var CopilotPlanLimits = map[string]int64{
+	"free":       50,
+	"pro":        300,
+	"pro_plus":   1500,
+	"business":   300,
+	"enterprise": 1000,
+}
+
+// GetCopilotMonthlyLimit returns the monthly PRU limit for the Copilot provider.
+// Resolution order: MonthlyLimit field > CopilotPlan preset > weeklyTokens * 4 fallback.
+func (c *Config) GetCopilotMonthlyLimit() int64 {
+	// Explicit monthly limit takes priority
+	if c.Providers.Copilot.MonthlyLimit > 0 {
+		return c.Providers.Copilot.MonthlyLimit
+	}
+
+	// Plan-based preset
+	if c.Providers.Copilot.CopilotPlan != "" {
+		if limit, ok := CopilotPlanLimits[c.Providers.Copilot.CopilotPlan]; ok {
+			return limit
+		}
+	}
+
+	// Fallback: derive from weekly token budget
+	return int64(c.GetProviderBudget("copilot")) * 4
 }
 
 // IsTaskEnabled checks if a task type is enabled.
