@@ -1,4 +1,4 @@
-.PHONY: build test test-verbose test-race coverage coverage-html lint clean deps check install calibrate-providers install-hooks help
+.PHONY: build test test-verbose test-race coverage coverage-html lint clean deps check install calibrate-providers install-hooks release-notes help
 
 # Binary name
 BINARY=nightshift
@@ -75,8 +75,13 @@ help:
 	@echo "  check         - Run tests and lint"
 	@echo "  install       - Build and install to Go bin directory"
 	@echo "  calibrate-providers - Compare local Claude/Codex session usage for calibration"
+	@echo "  release-notes  - Draft release notes from git tags"
 	@echo "  install-hooks  - Install git pre-commit hook"
 	@echo "  help          - Show this help"
+
+# Draft release notes from git tags
+release-notes:
+	bun run scripts/release-notes/draft.ts
 
 # Install git pre-commit hook
 install-hooks:
