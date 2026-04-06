@@ -10,6 +10,21 @@ Your tokens get reset every week, you might as well use them. Nightshift runs ov
 
 Everything lands as a branch or PR. It never writes directly to your primary branch. Don't like something? Close it. That's the whole rollback plan.
 
+## Implementation Agent Startup
+
+Use this order when working in this repository as an implementation agent:
+
+1. Read [AGENTS.md](AGENTS.md) for mandatory workflow and safety rules.
+2. Read [docs/WORKSPACE_WORKFLOW.md](docs/WORKSPACE_WORKFLOW.md) for first-run and per-session flow.
+3. Read [docs/MEMORY_HEARTBEAT_REFERENCE.md](docs/MEMORY_HEARTBEAT_REFERENCE.md) before touching memory or heartbeat artifacts.
+4. If `BOOTSTRAP.md` exists, treat it as a lifecycle marker that onboarding is still in progress.
+
+## Documentation Map
+
+- [docs/WORKSPACE_WORKFLOW.md](docs/WORKSPACE_WORKFLOW.md): first-run and every-session workflow.
+- [docs/FILE_REFERENCE.md](docs/FILE_REFERENCE.md): concise reference for root files and ownership expectations.
+- [docs/MEMORY_HEARTBEAT_REFERENCE.md](docs/MEMORY_HEARTBEAT_REFERENCE.md): lifecycle, cadence, and safe-usage boundaries for `memory/` artifacts.
+
 ## Features
 
 - **Budget-aware**: Uses remaining daily allotment, never exceeds configurable max (default 75%)
