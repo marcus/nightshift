@@ -1,0 +1,19 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - gocritic
+    - godot
+    - misspell
+    - whitespace
+
+settings:
+  godot:
+    scope: declarations
+    capital: false
+  gocritic:
+    enabled-checks:
+      - ifElseChain
