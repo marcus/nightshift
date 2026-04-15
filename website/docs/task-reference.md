@@ -23,7 +23,7 @@ Fully formed, review-ready artifacts. These tasks create branches and open pull 
 | `backward-compat` | Backward-Compatibility Checks | Check and ensure backward compatibility | Medium | Low | 7d |
 | `build-optimize` | Build Time Optimization | Optimize build configuration for faster builds | High | Medium | 7d |
 | `docs-backfill` | Documentation Backfiller | Generate missing documentation | Low | Low | 7d |
-| `commit-normalize` | Commit Message Normalizer | Standardize commit message format | Low | Low | 24h |
+| `commit-normalize` | Commit Message Normalizer | Standardize future commit conventions without rewriting published history | Low | Low | 24h |
 | `changelog-synth` | Changelog Synthesizer | Generate changelog from commits | Low | Low | 7d |
 | `release-notes` | Release Note Drafter | Draft release-ready notes for the next version | Low | Low | 7d |
 | `adr-draft` | ADR Drafter | Draft Architecture Decision Records | Medium | Low | 7d |

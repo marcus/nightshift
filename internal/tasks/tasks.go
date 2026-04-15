@@ -329,10 +329,13 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 168 * time.Hour,
 	},
 	TaskCommitNormalize: {
-		Type:            TaskCommitNormalize,
-		Category:        CategoryPR,
-		Name:            "Commit Message Normalizer",
-		Description:     "Standardize commit message format",
+		Type:     TaskCommitNormalize,
+		Category: CategoryPR,
+		Name:     "Commit Message Normalizer",
+		Description: `Inspect recent commit history to infer the repository's dominant commit-subject style, then standardize future commit guidance around that convention.
+Define a clear default for new commit subjects, allow sensible exceptions for merges, releases, and version bumps, and preserve any required Nightshift trailers on commits you create.
+Keep the work forward-looking and repo-safe: prefer updating commit guidance, templates, or lightweight enforcement for future commits rather than rewriting published history.
+Do not rebase, force-push, or mass-edit existing commits unless the repository already has an explicitly documented local-only workflow that makes that safe.`,
 		CostTier:        CostLow,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 24 * time.Hour,

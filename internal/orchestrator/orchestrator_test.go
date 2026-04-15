@@ -871,6 +871,41 @@ func TestBuildImplementPrompt_ReleaseNotesIncludesRepoAwareGuidance(t *testing.T
 	}
 }
 
+func TestBuildPlanPrompt_CommitNormalizeIncludesSafetyGuidance(t *testing.T) {
+	o := New()
+
+	def, err := tasks.GetDefinition(tasks.TaskCommitNormalize)
+	if err != nil {
+		t.Fatalf("GetDefinition(commit-normalize): %v", err)
+	}
+
+	task := &tasks.Task{
+		ID:          "commit-normalize:/tmp/nightshift",
+		Title:       def.Name,
+		Description: def.Description,
+		Type:        def.Type,
+	}
+
+	prompt := o.buildPlanPrompt(task)
+
+	expected := []string{
+		"Inspect recent commit history",
+		"dominant commit-subject style",
+		"Define a clear default for new commit subjects",
+		"allow sensible exceptions for merges, releases, and version bumps",
+		"preserve any required Nightshift trailers",
+		"updating commit guidance, templates, or lightweight enforcement",
+		"rather than rewriting published history",
+		"Do not rebase, force-push, or mass-edit existing commits",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("commit-normalize plan prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+}
+
 func TestBuildPrompts_GenericTasksDoNotReceiveReleaseNotesGuidance(t *testing.T) {
 	o := New()
 
