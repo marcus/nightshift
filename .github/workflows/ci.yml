@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  GOLANGCI_LINT_VERSION: v1.64.8
+
 on:
   push:
     branches: [main]
@@ -49,4 +52,4 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
