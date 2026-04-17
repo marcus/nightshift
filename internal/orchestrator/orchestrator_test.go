@@ -809,6 +809,79 @@ func TestBuildImplementPrompt_WithoutBranch(t *testing.T) {
 	}
 }
 
+func TestBuildPlanPrompt_ChangelogSynthUsesConfiguredBaseBranch(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{Branch: "codex/release-notes-drafter"})
+
+	task := &tasks.Task{
+		ID:          "changelog-synth:/tmp/nightshift",
+		Title:       "Changelog Synthesizer",
+		Description: "Draft a deterministic changelog update",
+		Type:        tasks.TaskChangelogSynth,
+	}
+
+	prompt := o.buildPlanPrompt(task)
+
+	expected := []string{
+		"CHANGELOG.md",
+		".github/workflows/release.yml",
+		"Nightshift provided `codex/release-notes-drafter` as the comparison base",
+		"`git merge-base codex/release-notes-drafter HEAD`",
+		"exclude merge commits",
+		"preserve prior changelog history",
+		"Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other",
+		"state the assumptions",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("plan prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+
+	if strings.Contains(prompt, "git merge-base main HEAD") {
+		t.Errorf("plan prompt should not hardcode main\nGot:\n%s", prompt)
+	}
+}
+
+func TestBuildImplementPrompt_ChangelogSynthWithoutConfiguredBaseUsesInference(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "changelog-synth:/tmp/nightshift",
+		Title:       "Changelog Synthesizer",
+		Description: "Draft a deterministic changelog update",
+		Type:        tasks.TaskChangelogSynth,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"Inspect CHANGELOG.md", "Draft the newest changelog section"},
+		Description: "Use the correct comparison base for the repo and preserve changelog structure.",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+
+	expected := []string{
+		"CHANGELOG.md",
+		".github/workflows/release.yml",
+		"Determine the intended comparison base for this repo or PR flow",
+		"`git merge-base <base> HEAD`",
+		"exclude merge commits",
+		"do not invent entries",
+		"Preserve prior changelog sections and structure",
+		"Emit Markdown-ready changelog content only",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("implement prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+
+	if strings.Contains(prompt, "git merge-base main HEAD") {
+		t.Errorf("implement prompt should not hardcode main\nGot:\n%s", prompt)
+	}
+}
+
 func TestBuildPlanPrompt_ReleaseNotesIncludesRepoAwareGuidance(t *testing.T) {
 	o := New()
 
@@ -871,7 +944,7 @@ func TestBuildImplementPrompt_ReleaseNotesIncludesRepoAwareGuidance(t *testing.T
 	}
 }
 
-func TestBuildPrompts_GenericTasksDoNotReceiveReleaseNotesGuidance(t *testing.T) {
+func TestBuildPrompts_GenericTasksDoNotReceiveTaskSpecificReleaseOrChangelogGuidance(t *testing.T) {
 	o := New()
 
 	task := &tasks.Task{
@@ -894,6 +967,10 @@ func TestBuildPrompts_GenericTasksDoNotReceiveReleaseNotesGuidance(t *testing.T)
 		"release boundary",
 		"current release-notes artifact and format",
 		"Features, Fixes, Breaking Changes, and Other",
+		"git merge-base <base> HEAD",
+		"comparison base",
+		"Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other",
+		"Markdown-ready changelog content only",
 	}
 
 	for _, notWant := range unexpected {

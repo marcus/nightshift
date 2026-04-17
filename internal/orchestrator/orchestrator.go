@@ -711,8 +711,23 @@ func (o *Orchestrator) PlanPrompt(task *tasks.Task) string {
 	return o.buildPlanPrompt(task)
 }
 
-func taskSpecificPlanGuidance(task *tasks.Task) string {
+func changelogComparisonBaseGuidance(baseBranch string) string {
+	if baseBranch != "" {
+		return fmt.Sprintf("- Nightshift provided `%s` as the comparison base; derive the commit range from `git merge-base %s HEAD` through `HEAD`, and exclude merge commits so the draft is deterministic.\n", baseBranch, baseBranch)
+	}
+
+	return "- Determine the intended comparison base for this repo or PR flow; derive the commit range from `git merge-base <base> HEAD` through `HEAD`, exclude merge commits so the draft stays deterministic, and state the assumption if the base branch is unclear.\n"
+}
+
+func taskSpecificPlanGuidance(task *tasks.Task, baseBranch string) string {
 	switch task.Type {
+	case tasks.TaskChangelogSynth:
+		return "\n\n## Task-Specific Guidance\n" +
+			"- Inspect the repo's current changelog and release signals before deciding the scope: CHANGELOG.md, release workflow files if present (for example .github/workflows/release.yml), and recent git tags/commits.\n" +
+			changelogComparisonBaseGuidance(baseBranch) +
+			"- If the release boundary or target changelog section is unclear, state the assumptions you made.\n" +
+			"- Prefer updating the existing changelog artifact and structure instead of inventing a new format, and preserve prior changelog history.\n" +
+			"- Plan for stable Markdown sections such as Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other. Omit empty sections when appropriate.\n"
 	case tasks.TaskReleaseNotes:
 		return "\n\n## Task-Specific Guidance\n" +
 			"- Inspect the repo's existing release signals before deciding the scope: CHANGELOG.md, .github/workflows/release.yml, and recent git tags/commits.\n" +
@@ -724,8 +739,16 @@ func taskSpecificPlanGuidance(task *tasks.Task) string {
 	}
 }
 
-func taskSpecificImplementGuidance(task *tasks.Task) string {
+func taskSpecificImplementGuidance(task *tasks.Task, baseBranch string) string {
 	switch task.Type {
+	case tasks.TaskChangelogSynth:
+		return "\n\n## Task-Specific Guidance\n" +
+			"- Inspect the repo's current changelog and release signals before drafting: CHANGELOG.md, release workflow files if present (for example .github/workflows/release.yml), and recent git tags/commits.\n" +
+			changelogComparisonBaseGuidance(baseBranch) +
+			"- Synthesize only the newest changelog section from supported commits, note assumptions if the release boundary or base branch is unclear, and do not invent entries.\n" +
+			"- Preserve prior changelog sections and structure; prefer updating the existing changelog artifact over creating a new format.\n" +
+			"- Organize the update into stable Markdown sections such as Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other. Omit empty sections when appropriate.\n" +
+			"- Emit Markdown-ready changelog content only.\n"
 	case tasks.TaskReleaseNotes:
 		return "\n\n## Task-Specific Guidance\n" +
 			"- Inspect the repo's existing release signals before drafting: CHANGELOG.md, .github/workflows/release.yml, and recent git tags/commits.\n" +
@@ -743,7 +766,12 @@ func (o *Orchestrator) buildPlanPrompt(task *tasks.Task) string {
 		branchInstruction = fmt.Sprintf("\n   Create your feature branch from `%s`.", o.runMeta.Branch)
 	}
 
-	taskGuidance := taskSpecificPlanGuidance(task)
+	baseBranch := ""
+	if o.runMeta != nil {
+		baseBranch = o.runMeta.Branch
+	}
+
+	taskGuidance := taskSpecificPlanGuidance(task, baseBranch)
 
 	return fmt.Sprintf(`You are a planning agent. Create a detailed execution plan for this task.
 
@@ -783,7 +811,12 @@ func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, 
 		branchInstruction = fmt.Sprintf("\n   Checkout `%s` before creating your feature branch.", o.runMeta.Branch)
 	}
 
-	taskGuidance := taskSpecificImplementGuidance(task)
+	baseBranch := ""
+	if o.runMeta != nil {
+		baseBranch = o.runMeta.Branch
+	}
+
+	taskGuidance := taskSpecificImplementGuidance(task, baseBranch)
 
 	return fmt.Sprintf(`You are an implementation agent. Execute the plan for this task.
 
