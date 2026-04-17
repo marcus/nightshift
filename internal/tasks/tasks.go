@@ -338,10 +338,14 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 24 * time.Hour,
 	},
 	TaskChangelogSynth: {
-		Type:            TaskChangelogSynth,
-		Category:        CategoryPR,
-		Name:            "Changelog Synthesizer",
-		Description:     "Generate changelog from commits",
+		Type:     TaskChangelogSynth,
+		Category: CategoryPR,
+		Name:     "Changelog Synthesizer",
+		Description: `Inspect the current branch against main and synthesize the next changelog update for this repository.
+Determine the commit range from git merge-base main HEAD through HEAD, excluding merge commits so the output stays deterministic.
+Review the existing changelog artifact and preserve prior history and structure, updating only the newest relevant section instead of rewriting older entries.
+Group entries into stable Markdown sections such as Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other, omitting empty sections when appropriate.
+Base every bullet on actual commits, do not invent changes, and emit Markdown-ready changelog content only.`,
 		CostTier:        CostLow,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 168 * time.Hour,

@@ -713,6 +713,13 @@ func (o *Orchestrator) PlanPrompt(task *tasks.Task) string {
 
 func taskSpecificPlanGuidance(task *tasks.Task) string {
 	switch task.Type {
+	case tasks.TaskChangelogSynth:
+		return "\n\n## Task-Specific Guidance\n" +
+			"- Inspect the repo's current changelog and release signals before deciding the scope: CHANGELOG.md, release workflow files if present (for example .github/workflows/release.yml), and recent git tags/commits.\n" +
+			"- Compare the current branch to `main`; derive the commit range from `git merge-base main HEAD` through `HEAD`, and exclude merge commits so the draft is deterministic.\n" +
+			"- If the release boundary or target changelog section is unclear, state the assumptions you made.\n" +
+			"- Prefer updating the existing changelog artifact and structure instead of inventing a new format, and preserve prior changelog history.\n" +
+			"- Plan for stable Markdown sections such as Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other. Omit empty sections when appropriate.\n"
 	case tasks.TaskReleaseNotes:
 		return "\n\n## Task-Specific Guidance\n" +
 			"- Inspect the repo's existing release signals before deciding the scope: CHANGELOG.md, .github/workflows/release.yml, and recent git tags/commits.\n" +
@@ -726,6 +733,14 @@ func taskSpecificPlanGuidance(task *tasks.Task) string {
 
 func taskSpecificImplementGuidance(task *tasks.Task) string {
 	switch task.Type {
+	case tasks.TaskChangelogSynth:
+		return "\n\n## Task-Specific Guidance\n" +
+			"- Inspect the repo's current changelog and release signals before drafting: CHANGELOG.md, release workflow files if present (for example .github/workflows/release.yml), and recent git tags/commits.\n" +
+			"- Compare the current branch to `main`; derive the commit range from `git merge-base main HEAD` through `HEAD`, and exclude merge commits so the draft is deterministic.\n" +
+			"- Synthesize only the newest changelog section from supported commits, note assumptions if the release boundary is unclear, and do not invent entries.\n" +
+			"- Preserve prior changelog sections and structure; prefer updating the existing changelog artifact over creating a new format.\n" +
+			"- Organize the update into stable Markdown sections such as Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other. Omit empty sections when appropriate.\n" +
+			"- Emit Markdown-ready changelog content only.\n"
 	case tasks.TaskReleaseNotes:
 		return "\n\n## Task-Specific Guidance\n" +
 			"- Inspect the repo's existing release signals before drafting: CHANGELOG.md, .github/workflows/release.yml, and recent git tags/commits.\n" +

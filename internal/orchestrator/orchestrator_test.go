@@ -809,6 +809,78 @@ func TestBuildImplementPrompt_WithoutBranch(t *testing.T) {
 	}
 }
 
+func TestBuildPlanPrompt_ChangelogSynthIncludesRepoAwareGuidance(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "changelog-synth:/tmp/nightshift",
+		Title:       "Changelog Synthesizer",
+		Description: "Draft the next changelog update from branch commits",
+		Type:        tasks.TaskChangelogSynth,
+	}
+
+	prompt := o.buildPlanPrompt(task)
+
+	expected := []string{
+		"CHANGELOG.md",
+		"release workflow files if present",
+		".github/workflows/release.yml",
+		"recent git tags/commits",
+		"current branch to `main`",
+		"`git merge-base main HEAD`",
+		"exclude merge commits",
+		"target changelog section is unclear",
+		"existing changelog artifact and structure",
+		"preserve prior changelog history",
+		"Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("plan prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+}
+
+func TestBuildImplementPrompt_ChangelogSynthIncludesRepoAwareGuidance(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "changelog-synth:/tmp/nightshift",
+		Title:       "Changelog Synthesizer",
+		Description: "Draft the next changelog update from branch commits",
+		Type:        tasks.TaskChangelogSynth,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"Inspect CHANGELOG.md", "Draft the next section"},
+		Description: "Use the current branch diff against main to update the changelog.",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+
+	expected := []string{
+		"CHANGELOG.md",
+		"release workflow files if present",
+		".github/workflows/release.yml",
+		"recent git tags/commits",
+		"current branch to `main`",
+		"`git merge-base main HEAD`",
+		"exclude merge commits",
+		"newest changelog section",
+		"do not invent entries",
+		"existing changelog artifact",
+		"prior changelog sections and structure",
+		"Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other",
+		"Emit Markdown-ready changelog content only",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("implement prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+}
+
 func TestBuildPlanPrompt_ReleaseNotesIncludesRepoAwareGuidance(t *testing.T) {
 	o := New()
 
@@ -894,6 +966,12 @@ func TestBuildPrompts_GenericTasksDoNotReceiveReleaseNotesGuidance(t *testing.T)
 		"release boundary",
 		"current release-notes artifact and format",
 		"Features, Fixes, Breaking Changes, and Other",
+		"release workflow files if present",
+		"`git merge-base main HEAD`",
+		"exclude merge commits",
+		"newest changelog section",
+		"Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other",
+		"Emit Markdown-ready changelog content only",
 	}
 
 	for _, notWant := range unexpected {

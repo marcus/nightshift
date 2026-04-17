@@ -243,6 +243,23 @@ func TestTaskDefinitionEstimatedTokens(t *testing.T) {
 	}
 }
 
+func TestTaskChangelogSynthDescriptionIsDeterministicAndRepoAware(t *testing.T) {
+	def, err := GetDefinition(TaskChangelogSynth)
+	if err != nil {
+		t.Fatalf("GetDefinition(TaskChangelogSynth) returned error: %v", err)
+	}
+
+	want := `Inspect the current branch against main and synthesize the next changelog update for this repository.
+Determine the commit range from git merge-base main HEAD through HEAD, excluding merge commits so the output stays deterministic.
+Review the existing changelog artifact and preserve prior history and structure, updating only the newest relevant section instead of rewriting older entries.
+Group entries into stable Markdown sections such as Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other, omitting empty sections when appropriate.
+Base every bullet on actual commits, do not invent changes, and emit Markdown-ready changelog content only.`
+
+	if def.Description != want {
+		t.Errorf("TaskChangelogSynth description mismatch\nGot:\n%s\n\nWant:\n%s", def.Description, want)
+	}
+}
+
 func TestRegistryCompleteness(t *testing.T) {
 	// All task type constants should be in registry
 	taskTypes := []TaskType{
