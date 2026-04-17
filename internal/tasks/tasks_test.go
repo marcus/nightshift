@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -101,6 +102,42 @@ func TestGetDefinition(t *testing.T) {
 	_, err = GetDefinition("unknown-task")
 	if err == nil {
 		t.Error("GetDefinition(unknown) should return error")
+	}
+}
+
+func TestTaskChangelogSynthDefinitionIncludesDeterministicBranchAwareGuidance(t *testing.T) {
+	def, err := GetDefinition(TaskChangelogSynth)
+	if err != nil {
+		t.Fatalf("GetDefinition(TaskChangelogSynth) returned error: %v", err)
+	}
+
+	expected := []string{
+		"branch being documented",
+		"branch Nightshift checked out before your working branch",
+		"PR metadata, upstream tracking info, or the repo's release/default-branch workflow",
+		"git merge-base <base> <branch-being-documented>",
+		"excluding merge commits",
+		"Preserve existing changelog history and structure",
+		"Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other",
+		"do not invent changes",
+		"Markdown-ready changelog content only",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(def.Description, want) {
+			t.Errorf("TaskChangelogSynth description missing %q\nGot:\n%s", want, def.Description)
+		}
+	}
+
+	unexpected := []string{
+		"Nightshift provides a base branch",
+		"git merge-base <base> HEAD",
+	}
+
+	for _, notWant := range unexpected {
+		if strings.Contains(def.Description, notWant) {
+			t.Errorf("TaskChangelogSynth description should not contain %q\nGot:\n%s", notWant, def.Description)
+		}
 	}
 }
 

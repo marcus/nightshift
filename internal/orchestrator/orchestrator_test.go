@@ -809,6 +809,99 @@ func TestBuildImplementPrompt_WithoutBranch(t *testing.T) {
 	}
 }
 
+func TestBuildPlanPrompt_ChangelogSynthUsesProvidedBranchAsDocumentedBranch(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{Branch: "codex/release-notes-drafter"})
+
+	task := &tasks.Task{
+		ID:          "changelog-synth:/tmp/nightshift",
+		Title:       "Changelog Synthesizer",
+		Description: "Draft a deterministic changelog update",
+		Type:        tasks.TaskChangelogSynth,
+	}
+
+	prompt := o.buildPlanPrompt(task)
+
+	expected := []string{
+		"CHANGELOG.md",
+		".github/workflows/release.yml",
+		"Nightshift provided `codex/release-notes-drafter` as the branch being documented",
+		"Use `codex/release-notes-drafter` as the changelog subject even after you create your working branch",
+		"Determine `codex/release-notes-drafter`'s comparison base",
+		"`git merge-base <base> codex/release-notes-drafter`",
+		"exclude merge commits",
+		"preserve prior changelog history",
+		"Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other",
+		"state the assumptions you made",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("plan prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+
+	unexpected := []string{
+		"as the comparison base",
+		"`git merge-base codex/release-notes-drafter HEAD`",
+		"git merge-base main HEAD",
+	}
+
+	for _, notWant := range unexpected {
+		if strings.Contains(prompt, notWant) {
+			t.Errorf("plan prompt should not contain %q\nGot:\n%s", notWant, prompt)
+		}
+	}
+}
+
+func TestBuildImplementPrompt_ChangelogSynthWithoutProvidedBranchUsesRecordedBranch(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "changelog-synth:/tmp/nightshift",
+		Title:       "Changelog Synthesizer",
+		Description: "Draft a deterministic changelog update",
+		Type:        tasks.TaskChangelogSynth,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"Inspect CHANGELOG.md", "Draft the newest changelog section"},
+		Description: "Use the correct comparison base for the documented branch and preserve changelog structure.",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+
+	expected := []string{
+		"CHANGELOG.md",
+		".github/workflows/release.yml",
+		"Record the branch you started on before creating the Nightshift working branch",
+		"do not compare the temporary implementation branch against itself",
+		"PR metadata, its upstream tracking branch, or the repo's release/default-branch workflow",
+		"`git merge-base <base> <recorded-branch>`",
+		"exclude merge commits",
+		"do not invent entries",
+		"Preserve prior changelog sections and structure",
+		"Emit Markdown-ready changelog content only",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("implement prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+
+	unexpected := []string{
+		"as the comparison base",
+		"`git merge-base HEAD`",
+		"git merge-base main HEAD",
+	}
+
+	for _, notWant := range unexpected {
+		if strings.Contains(prompt, notWant) {
+			t.Errorf("implement prompt should not contain %q\nGot:\n%s", notWant, prompt)
+		}
+	}
+}
+
 func TestBuildPlanPrompt_ReleaseNotesIncludesRepoAwareGuidance(t *testing.T) {
 	o := New()
 
@@ -871,7 +964,7 @@ func TestBuildImplementPrompt_ReleaseNotesIncludesRepoAwareGuidance(t *testing.T
 	}
 }
 
-func TestBuildPrompts_GenericTasksDoNotReceiveReleaseNotesGuidance(t *testing.T) {
+func TestBuildPrompts_GenericTasksDoNotReceiveReleaseNotesOrChangelogGuidance(t *testing.T) {
 	o := New()
 
 	task := &tasks.Task{
@@ -894,6 +987,11 @@ func TestBuildPrompts_GenericTasksDoNotReceiveReleaseNotesGuidance(t *testing.T)
 		"release boundary",
 		"current release-notes artifact and format",
 		"Features, Fixes, Breaking Changes, and Other",
+		"branch being documented",
+		"temporary implementation branch against itself",
+		"git merge-base <base> <recorded-branch>",
+		"Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other",
+		"Markdown-ready changelog content only",
 	}
 
 	for _, notWant := range unexpected {

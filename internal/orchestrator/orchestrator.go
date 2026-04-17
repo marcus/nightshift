@@ -711,8 +711,34 @@ func (o *Orchestrator) PlanPrompt(task *tasks.Task) string {
 	return o.buildPlanPrompt(task)
 }
 
-func taskSpecificPlanGuidance(task *tasks.Task) string {
+func changelogDocumentedBranchGuidance(documentedBranch string) string {
+	if documentedBranch != "" {
+		return fmt.Sprintf(
+			"- Nightshift provided `%s` as the branch being documented. Use `%s` as the changelog subject even after you create your working branch; do not compare the temporary implementation branch against itself.\n"+
+				"- Determine `%s`'s comparison base from PR metadata, its upstream tracking branch, or the repo's release/default-branch workflow. If the base is unclear, state the assumption you made.\n"+
+				"- Derive the commit range from `git merge-base <base> %s` through `%s`, and exclude merge commits so the draft stays deterministic.\n",
+			documentedBranch,
+			documentedBranch,
+			documentedBranch,
+			documentedBranch,
+			documentedBranch,
+		)
+	}
+
+	return "- Record the branch you started on before creating the Nightshift working branch and use that recorded branch as the changelog subject; do not compare the temporary implementation branch against itself.\n" +
+		"- Determine that branch's comparison base from PR metadata, its upstream tracking branch, or the repo's release/default-branch workflow. If the base is unclear, state the assumption you made.\n" +
+		"- Derive the commit range from `git merge-base <base> <recorded-branch>` through `<recorded-branch>`, and exclude merge commits so the draft stays deterministic.\n"
+}
+
+func taskSpecificPlanGuidance(task *tasks.Task, documentedBranch string) string {
 	switch task.Type {
+	case tasks.TaskChangelogSynth:
+		return "\n\n## Task-Specific Guidance\n" +
+			"- Inspect the repo's current changelog and release signals before deciding the scope: CHANGELOG.md, release workflow files if present (for example .github/workflows/release.yml), and recent git tags/commits.\n" +
+			changelogDocumentedBranchGuidance(documentedBranch) +
+			"- If the release boundary or target changelog section is unclear, state the assumptions you made.\n" +
+			"- Prefer updating the existing changelog artifact and structure instead of inventing a new format, and preserve prior changelog history.\n" +
+			"- Plan for stable Markdown sections such as Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other. Omit empty sections when appropriate.\n"
 	case tasks.TaskReleaseNotes:
 		return "\n\n## Task-Specific Guidance\n" +
 			"- Inspect the repo's existing release signals before deciding the scope: CHANGELOG.md, .github/workflows/release.yml, and recent git tags/commits.\n" +
@@ -724,8 +750,16 @@ func taskSpecificPlanGuidance(task *tasks.Task) string {
 	}
 }
 
-func taskSpecificImplementGuidance(task *tasks.Task) string {
+func taskSpecificImplementGuidance(task *tasks.Task, documentedBranch string) string {
 	switch task.Type {
+	case tasks.TaskChangelogSynth:
+		return "\n\n## Task-Specific Guidance\n" +
+			"- Inspect the repo's current changelog and release signals before drafting: CHANGELOG.md, release workflow files if present (for example .github/workflows/release.yml), and recent git tags/commits.\n" +
+			changelogDocumentedBranchGuidance(documentedBranch) +
+			"- Synthesize only the newest changelog section from commits in that range, note assumptions if the release boundary is unclear, and do not invent entries.\n" +
+			"- Preserve prior changelog sections and structure; prefer updating the existing changelog artifact over creating a new format.\n" +
+			"- Organize the update into stable Markdown sections such as Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other. Omit empty sections when appropriate.\n" +
+			"- Emit Markdown-ready changelog content only.\n"
 	case tasks.TaskReleaseNotes:
 		return "\n\n## Task-Specific Guidance\n" +
 			"- Inspect the repo's existing release signals before drafting: CHANGELOG.md, .github/workflows/release.yml, and recent git tags/commits.\n" +
@@ -743,7 +777,12 @@ func (o *Orchestrator) buildPlanPrompt(task *tasks.Task) string {
 		branchInstruction = fmt.Sprintf("\n   Create your feature branch from `%s`.", o.runMeta.Branch)
 	}
 
-	taskGuidance := taskSpecificPlanGuidance(task)
+	documentedBranch := ""
+	if o.runMeta != nil {
+		documentedBranch = o.runMeta.Branch
+	}
+
+	taskGuidance := taskSpecificPlanGuidance(task, documentedBranch)
 
 	return fmt.Sprintf(`You are a planning agent. Create a detailed execution plan for this task.
 
@@ -783,7 +822,12 @@ func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, 
 		branchInstruction = fmt.Sprintf("\n   Checkout `%s` before creating your feature branch.", o.runMeta.Branch)
 	}
 
-	taskGuidance := taskSpecificImplementGuidance(task)
+	documentedBranch := ""
+	if o.runMeta != nil {
+		documentedBranch = o.runMeta.Branch
+	}
+
+	taskGuidance := taskSpecificImplementGuidance(task, documentedBranch)
 
 	return fmt.Sprintf(`You are an implementation agent. Execute the plan for this task.
 

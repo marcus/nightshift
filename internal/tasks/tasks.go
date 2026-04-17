@@ -338,10 +338,16 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 24 * time.Hour,
 	},
 	TaskChangelogSynth: {
-		Type:            TaskChangelogSynth,
-		Category:        CategoryPR,
-		Name:            "Changelog Synthesizer",
-		Description:     "Generate changelog from commits",
+		Type:     TaskChangelogSynth,
+		Category: CategoryPR,
+		Name:     "Changelog Synthesizer",
+		Description: `Inspect the repo's current changelog and synthesize the next changelog update for the branch being documented.
+Use the branch Nightshift checked out before your working branch as the branch to document, or record the original branch yourself if none was provided.
+Determine that branch's comparison base from PR metadata, upstream tracking info, or the repo's release/default-branch workflow, and state the assumption if the base is unclear.
+Derive the commit range from git merge-base <base> <branch-being-documented> through <branch-being-documented>, excluding merge commits so the output stays deterministic.
+Preserve existing changelog history and structure, updating only the newest relevant section instead of rewriting older entries.
+Group entries into stable Markdown sections such as Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other, omitting empty sections when appropriate.
+Base every bullet on actual commits, do not invent changes, and emit Markdown-ready changelog content only.`,
 		CostTier:        CostLow,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 168 * time.Hour,
