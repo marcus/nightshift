@@ -40,6 +40,11 @@ var migrations = []Migration{
 		Description: "add branch column to run_history",
 		SQL:         migration005SQL,
 	},
+	{
+		Version:     6,
+		Description: "add dep_scans and dep_findings tables for dependency risk scanning",
+		SQL:         migration006SQL,
+	},
 }
 
 const migration002SQL = `
@@ -119,6 +124,34 @@ CREATE INDEX idx_run_history_time ON run_history(start_time DESC);
 
 const migration005SQL = `
 ALTER TABLE run_history ADD COLUMN branch TEXT NOT NULL DEFAULT '';
+`
+
+const migration006SQL = `
+CREATE TABLE IF NOT EXISTS dep_scans (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    project     TEXT NOT NULL,
+    timestamp   DATETIME NOT NULL,
+    duration_ms INTEGER NOT NULL,
+    total_deps  INTEGER NOT NULL,
+    direct_deps INTEGER NOT NULL,
+    summary     TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS dep_findings (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    scan_id  INTEGER NOT NULL REFERENCES dep_scans(id),
+    module   TEXT NOT NULL,
+    version  TEXT NOT NULL,
+    category TEXT NOT NULL,
+    risk     TEXT NOT NULL,
+    title    TEXT NOT NULL,
+    description TEXT NOT NULL,
+    reference   TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_dep_scans_project ON dep_scans(project, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_dep_findings_scan ON dep_findings(scan_id);
+CREATE INDEX IF NOT EXISTS idx_dep_findings_risk ON dep_findings(risk, module);
 `
 
 // Migrate runs all pending migrations inside transactions.
