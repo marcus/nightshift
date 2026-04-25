@@ -258,20 +258,46 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Git hooks
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Install the git hooks to catch formatting, vet, build, and commit message issues before pushing:
 
 ```bash
 make install-hooks
 ```
 
-This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
+This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit` and `scripts/commit-msg.sh` into `.git/hooks/commit-msg`.
+
+The pre-commit hook runs:
 - **gofmt** — flags any staged `.go` files that need formatting
 - **go vet** — catches common correctness issues
 - **go build** — ensures the project compiles
 
-To bypass in a pinch: `git commit --no-verify`
+The commit-msg hook requires a concise Conventional Commit-style subject:
+
+```text
+type(scope): concise subject
+type: concise subject
+```
+
+Allowed types: `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `style`, `test`.
+
+Allowed examples:
+
+```text
+feat(tasks): add queue filtering
+fix: handle empty budget snapshots
+docs: clarify hook installation
+```
+
+Subjects must be 72 characters or fewer and must not end with a period. Git-generated merge, revert, `fixup!`, and `squash!` messages are allowed. Commit bodies may include normal Git trailers, including Nightshift metadata:
+
+```text
+Nightshift-Task: lint-fix
+Nightshift-Ref: https://github.com/marcus/nightshift
+```
+
+To bypass hooks for an exceptional case: `git commit --no-verify`
 
 ## Uninstalling
 
