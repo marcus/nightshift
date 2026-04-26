@@ -189,7 +189,7 @@ npm install -g @github/copilot
 curl -fsSL https://gh.io/copilot-install | bash
 ```
 
-Requires GitHub Copilot subscription. See [docs/COPILOT_INTEGRATION.md](docs/COPILOT_INTEGRATION.md) for details.
+Requires GitHub Copilot subscription. See the [integrations docs](https://nightshift.haplab.com/docs/integrations) for details.
 
 If you prefer API-based usage, you can authenticate Claude and Codex CLIs with API keys instead.
 
@@ -206,7 +206,7 @@ Nightshift uses YAML config files to define:
 
 Run `nightshift setup` to create/update the global config at `~/.config/nightshift/config.yaml`.
 
-See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) or [SPEC.md](docs/SPEC.md) for detailed options.
+See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) for detailed options.
 
 Minimal example:
 
