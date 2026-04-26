@@ -116,6 +116,9 @@ daemon, CI) confirmation is auto-skipped.
 | `--random-task` | `false` | Pick a random task from eligible tasks instead of the highest-scored one |
 | `--ignore-budget` | `false` | Bypass budget checks (use with caution) |
 | `--yes`, `-y` | `false` | Skip the confirmation prompt |
+| `--branch`, `-b` | _(current branch)_ | Base branch for generated feature branches |
+| `--timeout` | `30m` | Per-agent execution timeout |
+| `--no-color` | `false` | Disable colored output |
 
 ```bash
 # Interactive run with preflight summary + confirmation prompt
@@ -138,6 +141,9 @@ nightshift run --ignore-budget
 
 # Target a specific project and task directly
 nightshift run -p ./my-project -t lint-fix
+
+# Use a specific base branch and timeout
+nightshift run --branch main --timeout 45m
 ```
 
 Other useful flags:
@@ -146,7 +152,7 @@ Other useful flags:
 - `--category` — filter tasks by category (pr, analysis, options, safe, map, emergency)
 - `--cost` — filter by cost tier (low, medium, high, veryhigh)
 - `--prompt-only` — output just the raw prompt text for piping
-- `--provider` — required for `task run`, choose claude or codex
+- `--provider` — required for `task run`, choose claude, codex, or copilot
 - `--dry-run` — preview the prompt without executing
 - `--timeout` — execution timeout (default 30m)
 
@@ -183,7 +189,7 @@ npm install -g @github/copilot
 curl -fsSL https://gh.io/copilot-install | bash
 ```
 
-Requires GitHub Copilot subscription. See [docs/COPILOT_INTEGRATION.md](docs/COPILOT_INTEGRATION.md) for details.
+Requires GitHub Copilot subscription. See the [integrations docs](https://nightshift.haplab.com/docs/integrations) for details.
 
 If you prefer API-based usage, you can authenticate Claude and Codex CLIs with API keys instead.
 
@@ -200,7 +206,7 @@ Nightshift uses YAML config files to define:
 
 Run `nightshift setup` to create/update the global config at `~/.config/nightshift/config.yaml`.
 
-See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) or [SPEC.md](docs/SPEC.md) for detailed options.
+See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) for detailed options.
 
 Minimal example:
 
