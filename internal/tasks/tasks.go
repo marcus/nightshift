@@ -332,7 +332,7 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		Type:            TaskCommitNormalize,
 		Category:        CategoryPR,
 		Name:            "Commit Message Normalizer",
-		Description:     "Standardize commit message format",
+		Description:     "Improve consistency and validation for future Nightshift-generated commit messages using Conventional Commit subjects with required Nightshift trailers; do not rewrite existing history",
 		CostTier:        CostLow,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 24 * time.Hour,

@@ -104,6 +104,39 @@ func TestGetDefinition(t *testing.T) {
 	}
 }
 
+func TestCommitNormalizeDefinition(t *testing.T) {
+	def, err := GetDefinition(TaskCommitNormalize)
+	if err != nil {
+		t.Fatalf("GetDefinition(TaskCommitNormalize) returned error: %v", err)
+	}
+
+	wantDescription := "Improve consistency and validation for future Nightshift-generated commit messages using Conventional Commit subjects with required Nightshift trailers; do not rewrite existing history"
+	if def.Type != TaskCommitNormalize {
+		t.Errorf("Type = %q, want %q", def.Type, TaskCommitNormalize)
+	}
+	if def.Name != "Commit Message Normalizer" {
+		t.Errorf("Name = %q, want %q", def.Name, "Commit Message Normalizer")
+	}
+	if def.Description != wantDescription {
+		t.Errorf("Description = %q, want %q", def.Description, wantDescription)
+	}
+	if def.Category != CategoryPR {
+		t.Errorf("Category = %d, want %d", def.Category, CategoryPR)
+	}
+	if def.CostTier != CostLow {
+		t.Errorf("CostTier = %d, want %d", def.CostTier, CostLow)
+	}
+	if def.RiskLevel != RiskLow {
+		t.Errorf("RiskLevel = %d, want %d", def.RiskLevel, RiskLow)
+	}
+	if def.DefaultInterval != 24*time.Hour {
+		t.Errorf("DefaultInterval = %v, want %v", def.DefaultInterval, 24*time.Hour)
+	}
+	if def.DisabledByDefault {
+		t.Error("TaskCommitNormalize should not be DisabledByDefault")
+	}
+}
+
 func TestGetCostEstimate(t *testing.T) {
 	// Low cost task
 	min, max, err := GetCostEstimate(TaskLintFix)
