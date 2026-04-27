@@ -430,6 +430,7 @@ func TestBuildPrompts(t *testing.T) {
 		ID:          "prompt-test",
 		Title:       "Build Prompts",
 		Description: "Test prompt generation",
+		Type:        tasks.TaskCommitNormalize,
 	}
 
 	// Test plan prompt
@@ -440,6 +441,7 @@ func TestBuildPrompts(t *testing.T) {
 	if !containsIgnoreCase(planPrompt, "prompt-test") {
 		t.Error("plan prompt should contain task ID")
 	}
+	assertCommitMessagePrompt(t, planPrompt, task.Type)
 
 	// Test implement prompt
 	plan := &PlanOutput{
@@ -450,6 +452,7 @@ func TestBuildPrompts(t *testing.T) {
 	if !containsIgnoreCase(implPrompt, "implementation") {
 		t.Error("implement prompt should mention implementation")
 	}
+	assertCommitMessagePrompt(t, implPrompt, task.Type)
 
 	// Test implement prompt iteration 2
 	implPrompt2 := o.buildImplementPrompt(task, plan, 2)
@@ -465,6 +468,45 @@ func TestBuildPrompts(t *testing.T) {
 	reviewPrompt := o.buildReviewPrompt(task, impl)
 	if !containsIgnoreCase(reviewPrompt, "review") {
 		t.Error("review prompt should mention review")
+	}
+}
+
+func TestPlanAndImplementPromptsUseStandardCommitFormat(t *testing.T) {
+	o := New()
+	task := &tasks.Task{
+		ID:          "commit-normalize:/repo",
+		Title:       "Commit Message Normalizer",
+		Description: "Standardize commit message format",
+		Type:        tasks.TaskCommitNormalize,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"update prompts", "add tests"},
+		Description: "Normalize future generated commit messages",
+	}
+
+	for name, prompt := range map[string]string{
+		"plan":      o.buildPlanPrompt(task),
+		"implement": o.buildImplementPrompt(task, plan, 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			assertCommitMessagePrompt(t, prompt, task.Type)
+		})
+	}
+}
+
+func assertCommitMessagePrompt(t *testing.T, prompt string, taskType tasks.TaskType) {
+	t.Helper()
+
+	for _, want := range []string{
+		"Conventional Commit subject",
+		"type(scope): subject",
+		"[optional body after a blank line]",
+		"Nightshift-Task: " + string(taskType),
+		"Nightshift-Ref: https://github.com/marcus/nightshift",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("prompt missing %q\ngot:\n%s", want, prompt)
+		}
 	}
 }
 
