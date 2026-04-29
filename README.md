@@ -258,18 +258,49 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Development hooks
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Install the git hooks to catch formatting, vet, build, and commit message
+issues before pushing:
 
 ```bash
 make install-hooks
 ```
 
-This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
+This symlinks:
+- `scripts/pre-commit.sh` into `.git/hooks/pre-commit`
+- `scripts/commit-msg.sh` into `.git/hooks/commit-msg`
+
+The pre-commit hook runs:
 - **gofmt** — flags any staged `.go` files that need formatting
 - **go vet** — catches common correctness issues
 - **go build** — ensures the project compiles
+
+The commit-msg hook validates the first subject line only. Use Conventional
+Commits with a short subject:
+
+```text
+type(scope): description
+```
+
+Allowed types are `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`,
+`refactor`, `style`, and `test`. Scope is optional, the description must be
+non-empty, and the subject must be 72 characters or less. Merge and revert
+commits are allowed.
+
+Examples:
+
+```text
+feat(tasks): add docs backfill task
+fix(config): preserve default budget limit
+docs: document provider calibration
+```
+
+To use the commit message template:
+
+```bash
+git config commit.template .gitmessage
+```
 
 To bypass in a pinch: `git commit --no-verify`
 
