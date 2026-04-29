@@ -1,0 +1,34 @@
+# Subject format:
+#   type(scope): description
+#
+# Types:
+#   build    Build system, packaging, or dependencies
+#   chore    Maintenance that does not affect runtime behavior
+#   ci       CI configuration or automation
+#   docs     Documentation-only changes
+#   feat     User-facing feature
+#   fix      User-facing bug fix
+#   perf     Performance improvement
+#   refactor Code change that is neither a feature nor a bug fix
+#   style    Formatting-only changes
+#   test     Tests or test infrastructure
+#
+# Scope is optional and should be short: fix(config): read env overrides
+# Keep the subject at 72 characters or less.
+#
+# Body:
+#   Wrap body text near 72 characters.
+#   Leave one blank line between the subject and body.
+#   Explain why the change was made when the subject is not enough.
+#
+# Trailers:
+#   Leave one blank line before trailers.
+#   Example:
+#   Nightshift-Task: task-id
+#   Nightshift-Ref: https://github.com/marcus/nightshift
+#
+# Examples:
+#   feat(tasks): add docs backfill task
+#   fix(config): preserve default budget limit
+#   docs: document provider calibration
+#   chore: update release metadata
