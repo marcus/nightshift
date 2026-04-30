@@ -2,6 +2,15 @@
 
 All notable changes to nightshift are documented in this file.
 
+## [Unreleased]
+
+### Fixes
+- **Run project limits** — apply `--max-projects` after filtering projects already processed today, so skipped projects no longer consume the active project limit (#45)
+- **Mobile docs navigation** — keep the mobile sidebar visible when the docs site shows the secondary panel (#46)
+
+### Other
+- **Development hooks** — add `make install-hooks` and a pre-commit hook for gofmt, go vet, and go build checks (#44)
+
 ## [v0.3.4] - 2026-02-28
 
 ### Features
