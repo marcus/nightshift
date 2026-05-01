@@ -430,6 +430,7 @@ func TestBuildPrompts(t *testing.T) {
 		ID:          "prompt-test",
 		Title:       "Build Prompts",
 		Description: "Test prompt generation",
+		Type:        tasks.TaskCommitNormalize,
 	}
 
 	// Test plan prompt
@@ -440,6 +441,7 @@ func TestBuildPrompts(t *testing.T) {
 	if !containsIgnoreCase(planPrompt, "prompt-test") {
 		t.Error("plan prompt should contain task ID")
 	}
+	assertCommitGuidance(t, planPrompt, task.Type)
 
 	// Test implement prompt
 	plan := &PlanOutput{
@@ -450,6 +452,7 @@ func TestBuildPrompts(t *testing.T) {
 	if !containsIgnoreCase(implPrompt, "implementation") {
 		t.Error("implement prompt should mention implementation")
 	}
+	assertCommitGuidance(t, implPrompt, task.Type)
 
 	// Test implement prompt iteration 2
 	implPrompt2 := o.buildImplementPrompt(task, plan, 2)
@@ -465,6 +468,158 @@ func TestBuildPrompts(t *testing.T) {
 	reviewPrompt := o.buildReviewPrompt(task, impl)
 	if !containsIgnoreCase(reviewPrompt, "review") {
 		t.Error("review prompt should mention review")
+	}
+}
+
+func TestNormalizeCommitMessage(t *testing.T) {
+	tests := []struct {
+		name    string
+		subject string
+		body    string
+		want    string
+	}{
+		{
+			name:    "whitespace cleanup",
+			subject: "  fix:   normalize   commit   messages \nignored second subject line",
+			body:    "  Body   line   one.\n\n\n Body   line   two. ",
+			want: strings.Join([]string{
+				"fix: normalize commit messages",
+				"",
+				"Body line one.",
+				"",
+				"Body line two.",
+				"",
+				"Nightshift-Task: commit-normalize",
+				"Nightshift-Ref: https://github.com/marcus/nightshift",
+			}, "\n"),
+		},
+		{
+			name:    "existing trailer replacement",
+			subject: "chore: normalize prompts",
+			body: strings.Join([]string{
+				"Keep this body.",
+				"",
+				"Nightshift-Task: old-task",
+				"Nightshift-Task: duplicate-task",
+				"Nightshift-Ref: https://example.com/old",
+			}, "\n"),
+			want: strings.Join([]string{
+				"chore: normalize prompts",
+				"",
+				"Keep this body.",
+				"",
+				"Nightshift-Task: commit-normalize",
+				"Nightshift-Ref: https://github.com/marcus/nightshift",
+			}, "\n"),
+		},
+		{
+			name:    "missing trailers",
+			subject: "docs: update prompt guidance",
+			want: strings.Join([]string{
+				"docs: update prompt guidance",
+				"",
+				"Nightshift-Task: commit-normalize",
+				"Nightshift-Ref: https://github.com/marcus/nightshift",
+			}, "\n"),
+		},
+		{
+			name:    "empty subject fallback",
+			subject: "",
+			body:    "Nightshift-Task: stale",
+			want: strings.Join([]string{
+				"chore: update task",
+				"",
+				"Nightshift-Task: commit-normalize",
+				"Nightshift-Ref: https://github.com/marcus/nightshift",
+			}, "\n"),
+		},
+		{
+			name:    "preserve concise body",
+			subject: "Commit message normalizer",
+			body: strings.Join([]string{
+				"Preserve this summary.",
+				"",
+				"Keep the second paragraph concise.",
+			}, "\n"),
+			want: strings.Join([]string{
+				"chore: Commit message normalizer",
+				"",
+				"Preserve this summary.",
+				"",
+				"Keep the second paragraph concise.",
+				"",
+				"Nightshift-Task: commit-normalize",
+				"Nightshift-Ref: https://github.com/marcus/nightshift",
+			}, "\n"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeCommitMessage(tt.subject, tt.body, tasks.TaskCommitNormalize)
+			if got != tt.want {
+				t.Errorf("normalizeCommitMessage() =\n%s\nwant:\n%s", got, tt.want)
+			}
+			if strings.Count(got, "Nightshift-Task:") != 1 {
+				t.Errorf("Nightshift-Task trailer count = %d, want 1", strings.Count(got, "Nightshift-Task:"))
+			}
+			if strings.Count(got, "Nightshift-Ref:") != 1 {
+				t.Errorf("Nightshift-Ref trailer count = %d, want 1", strings.Count(got, "Nightshift-Ref:"))
+			}
+		})
+	}
+}
+
+func TestPlanAndImplementPromptsUseNormalizedCommitGuidance(t *testing.T) {
+	o := New()
+	task := &tasks.Task{
+		ID:          "commit-normalize:/repo",
+		Title:       "Commit Message Normalizer",
+		Description: "Standardize commit message format",
+		Type:        tasks.TaskCommitNormalize,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"update prompts", "add tests"},
+		Description: "Normalize future generated commit messages",
+	}
+
+	for name, prompt := range map[string]string{
+		"plan":      o.buildPlanPrompt(task),
+		"implement": o.buildImplementPrompt(task, plan, 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			assertCommitGuidance(t, prompt, task.Type)
+			for _, absent := range []string{
+				"include a concise message with these git trailers",
+				"these git trailers",
+			} {
+				if strings.Contains(prompt, absent) {
+					t.Errorf("prompt contains old commit instruction %q\ngot:\n%s", absent, prompt)
+				}
+			}
+		})
+	}
+}
+
+func assertCommitGuidance(t *testing.T, prompt string, taskType tasks.TaskType) {
+	t.Helper()
+
+	for _, want := range []string{
+		"use this normalized commit-message format:",
+		"type(scope): subject",
+		"[optional body after a blank line]",
+		"Nightshift-Task: " + string(taskType),
+		"Nightshift-Ref: https://github.com/marcus/nightshift",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("prompt missing %q\ngot:\n%s", want, prompt)
+		}
+	}
+	if strings.Count(prompt, "Nightshift-Task:") != 1 {
+		t.Errorf("Nightshift-Task trailer count = %d, want 1", strings.Count(prompt, "Nightshift-Task:"))
+	}
+	if strings.Count(prompt, "Nightshift-Ref:") != 1 {
+		t.Errorf("Nightshift-Ref trailer count = %d, want 1", strings.Count(prompt, "Nightshift-Ref:"))
 	}
 }
 

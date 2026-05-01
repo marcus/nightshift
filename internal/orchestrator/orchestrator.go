@@ -26,6 +26,13 @@ const (
 	DefaultAgentTimeout  = 30 * time.Minute
 )
 
+const (
+	commitDefaultSubject = "chore: update task"
+	nightshiftRef        = "https://github.com/marcus/nightshift"
+	nightshiftTaskKey    = "Nightshift-Task"
+	nightshiftRefKey     = "Nightshift-Ref"
+)
+
 // TaskStatus represents the outcome of task execution.
 type TaskStatus string
 
@@ -664,7 +671,7 @@ func (o *Orchestrator) review(ctx context.Context, task *tasks.Task, impl *Imple
 func (o *Orchestrator) commit(_ context.Context, task *tasks.Task, impl *ImplementOutput, _ string) error {
 	// For now, commit is a no-op. In full implementation:
 	// - Create git commit with changes
-	// - Include a commit message with https://github.com/marcus/nightshift
+	// - Use normalizeCommitMessage for the commit message
 	// - Update task state
 	// - Send notifications
 	o.logger.Infof("commit: task=%s files=%d", task.ID, len(impl.FilesModified))
@@ -711,6 +718,109 @@ func (o *Orchestrator) PlanPrompt(task *tasks.Task) string {
 	return o.buildPlanPrompt(task)
 }
 
+func normalizedCommitGuidance(taskType tasks.TaskType) string {
+	message := normalizeCommitMessage("type(scope): subject", "[optional body after a blank line]", taskType)
+	return "use this normalized commit-message format:\n" + indentCommitMessage(message, "   ")
+}
+
+func normalizeCommitMessage(subject, body string, taskType tasks.TaskType) string {
+	subject, body = splitCommitSubjectBody(subject, body)
+	cleanSubject := normalizeCommitSubject(subject)
+	cleanBody := normalizeCommitBody(body)
+
+	var b strings.Builder
+	b.WriteString(cleanSubject)
+	b.WriteString("\n\n")
+	if cleanBody != "" {
+		b.WriteString(cleanBody)
+		b.WriteString("\n\n")
+	}
+	fmt.Fprintf(&b, "%s: %s\n", nightshiftTaskKey, taskType)
+	fmt.Fprintf(&b, "%s: %s", nightshiftRefKey, nightshiftRef)
+	return b.String()
+}
+
+func splitCommitSubjectBody(subject, body string) (string, string) {
+	subject = strings.TrimSpace(subject)
+	body = strings.TrimSpace(body)
+	if body != "" || !strings.Contains(subject, "\n") {
+		return subject, body
+	}
+
+	parts := strings.SplitN(subject, "\n", 2)
+	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+}
+
+var conventionalSubjectPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*(\([a-z0-9._/-]+\))?!?: .+`)
+var conventionalLikeSubjectPattern = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9-]*(\([A-Za-z0-9._/-]+\))?!?):\s*(.+)$`)
+
+func normalizeCommitSubject(subject string) string {
+	for _, line := range strings.Split(subject, "\n") {
+		if isNightshiftTrailer(line) {
+			continue
+		}
+		clean := collapseWhitespace(line)
+		if clean == "" {
+			continue
+		}
+		if conventionalSubjectPattern.MatchString(clean) {
+			return clean
+		}
+		if matches := conventionalLikeSubjectPattern.FindStringSubmatch(clean); matches != nil {
+			return strings.ToLower(matches[1]) + ": " + collapseWhitespace(matches[3])
+		}
+		return "chore: " + clean
+	}
+	return commitDefaultSubject
+}
+
+func normalizeCommitBody(body string) string {
+	lines := strings.Split(body, "\n")
+	normalized := make([]string, 0, len(lines))
+	blankPending := false
+
+	for _, line := range lines {
+		if isNightshiftTrailer(line) {
+			continue
+		}
+		clean := collapseWhitespace(line)
+		if clean == "" {
+			if len(normalized) > 0 {
+				blankPending = true
+			}
+			continue
+		}
+		if blankPending {
+			normalized = append(normalized, "")
+			blankPending = false
+		}
+		normalized = append(normalized, clean)
+	}
+
+	return strings.TrimSpace(strings.Join(normalized, "\n"))
+}
+
+func collapseWhitespace(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
+
+func isNightshiftTrailer(line string) bool {
+	line = strings.TrimSpace(line)
+	return strings.HasPrefix(line, nightshiftTaskKey+":") || strings.HasPrefix(line, nightshiftRefKey+":")
+}
+
+func indentCommitMessage(message, prefix string) string {
+	lines := strings.Split(message, "\n")
+	for i, line := range lines {
+		if line == "" {
+			lines[i] = prefix
+			continue
+		}
+		lines[i] = prefix + line
+	}
+	return strings.Join(lines, "\n")
+}
+
 func (o *Orchestrator) buildPlanPrompt(task *tasks.Task) string {
 	branchInstruction := ""
 	if o.runMeta != nil && o.runMeta.Branch != "" {
@@ -728,9 +838,7 @@ Description: %s
 0. You are running autonomously. If the task is broad or ambiguous, choose a concrete, minimal scope that delivers value and state any assumptions in the description.
 1. Work on a new branch and plan to submit a PR. Never work directly on the primary branch.%s
 2. Before creating your branch, record the current branch name and plan to switch back after the PR is opened.
-3. If you create commits, include a concise message with these git trailers:
-   Nightshift-Task: %s
-   Nightshift-Ref: https://github.com/marcus/nightshift
+3. If you create commits, %s
 4. Analyze the task requirements
 5. Identify files that need to be modified
 6. Create step-by-step implementation plan
@@ -741,7 +849,7 @@ Description: %s
   "files": ["file1.go", "file2.go", ...],
   "description": "overall approach"
 }
-`, task.ID, task.Title, task.Description, branchInstruction, task.Type)
+`, task.ID, task.Title, task.Description, branchInstruction, normalizedCommitGuidance(task.Type))
 }
 
 func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, iteration int) string {
@@ -771,9 +879,7 @@ Description: %s
 ## Instructions
 0. Before creating your branch, record the current branch name. Create and work on a new branch. Never modify or commit directly to the primary branch.%s
    When finished, open a PR. After the PR is submitted, switch back to the original branch. If you cannot open a PR, leave the branch and explain next steps.
-1. If you create commits, include a concise message with these git trailers:
-   Nightshift-Task: %s
-   Nightshift-Ref: https://github.com/marcus/nightshift
+1. If you create commits, %s
 2. Implement the plan step by step
 3. Make all necessary code changes
 4. Ensure tests pass
@@ -783,7 +889,7 @@ Description: %s
   "files_modified": ["file1.go", ...],
   "summary": "what was done"
 }
-`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, task.Type)
+`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, normalizedCommitGuidance(task.Type))
 }
 
 func (o *Orchestrator) buildReviewPrompt(task *tasks.Task, impl *ImplementOutput) string {
