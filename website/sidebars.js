@@ -15,7 +15,7 @@ const sidebars = {
     {
       type: 'category',
       label: 'Reference',
-      items: ['cli-reference', 'integrations'],
+      items: ['cli-reference', 'integrations', 'troubleshooting'],
     },
   ],
 };
