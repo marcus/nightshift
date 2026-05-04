@@ -2,6 +2,15 @@
 
 All notable changes to nightshift are documented in this file.
 
+## [Unreleased]
+
+### Fixes
+- **Run project selection limits** — apply `--max-projects` after filtering projects already processed today so eligible pending projects are not skipped (#45)
+- **Mobile documentation navigation** — keep the sidebar visible when the mobile navbar switches to its secondary panel (#46)
+
+### Other
+- **Pre-commit quality checks** — add a gofmt, go vet, and go build hook with an install target and development docs (#44)
+
 ## [v0.3.4] - 2026-02-28
 
 ### Features
