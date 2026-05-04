@@ -10,15 +10,43 @@ title: CLI Reference
 | Command | Description |
 |---------|-------------|
 | `nightshift setup` | Guided global configuration |
+| `nightshift init` | Create project or global configuration files |
 | `nightshift run` | Execute scheduled tasks |
 | `nightshift preview` | Show upcoming runs |
 | `nightshift budget` | Check token budget status |
 | `nightshift task` | Browse and run tasks |
+| `nightshift config` | View, update, and validate configuration |
 | `nightshift doctor` | Check environment health |
 | `nightshift status` | View run history |
 | `nightshift logs` | Stream or export logs |
 | `nightshift stats` | Token usage statistics |
+| `nightshift report` | Show structured run reports |
+| `nightshift busfactor` | Analyze code ownership concentration |
 | `nightshift daemon` | Background scheduler |
+| `nightshift install` | Install a launchd, systemd, or cron service |
+| `nightshift uninstall` | Remove the installed system service |
+| `nightshift completion` | Generate shell completion scripts |
+| `nightshift help` | Show command help |
+
+## Setup and Configuration Commands
+
+```bash
+nightshift setup                  # Guided onboarding wizard
+nightshift init                   # Create ./nightshift.yaml
+nightshift init --global          # Create ~/.config/nightshift/config.yaml
+nightshift init --force           # Overwrite an existing config without prompting
+
+nightshift config                 # Show merged global + project config
+nightshift config get budget.max_percent
+nightshift config get providers.claude.enabled
+nightshift config set budget.max_percent 75
+nightshift config set logging.level debug --global
+nightshift config validate
+```
+
+`nightshift init` is the quick file generator. `nightshift setup` is the guided wizard for provider configuration, project selection, budget calibration, and daemon setup.
+
+`nightshift config set` writes to the project config when one exists; otherwise it writes to the global config. Use `--global` to force a global write.
 
 ## Run Options
 
@@ -69,8 +97,11 @@ nightshift task list --category pr
 nightshift task list --cost low --json
 nightshift task show lint-fix
 nightshift task show lint-fix --prompt-only
-nightshift task run lint-fix --provider claude
+nightshift task show lint-fix --project ~/code/myapp
+nightshift task run lint-fix --provider claude --project ~/code/myapp
 nightshift task run lint-fix --provider codex --dry-run
+nightshift task run lint-fix --provider copilot --timeout 45m
+nightshift task run lint-fix --provider codex --branch main
 ```
 
 ## Budget Commands
@@ -83,10 +114,83 @@ nightshift budget history -n 10
 nightshift budget calibrate
 ```
 
+## Reports, Logs, and Stats
+
+```bash
+nightshift status                 # Last 5 runs
+nightshift status --today         # Today's activity summary
+nightshift status -n 10
+
+nightshift report                 # Polished overview for last night
+nightshift report --period last-run
+nightshift report --period last-7d --runs 0
+nightshift report --since "2026-05-01" --until "2026-05-04 09:00"
+nightshift report --report tasks --format markdown
+nightshift report --format json --paths
+
+nightshift logs                   # Last 50 log lines
+nightshift logs --follow
+nightshift logs --level warn --component orchestrator
+nightshift logs --since "2026-05-01" --summary
+nightshift logs --export ./nightshift-logs.jsonl
+
+nightshift stats                  # Aggregate statistics
+nightshift stats --period last-7d
+nightshift stats --json
+```
+
+## Daemon and Service Commands
+
+```bash
+nightshift daemon start
+nightshift daemon start --foreground
+nightshift daemon stop
+nightshift daemon status
+
+nightshift install                # Auto-detect launchd, systemd, or cron
+nightshift install launchd        # macOS LaunchAgent
+nightshift install systemd        # Linux user service + timer
+nightshift install cron           # Managed crontab entry
+nightshift uninstall              # Remove the installed service
+```
+
+`nightshift install` uses the configured schedule when available and falls back to a daily 2 AM run when no config exists.
+
+## Analysis Commands
+
+```bash
+nightshift busfactor
+nightshift busfactor ~/code/myapp
+nightshift busfactor --path ~/code/myapp --json
+nightshift busfactor --since 2026-01-01 --until 2026-05-01
+nightshift busfactor --file internal/orchestrator --save
+nightshift busfactor --db ~/.local/share/nightshift/nightshift.db
+```
+
+`busfactor` requires a Git repository. It reports contributor concentration, Herfindahl index, Gini coefficient, and risk level.
+
+## Help and Completion
+
+Nightshift includes Cobra's built-in help and completion commands:
+
+```bash
+nightshift --help
+nightshift run --help
+nightshift help task run
+nightshift --version
+
+nightshift completion bash
+nightshift completion zsh
+nightshift completion fish
+nightshift completion powershell
+```
+
 ## Global Flags
 
 | Flag | Description |
 |------|-------------|
 | `--verbose` | Verbose output |
-| `--provider` | Select provider (claude, codex) |
-| `--timeout` | Execution timeout (default 30m) |
+| `--help`, `-h` | Show help for a command |
+| `--version`, `-v` | Print the Nightshift version |
+
+Provider and timeout flags are command-specific. For example, `--provider` and `--timeout` are used by `nightshift task run`.
