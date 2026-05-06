@@ -329,10 +329,13 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 168 * time.Hour,
 	},
 	TaskCommitNormalize: {
-		Type:            TaskCommitNormalize,
-		Category:        CategoryPR,
-		Name:            "Commit Message Normalizer",
-		Description:     "Standardize commit message format",
+		Type:     TaskCommitNormalize,
+		Category: CategoryPR,
+		Name:     "Commit Message Normalizer",
+		Description: `Audit recent git history to infer the repository's commit message conventions.
+Document or align commit tooling and agent guidance when appropriate.
+Do not rewrite existing history unless explicitly requested.
+Ensure any new commits use the standard format, including required Nightshift trailers when Nightshift creates the commit.`,
 		CostTier:        CostLow,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 24 * time.Hour,

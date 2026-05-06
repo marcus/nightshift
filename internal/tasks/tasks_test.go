@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -240,6 +241,38 @@ func TestTaskDefinitionEstimatedTokens(t *testing.T) {
 	min, max := def.EstimatedTokens()
 	if min != 10_000 || max != 50_000 {
 		t.Errorf("TaskDefinition.EstimatedTokens() = (%d, %d), want (10000, 50000)", min, max)
+	}
+}
+
+func TestCommitNormalizeDefinition(t *testing.T) {
+	def, err := GetDefinition(TaskCommitNormalize)
+	if err != nil {
+		t.Fatalf("GetDefinition(TaskCommitNormalize) error: %v", err)
+	}
+
+	if def.Category != CategoryPR {
+		t.Errorf("Category = %d, want %d", def.Category, CategoryPR)
+	}
+	if def.CostTier != CostLow {
+		t.Errorf("CostTier = %d, want %d", def.CostTier, CostLow)
+	}
+	if def.RiskLevel != RiskLow {
+		t.Errorf("RiskLevel = %d, want %d", def.RiskLevel, RiskLow)
+	}
+	if def.DefaultInterval != 24*time.Hour {
+		t.Errorf("DefaultInterval = %v, want 24h", def.DefaultInterval)
+	}
+
+	for _, want := range []string{
+		"recent git history",
+		"commit message conventions",
+		"Document or align commit tooling and agent guidance",
+		"Do not rewrite existing history unless explicitly requested",
+		"required Nightshift trailers",
+	} {
+		if !strings.Contains(def.Description, want) {
+			t.Errorf("Description missing %q\nGot:\n%s", want, def.Description)
+		}
 	}
 }
 
