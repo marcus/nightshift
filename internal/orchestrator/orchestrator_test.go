@@ -430,6 +430,7 @@ func TestBuildPrompts(t *testing.T) {
 		ID:          "prompt-test",
 		Title:       "Build Prompts",
 		Description: "Test prompt generation",
+		Type:        tasks.TaskCommitNormalize,
 	}
 
 	// Test plan prompt
@@ -440,6 +441,7 @@ func TestBuildPrompts(t *testing.T) {
 	if !containsIgnoreCase(planPrompt, "prompt-test") {
 		t.Error("plan prompt should contain task ID")
 	}
+	assertCommitMessageGuidance(t, planPrompt, task.Type)
 
 	// Test implement prompt
 	plan := &PlanOutput{
@@ -450,6 +452,7 @@ func TestBuildPrompts(t *testing.T) {
 	if !containsIgnoreCase(implPrompt, "implementation") {
 		t.Error("implement prompt should mention implementation")
 	}
+	assertCommitMessageGuidance(t, implPrompt, task.Type)
 
 	// Test implement prompt iteration 2
 	implPrompt2 := o.buildImplementPrompt(task, plan, 2)
@@ -465,6 +468,69 @@ func TestBuildPrompts(t *testing.T) {
 	reviewPrompt := o.buildReviewPrompt(task, impl)
 	if !containsIgnoreCase(reviewPrompt, "review") {
 		t.Error("review prompt should mention review")
+	}
+}
+
+func TestPromptsIncludeCommitGuidanceWithBranchMetadata(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{Branch: "develop"})
+
+	task := &tasks.Task{
+		ID:          "commit-normalize:/repo",
+		Title:       "Commit Message Normalizer",
+		Description: "Standardize commit message format",
+		Type:        tasks.TaskCommitNormalize,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"inspect history", "update prompts"},
+		Description: "Normalize future Nightshift-generated commit guidance",
+	}
+
+	tests := []struct {
+		name       string
+		prompt     string
+		branchWant string
+	}{
+		{
+			name:       "plan",
+			prompt:     o.buildPlanPrompt(task),
+			branchWant: "Create your feature branch from `develop`.",
+		},
+		{
+			name:       "implement",
+			prompt:     o.buildImplementPrompt(task, plan, 1),
+			branchWant: "Checkout `develop` before creating your feature branch.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !strings.Contains(tt.prompt, tt.branchWant) {
+				t.Errorf("prompt missing branch instruction %q\nGot:\n%s", tt.branchWant, tt.prompt)
+			}
+			assertCommitMessageGuidance(t, tt.prompt, task.Type)
+		})
+	}
+}
+
+func assertCommitMessageGuidance(t *testing.T, prompt string, taskType tasks.TaskType) {
+	t.Helper()
+
+	if !strings.Contains(prompt, commitMessageGuidance(taskType)) {
+		t.Errorf("prompt missing shared commit guidance\nGot:\n%s", prompt)
+	}
+
+	for _, want := range []string{
+		"concise, imperative subject",
+		"repo's existing convention",
+		"`type(scope): summary`",
+		"optional body",
+		"Nightshift-Task: " + string(taskType),
+		"Nightshift-Ref: https://github.com/marcus/nightshift",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("prompt missing %q\nGot:\n%s", want, prompt)
+		}
 	}
 }
 

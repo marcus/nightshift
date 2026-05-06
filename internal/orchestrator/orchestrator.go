@@ -24,6 +24,7 @@ import (
 const (
 	DefaultMaxIterations = 3
 	DefaultAgentTimeout  = 30 * time.Minute
+	nightshiftRef        = "https://github.com/marcus/nightshift"
 )
 
 // TaskStatus represents the outcome of task execution.
@@ -711,6 +712,10 @@ func (o *Orchestrator) PlanPrompt(task *tasks.Task) string {
 	return o.buildPlanPrompt(task)
 }
 
+func commitMessageGuidance(taskType tasks.TaskType) string {
+	return fmt.Sprintf("write a concise, imperative subject. Use the repo's existing convention, including `type(scope): summary` when supported. Add an optional body only when rationale is useful. Include these required trailers:\n   Nightshift-Task: %s\n   Nightshift-Ref: %s", taskType, nightshiftRef)
+}
+
 func (o *Orchestrator) buildPlanPrompt(task *tasks.Task) string {
 	branchInstruction := ""
 	if o.runMeta != nil && o.runMeta.Branch != "" {
@@ -728,9 +733,7 @@ Description: %s
 0. You are running autonomously. If the task is broad or ambiguous, choose a concrete, minimal scope that delivers value and state any assumptions in the description.
 1. Work on a new branch and plan to submit a PR. Never work directly on the primary branch.%s
 2. Before creating your branch, record the current branch name and plan to switch back after the PR is opened.
-3. If you create commits, include a concise message with these git trailers:
-   Nightshift-Task: %s
-   Nightshift-Ref: https://github.com/marcus/nightshift
+3. If you create commits, %s
 4. Analyze the task requirements
 5. Identify files that need to be modified
 6. Create step-by-step implementation plan
@@ -741,7 +744,7 @@ Description: %s
   "files": ["file1.go", "file2.go", ...],
   "description": "overall approach"
 }
-`, task.ID, task.Title, task.Description, branchInstruction, task.Type)
+`, task.ID, task.Title, task.Description, branchInstruction, commitMessageGuidance(task.Type))
 }
 
 func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, iteration int) string {
@@ -771,9 +774,7 @@ Description: %s
 ## Instructions
 0. Before creating your branch, record the current branch name. Create and work on a new branch. Never modify or commit directly to the primary branch.%s
    When finished, open a PR. After the PR is submitted, switch back to the original branch. If you cannot open a PR, leave the branch and explain next steps.
-1. If you create commits, include a concise message with these git trailers:
-   Nightshift-Task: %s
-   Nightshift-Ref: https://github.com/marcus/nightshift
+1. If you create commits, %s
 2. Implement the plan step by step
 3. Make all necessary code changes
 4. Ensure tests pass
@@ -783,7 +784,7 @@ Description: %s
   "files_modified": ["file1.go", ...],
   "summary": "what was done"
 }
-`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, task.Type)
+`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, commitMessageGuidance(task.Type))
 }
 
 func (o *Orchestrator) buildReviewPrompt(task *tasks.Task, impl *ImplementOutput) string {
