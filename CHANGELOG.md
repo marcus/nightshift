@@ -2,6 +2,15 @@
 
 All notable changes to nightshift are documented in this file.
 
+## [Unreleased]
+
+### Fixes
+- **Daily task selection limits** — apply `--max-projects` after filtering projects already processed today, so eligible projects are not skipped prematurely (#45)
+- **Mobile website navigation** — keep the mobile navbar sidebar above the secondary panel so navigation remains accessible (#46)
+
+### Other
+- **Pre-commit verification hook** — add a local hook and Makefile target for running gofmt, vet, and build checks before commits (#44)
+
 ## [v0.3.4] - 2026-02-28
 
 ### Features
