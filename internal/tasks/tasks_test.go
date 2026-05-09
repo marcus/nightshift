@@ -104,6 +104,25 @@ func TestGetDefinition(t *testing.T) {
 	}
 }
 
+func TestCommitNormalizeDefinitionScope(t *testing.T) {
+	def, err := GetDefinition(TaskCommitNormalize)
+	if err != nil {
+		t.Fatalf("GetDefinition(TaskCommitNormalize) returned error: %v", err)
+	}
+	if def.Description != "Standardize future Nightshift-generated commit guidance without rewriting history" {
+		t.Errorf("Description = %q", def.Description)
+	}
+	if def.Category != CategoryPR {
+		t.Errorf("Category = %d, want %d", def.Category, CategoryPR)
+	}
+	if def.CostTier != CostLow {
+		t.Errorf("CostTier = %d, want %d", def.CostTier, CostLow)
+	}
+	if def.RiskLevel != RiskLow {
+		t.Errorf("RiskLevel = %d, want %d", def.RiskLevel, RiskLow)
+	}
+}
+
 func TestGetCostEstimate(t *testing.T) {
 	// Low cost task
 	min, max, err := GetCostEstimate(TaskLintFix)

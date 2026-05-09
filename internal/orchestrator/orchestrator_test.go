@@ -468,6 +468,63 @@ func TestBuildPrompts(t *testing.T) {
 	}
 }
 
+func TestBuildPrompts_NormalizedCommitInstructionsWithBranch(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{Branch: "develop"})
+
+	task := &tasks.Task{
+		ID:          "commit-normalize:/repo",
+		Title:       "Commit Message Normalizer",
+		Description: "Standardize future generated commit guidance",
+		Type:        tasks.TaskCommitNormalize,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"step1"},
+		Description: "test plan",
+	}
+
+	tests := []struct {
+		name              string
+		prompt            string
+		branchInstruction string
+	}{
+		{
+			name:              "plan",
+			prompt:            o.buildPlanPrompt(task),
+			branchInstruction: "Create your feature branch from `develop`.",
+		},
+		{
+			name:              "implement",
+			prompt:            o.buildImplementPrompt(task, plan, 1),
+			branchInstruction: "Checkout `develop` before creating your feature branch.",
+		},
+	}
+
+	expectedCommitInstruction := `If you create commits, use a concise subject and include these git trailers:
+   Nightshift-Task: commit-normalize
+   Nightshift-Ref: https://github.com/marcus/nightshift`
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := strings.Count(tt.prompt, expectedCommitInstruction); got != 1 {
+				t.Fatalf("normalized commit instruction count = %d, want 1\nGot:\n%s", got, tt.prompt)
+			}
+			for _, want := range []string{
+				"Nightshift-Task: commit-normalize",
+				"Nightshift-Ref: https://github.com/marcus/nightshift",
+				tt.branchInstruction,
+			} {
+				if got := strings.Count(tt.prompt, want); got != 1 {
+					t.Errorf("%q count = %d, want 1\nGot:\n%s", want, got, tt.prompt)
+				}
+			}
+			if strings.Contains(tt.prompt, "include a concise message with these git trailers") {
+				t.Errorf("prompt contains old commit instruction wording\nGot:\n%s", tt.prompt)
+			}
+		})
+	}
+}
+
 func TestExtractPRURL(t *testing.T) {
 	tests := []struct {
 		name  string
