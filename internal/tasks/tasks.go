@@ -332,7 +332,7 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		Type:            TaskCommitNormalize,
 		Category:        CategoryPR,
 		Name:            "Commit Message Normalizer",
-		Description:     "Standardize commit message format",
+		Description:     "Infer the repository's existing commit convention, then document or enforce it with lightweight repo-local configuration when appropriate. Avoid rewriting published history; only normalize recent local commit messages when it is safe.",
 		CostTier:        CostLow,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 24 * time.Hour,
