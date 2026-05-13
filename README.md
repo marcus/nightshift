@@ -146,7 +146,7 @@ Other useful flags:
 - `--category` — filter tasks by category (pr, analysis, options, safe, map, emergency)
 - `--cost` — filter by cost tier (low, medium, high, veryhigh)
 - `--prompt-only` — output just the raw prompt text for piping
-- `--provider` — required for `task run`, choose claude or codex
+- `--provider` — required for `task run`, choose claude, codex, or copilot
 - `--dry-run` — preview the prompt without executing
 - `--timeout` — execution timeout (default 30m)
 
@@ -220,6 +220,7 @@ providers:
   preference:
     - claude
     - codex
+    - copilot
   claude:
     enabled: true
     data_path: "~/.claude"
@@ -228,6 +229,10 @@ providers:
     enabled: true
     data_path: "~/.codex"
     dangerously_bypass_approvals_and_sandbox: true
+  copilot:
+    enabled: true
+    data_path: "~/.copilot"
+    dangerously_skip_permissions: false
 
 projects:
   - path: ~/code/sidecar
