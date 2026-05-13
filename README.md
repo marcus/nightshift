@@ -95,7 +95,27 @@ nightshift task show lint-fix --prompt-only
 nightshift task run lint-fix --provider claude
 nightshift task run skill-groom --provider codex --dry-run
 nightshift task run lint-fix --provider codex --dry-run
+
+# Explain the semantic meaning of pending diffs
+nightshift explain-diff
+nightshift explain-diff --staged
+nightshift explain-diff --range main..HEAD
+nightshift explain-diff --json
 ```
+
+### `nightshift explain-diff`
+
+Parses `git diff` output and classifies each hunk into a high-level
+ChangeKind — added/removed functions, renames, signature changes, new tests,
+import shifts, comment-only edits, or formatting churn. Rule-based and
+Go-aware; no LLM call is made.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--staged` | `false` | Inspect the staged (index) diff instead of the working tree |
+| `--range` | _(none)_ | Inspect a git revision range like `main..HEAD` |
+| `--json` | `false` | Emit structured JSON instead of human-readable text |
+| `--path` | _(cwd)_ | Path to the git repository |
 
 If `gum` is available, preview output is shown through the gum pager. Use `--plain` to disable.
 

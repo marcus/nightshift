@@ -2,6 +2,15 @@
 
 All notable changes to nightshift are documented in this file.
 
+## [Unreleased]
+
+### Features
+- **Semantic diff explainer** — new `nightshift explain-diff` command parses
+  `git diff` output and applies rule-based, Go-aware heuristics to classify
+  hunks into ChangeKinds (AddFunction, RenameSymbol, ChangeSignature,
+  AddTest, AddImport, ModifyComment, FormatOnly, etc.). Supports
+  `--staged`, `--range`, `--json`, and `--path`.
+
 ## [v0.3.4] - 2026-02-28
 
 ### Features
