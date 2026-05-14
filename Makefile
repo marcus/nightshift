@@ -4,13 +4,17 @@
 BINARY=nightshift
 PKG=./cmd/nightshift
 
+# Build flags (match .goreleaser.yml for reproducible, cache-friendly artifacts)
+GO_BUILD_FLAGS=-trimpath
+LDFLAGS=-s -w
+
 # Build the binary
 build:
-	go build -o $(BINARY) $(PKG)
+	go build $(GO_BUILD_FLAGS) -ldflags="$(LDFLAGS)" -o $(BINARY) $(PKG)
 
 # Install the binary to your Go bin directory
 install:
-	go install $(PKG)
+	go install $(GO_BUILD_FLAGS) -ldflags="$(LDFLAGS)" $(PKG)
 	@echo "Installed $(BINARY) to $$(if [ -n "$$(go env GOBIN)" ]; then go env GOBIN; else echo "$$(go env GOPATH)/bin"; fi)"
 
 # Run provider calibration comparison tool
