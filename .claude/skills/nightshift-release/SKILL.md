@@ -62,12 +62,26 @@ gh run watch           # watch the most recent run
 gh release view vX.Y.Z
 ```
 
+For a quick automated check, run the bundled helper — it confirms the
+release exists, all expected artifacts are present, and the latest
+release workflow run succeeded:
+
+```bash
+scripts/verify_release.sh vX.Y.Z
+```
+
 Check that:
 - The GitHub Actions run completed successfully.
 - The release on GitHub lists all expected artifacts (tar.gz for each OS/arch + checksums.txt).
 - The changelog was auto-generated and excludes docs/test/ci/chore commits.
 
-If the homebrew cask was configured, also verify `gh api repos/marcus/homebrew-tap/contents/Casks/nightshift.rb` returns the updated cask.
+The Homebrew formula is **not** published by goreleaser — `.goreleaser.yml`
+has no `brews`/`casks` section. The formula is manually maintained in
+`marcus/homebrew-tap` at `Formula/nightshift.rb` (it builds from source to
+avoid Gatekeeper warnings on macOS), and users install it via
+`brew install marcus/tap/nightshift`. After a release, update that formula
+by hand and confirm with
+`gh api repos/marcus/homebrew-tap/contents/Formula/nightshift.rb`.
 
 ### Troubleshooting
 
@@ -76,4 +90,4 @@ If the homebrew cask was configured, also verify `gh api repos/marcus/homebrew-t
 | `goreleaser check` fails | Fix `.goreleaser.yml` syntax per error message |
 | Snapshot builds but CI fails | Compare local Go version (`go version`) with `go.mod`; ensure `CGO_ENABLED=0` |
 | Release exists but missing artifacts | Re-run: delete the release (`gh release delete vX.Y.Z`), delete the tag (`git push --delete origin vX.Y.Z && git tag -d vX.Y.Z`), re-tag and push |
-| Homebrew tap not updated | Check `HOMEBREW_TAP_TOKEN` secret is set in repo settings |
+| Homebrew formula stale after release | The formula is not auto-published; manually update `Formula/nightshift.rb` in `marcus/homebrew-tap` |
