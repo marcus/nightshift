@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -101,4 +103,38 @@ func RepositoryExists(path string) bool {
 	gitDir := strings.TrimSpace(path) + "/.git"
 	_, err := os.Stat(gitDir)
 	return err == nil
+}
+
+// ListComponentPaths returns the immediate subdirectories of each provided
+// root relative to repoPath, sorted alphabetically. Missing roots are silently
+// skipped so callers can pass an aspirational list (e.g. "cmd", "internal").
+// Paths are returned with forward slashes regardless of OS so they round-trip
+// cleanly through git pathspecs.
+func ListComponentPaths(repoPath string, roots []string) ([]string, error) {
+	var components []string
+	for _, root := range roots {
+		root = strings.Trim(strings.TrimSpace(root), "/")
+		if root == "" {
+			continue
+		}
+		entries, err := os.ReadDir(filepath.Join(repoPath, root))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("reading root %q: %w", root, err)
+		}
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			name := e.Name()
+			if strings.HasPrefix(name, ".") {
+				continue
+			}
+			components = append(components, root+"/"+name)
+		}
+	}
+	sort.Strings(components)
+	return components, nil
 }
