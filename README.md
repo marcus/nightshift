@@ -75,6 +75,11 @@ nightshift setup
 # Check environment and config health
 nightshift doctor
 
+# Suggest SLO/SLA targets from run history
+nightshift slo
+nightshift slo --window 7d --min-confidence medium
+nightshift slo --project myrepo --format json
+
 # Budget status and calibration
 nightshift budget --provider claude
 nightshift budget snapshot --local-only
