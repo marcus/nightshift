@@ -531,10 +531,76 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 72 * time.Hour,
 	},
 	TaskPrivacyPolicy: {
-		Type:            TaskPrivacyPolicy,
-		Category:        CategoryAnalysis,
-		Name:            "Privacy Policy Consistency Checker",
-		Description:     "Check code against privacy policy claims",
+		Type:     TaskPrivacyPolicy,
+		Category: CategoryAnalysis,
+		Name:     "Privacy Policy Consistency Checker",
+		Description: `Cross-check the project's stated privacy commitments against actual code behavior ` +
+			`and report every inconsistency, undisclosed data flow, or unimplemented control.` +
+			"\n\n" +
+			`1. LOCATE POLICY DOCUMENTS — Search the repo for privacy/legal/terms documents. Common ` +
+			`locations: PRIVACY.md, PRIVACY-POLICY.md, privacy-policy.md, TERMS.md, terms-of-service.md, ` +
+			`legal/, docs/privacy*, docs/legal/, website/**/privacy*, website/**/terms*, content/legal/, ` +
+			`and any "Privacy" or "Data Handling" sections inside README.md or top-level docs. ` +
+			`If no privacy policy exists, that is the primary finding — report it and recommend ` +
+			`drafting one that matches the data flows you discover in steps 3-4.` +
+			"\n\n" +
+			`2. EXTRACT CLAIMS — From each document, enumerate concrete, verifiable claims, including: ` +
+			`what data is collected (PII, telemetry, usage analytics, crash reports), where and how it ` +
+			`is stored, retention windows, third-party processors/sharing, encryption (at rest, in ` +
+			`transit), telemetry opt-out mechanisms, deletion/export/access rights, data residency or ` +
+			`region restrictions, cookie/local-storage use, and any "we do NOT collect/share/sell" ` +
+			`statements. Quote each claim with its source file and line.` +
+			"\n\n" +
+			`3. CROSS-REFERENCE CODE BEHAVIOR — For each claim, search the codebase for the actual ` +
+			`behavior:` +
+			"\n" +
+			`   - Telemetry/analytics: SDK initialization (Segment, Mixpanel, Amplitude, PostHog, GA, ` +
+			`Sentry, Datadog, Honeycomb, OpenTelemetry exporters), event tracking calls, crash ` +
+			`reporters, and beacons.` +
+			"\n" +
+			`   - Network egress: HTTP/gRPC clients pointing at third-party hostnames; webhook ` +
+			`subscribers; outbound queue/topic publishers.` +
+			"\n" +
+			`   - Persistence: SQL schemas (CREATE TABLE, migrations), ORM models, file writes, ` +
+			`object-store uploads, log shipping destinations.` +
+			"\n" +
+			`   - Third-party APIs: API clients, SDK imports, and credentials in config that imply ` +
+			`data sharing with vendors not disclosed in the policy.` +
+			"\n" +
+			`   - Encryption: TLS enforcement, at-rest encryption (KMS, age, libsodium, sqlcipher), ` +
+			`hashing of sensitive fields. Flag plaintext storage of anything the policy claims is ` +
+			`encrypted.` +
+			"\n" +
+			`   - Retention & deletion: cleanup jobs, TTL settings, DELETE endpoints, soft-delete ` +
+			`flags. Compare to stated retention windows and deletion-rights commitments.` +
+			"\n" +
+			`   - Opt-out / consent: telemetry opt-out flags, consent banners, "Do Not Track" handling, ` +
+			`and config switches. Verify the opt-out actually short-circuits the relevant SDK calls.` +
+			"\n" +
+			`   - .gitignore for user data: ensure local data stores (.db, .sqlite, dumps, exports) are ` +
+			`ignored so user data isn't committed.` +
+			"\n\n" +
+			`4. OUTPUT FORMAT — For each finding, report:` +
+			"\n" +
+			`   - file: path relative to repo root` +
+			"\n" +
+			`   - line: line number(s)` +
+			"\n" +
+			`   - claim-source: file:line of the policy claim being checked (or "n/a" if no claim ` +
+			`exists for an observed data flow)` +
+			"\n" +
+			`   - code-evidence: short snippet or symbol showing the actual behavior` +
+			"\n" +
+			`   - category: one of [missing-disclosure, contradicts-policy, unimplemented-control, ` +
+			`undisclosed-third-party, retention-mismatch, encryption-mismatch, opt-out-broken]` +
+			"\n" +
+			`   - severity: critical / high / medium / low` +
+			"\n" +
+			`   - recommendation: a specific fix — either update the policy to reflect reality, or ` +
+			`change the code to honor the stated policy.` +
+			"\n\n" +
+			`Exclude vendored/third-party code. End with a summary table of total findings grouped by ` +
+			`category and severity, plus a short overall assessment of policy-to-code alignment.`,
 		CostTier:        CostMedium,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 72 * time.Hour,
