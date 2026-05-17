@@ -473,11 +473,14 @@ func (s *Scheduler) ScheduleInterval(d time.Duration, job func()) error {
 	return nil
 }
 
-// Schedule adds a one-time job to run at the specified time.
+// Schedule adds a one-time job to run at or after the specified time.
+// The job fires exactly once on the first scheduler tick at or after `at`;
+// subsequent ticks are no-ops.
 func (s *Scheduler) Schedule(at time.Time, job func()) {
+	var once sync.Once
 	s.AddJob(func(ctx context.Context) error {
-		if time.Now().After(at) {
-			job()
+		if !time.Now().Before(at) {
+			once.Do(job)
 		}
 		return nil
 	})
