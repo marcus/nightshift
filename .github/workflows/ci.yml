@@ -7,6 +7,32 @@ on:
     branches: [main]
 
 jobs:
+  commit-messages:
+    name: Commit Messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages for pull requests
+        if: github.event_name == 'pull_request'
+        run: scripts/commit-msg.sh --rev-range "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+
+      - name: Validate commit messages for pushes
+        if: github.event_name == 'push'
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+        run: |
+          if [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            rev_spec="$CURRENT_SHA"
+          else
+            rev_spec="$BEFORE_SHA..$CURRENT_SHA"
+          fi
+          scripts/commit-msg.sh --rev-range "$rev_spec"
+
   test:
     name: Test
     runs-on: ubuntu-latest
