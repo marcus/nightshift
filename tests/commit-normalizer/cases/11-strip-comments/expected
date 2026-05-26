@@ -1,0 +1,4 @@
+feat: support TOML config
+
+
+Adds a parallel TOML loader alongside YAML.

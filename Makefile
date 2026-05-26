@@ -1,4 +1,4 @@
-.PHONY: build test test-verbose test-race coverage coverage-html lint clean deps check install calibrate-providers install-hooks help
+.PHONY: build test test-verbose test-race coverage coverage-html lint clean deps check install calibrate-providers install-hooks setup-hooks test-commit-normalizer help
 
 # Binary name
 BINARY=nightshift
@@ -76,9 +76,19 @@ help:
 	@echo "  install       - Build and install to Go bin directory"
 	@echo "  calibrate-providers - Compare local Claude/Codex session usage for calibration"
 	@echo "  install-hooks  - Install git pre-commit hook"
+	@echo "  setup-hooks    - Configure core.hooksPath + commit.template (commit-msg normalizer)"
+	@echo "  test-commit-normalizer - Run commit-msg normalizer fixture tests"
 	@echo "  help          - Show this help"
 
 # Install git pre-commit hook
 install-hooks:
 	@ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit
 	@echo "✓ pre-commit hook installed (.git/hooks/pre-commit → scripts/pre-commit.sh)"
+
+# Configure repo-tracked git hooks (.githooks) and commit template
+setup-hooks:
+	@./scripts/setup-hooks.sh
+
+# Run commit-msg normalizer fixture tests
+test-commit-normalizer:
+	@./tests/commit-normalizer/run-tests.sh

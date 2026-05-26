@@ -1,0 +1,9 @@
+feat(daemon): add notify channel
+
+Switch from polling to channel-based notifications.
+
+Co-Authored-By: Alice <alice@example.com>
+Co-Authored-By: Bob <bob@example.com>
+Nightshift-Task: commit-normalize
+Nightshift-Ref: https://github.com/marcus/nightshift
+Signed-off-by: Carol <carol@example.com>

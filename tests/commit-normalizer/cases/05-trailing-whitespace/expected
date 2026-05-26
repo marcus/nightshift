@@ -1,0 +1,6 @@
+fix: handle empty config without panicking
+
+When NIGHTSHIFT_CONFIG is empty the daemon crashed.
+Treat empty as "use defaults".
+
+Fixes: #123
