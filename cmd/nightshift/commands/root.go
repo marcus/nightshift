@@ -1,4 +1,3 @@
-// Package commands implements the nightshift CLI commands using cobra.
 package commands
 
 import (

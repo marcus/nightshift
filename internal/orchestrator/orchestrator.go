@@ -1,5 +1,3 @@
-// Package orchestrator coordinates AI agents working on tasks.
-// Implements the plan-implement-review loop for task execution.
 package orchestrator
 
 import (

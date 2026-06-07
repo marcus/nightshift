@@ -1,4 +1,3 @@
-// Package tmux scrapes tmux sessions to detect running AI agent processes and their usage.
 package tmux
 
 import (
