@@ -42,6 +42,28 @@ assert_preserved() {
   assert_normalizes "$name" "$input" "$input"
 }
 
+assert_preserved_with_comment_prefix() {
+  name=$1
+  comment_key=$2
+  comment_prefix=$3
+  input=$4
+  message="$test_dir/message"
+  expected_file="$test_dir/expected"
+
+  printf '%b' "$input" > "$message"
+  printf '%b' "$input" > "$expected_file"
+  GIT_CONFIG_COUNT=1 \
+    GIT_CONFIG_KEY_0="core.$comment_key" \
+    GIT_CONFIG_VALUE_0="$comment_prefix" \
+    "$normalizer" "$message" || fail "$name (normalizer failed)"
+  cmp -s "$expected_file" "$message" || {
+    diff -u "$expected_file" "$message" >&2 || true
+    fail "$name"
+  }
+  tests_run=$((tests_run + 1))
+  echo "ok - $name"
+}
+
 assert_rejected() {
   name=$1
   input=$2
@@ -121,6 +143,20 @@ assert_preserved "generated rebase message" '# This is a combination of 2 commit
 # This is the 1st commit message:
 
 feat: first message\040\040\040
+'
+assert_preserved_with_comment_prefix \
+  "generated message with configured comment character" \
+  "commentChar" \
+  ";" \
+  '; Please enter the commit message for your changes.\040\040\040
+; Lines starting with '\'';'\'' will be ignored.
+'
+assert_preserved_with_comment_prefix \
+  "generated message with configured comment string" \
+  "commentString" \
+  "//" \
+  '// Please enter the commit message for your changes.\040\040\040
+// Lines starting with '\''//'\'' will be ignored.
 '
 
 message="$test_dir/message"

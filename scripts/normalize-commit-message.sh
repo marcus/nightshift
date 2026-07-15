@@ -32,8 +32,30 @@ first_line=$(awk '
   }
 ' "$message_file")
 
+comment_prefix=$(
+  git config --get-regexp '^core\.comment(char|string)$' 2>/dev/null |
+    awk '
+      {
+        sub(/^[^[:space:]]+[[:space:]]+/, "")
+        prefix = $0
+      }
+      END { print prefix }
+    '
+)
+case "$comment_prefix" in
+  ""|auto)
+    comment_prefix="#"
+    ;;
+esac
+
 case "$first_line" in
-  \#*|Merge\ *|Revert\ *|fixup\!\ *|squash\!\ *|amend\!\ *|WIP\ on\ *|index\ on\ *)
+  "$comment_prefix"*)
+    exit 0
+    ;;
+esac
+
+case "$first_line" in
+  Merge\ *|Revert\ *|fixup\!\ *|squash\!\ *|amend\!\ *|WIP\ on\ *|index\ on\ *)
     exit 0
     ;;
 esac
