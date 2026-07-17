@@ -28,7 +28,7 @@ nightshift config validate
 - `nightshift config set` writes to the project config when one exists, otherwise to the global config. Use `--global` to force the global file.
 - `nightshift config validate` checks the global file, project file, and merged config.
 
-`nightshift config set` accepts booleans, integers, floats, and strings. For example, `true`, `15`, `12.5`, and `debug` are all parsed correctly.
+For supported configuration fields, pass booleans, integers, or strings to `nightshift config set`, such as `true`, `15`, or `debug`. The command does not type-check a key against the configuration schema before writing it, so use the field type documented on this page; the current schema has no floating-point fields.
 
 ## Config Sources
 
@@ -40,7 +40,7 @@ Nightshift loads and merges config in this order, from lowest to highest precede
 
 Project config values override global config values, and environment variables override both. The currently bound variables are `NIGHTSHIFT_BUDGET_MAX_PERCENT`, `NIGHTSHIFT_BUDGET_MODE`, `NIGHTSHIFT_LOG_LEVEL`, and `NIGHTSHIFT_LOG_PATH`. Other `NIGHTSHIFT_*` names are not guaranteed to unmarshal into the config struct.
 
-When a command accepts `--project`, Nightshift loads `nightshift.yaml` from that directory. Otherwise it uses the current working directory. `nightshift config set` updates the current directory's project file only when that file already exists; otherwise it writes the global file. It writes first and then warns if the merged result fails validation, so review the file after a warning.
+`nightshift run --project`, `nightshift preview --project`, and `nightshift task run --project` load `nightshift.yaml` from the supplied directory. Without that flag, they use the current working directory. `nightshift task show --project` is different: it uses the path only as prompt context and does not load configuration. `nightshift config set` updates the current directory's project file only when that file already exists; otherwise it writes the global file. It writes first and then warns if the merged result fails validation, so review the file after a warning.
 
 ## Config Locations
 
