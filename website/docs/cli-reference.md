@@ -61,7 +61,7 @@ nightshift config validate
 | `config set KEY VALUE` | Update a value; use `--global` to force global config |
 | `config validate` | Validate global, project, and merged config |
 
-`nightshift config set` accepts booleans, integers, floats, and strings. It writes the value before validating the merged configuration; a validation warning does not roll the edit back.
+For supported configuration fields, `nightshift config set` accepts booleans, integers, and strings. It does not type-check the key against the configuration schema before writing, and the current schema has no floating-point fields. The command writes the value before validating the merged configuration; a validation warning does not roll the edit back.
 
 ## Run Options
 

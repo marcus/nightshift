@@ -19,7 +19,7 @@ nightshift config         # Show source paths and merged defaults
 nightshift config validate
 ```
 
-Nightshift can load built-in defaults without either file, so `config` or a manual `run` may still work. A project config is discovered only in the current directory, or in the directory passed with a command's `--project` flag.
+Nightshift can load built-in defaults without either file, so `config` or a manual `run` may still work. A project config is discovered in the current directory. `run --project`, `preview --project`, and `task run --project` instead load it from the supplied directory. `task show --project` only uses that path as prompt context and does not load configuration.
 
 **"No schedule configured"**
 - Set either `schedule.cron` or `schedule.interval` in config
