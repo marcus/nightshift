@@ -106,16 +106,16 @@ selected provider, budget status, projects, and planned tasks. In interactive
 terminals you are prompted for confirmation; in non-TTY environments (cron,
 daemon, CI) confirmation is auto-skipped.
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--dry-run` | `false` | Show preflight summary and exit without executing |
-| `--project`, `-p` | _(all configured)_ | Target a single project directory |
-| `--task`, `-t` | _(auto-select)_ | Run a specific task by name |
-| `--max-projects` | `1` | Max projects to process (ignored when `--project` is set) |
-| `--max-tasks` | `1` | Max tasks per project (ignored when `--task` is set) |
-| `--random-task` | `false` | Pick a random task from eligible tasks instead of the highest-scored one |
-| `--ignore-budget` | `false` | Bypass budget checks (use with caution) |
-| `--yes`, `-y` | `false` | Skip the confirmation prompt |
+| Flag              | Default            | Description                                                              |
+| ----------------- | ------------------ | ------------------------------------------------------------------------ |
+| `--dry-run`       | `false`            | Show preflight summary and exit without executing                        |
+| `--project`, `-p` | _(all configured)_ | Target a single project directory                                        |
+| `--task`, `-t`    | _(auto-select)_    | Run a specific task by name                                              |
+| `--max-projects`  | `1`                | Max projects to process (ignored when `--project` is set)                |
+| `--max-tasks`     | `1`                | Max tasks per project (ignored when `--task` is set)                     |
+| `--random-task`   | `false`            | Pick a random task from eligible tasks instead of the highest-scored one |
+| `--ignore-budget` | `false`            | Bypass budget checks (use with caution)                                  |
+| `--yes`, `-y`     | `false`            | Skip the confirmation prompt                                             |
 
 ```bash
 # Interactive run with preflight summary + confirmation prompt
@@ -141,6 +141,7 @@ nightshift run -p ./my-project -t lint-fix
 ```
 
 Other useful flags:
+
 - `nightshift status --today` to see today's activity summary
 - `nightshift daemon start --foreground` for debug
 - `--category` — filter tasks by category (pr, analysis, options, safe, map, emergency)
@@ -153,8 +154,9 @@ Other useful flags:
 ## Authentication (Subscriptions)
 
 Nightshift supports three AI providers:
+
 - **Claude Code** - Anthropic's Claude via local CLI
-- **Codex** - OpenAI's GPT via local CLI  
+- **Codex** - OpenAI's GPT via local CLI
 - **GitHub Copilot** - GitHub's Copilot via GitHub CLI
 
 ### Claude Code
@@ -258,6 +260,40 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
+### Package layout
+
+Nightshift is organized as a small set of commands on top of focused internal
+packages. Browse the godoc for any package with `go doc <import-path>` (or
+`go doc ./...` for all of them).
+
+| Package                    | Responsibility                                                                     |
+| -------------------------- | ---------------------------------------------------------------------------------- |
+| `cmd/nightshift`           | CLI entry point (`main`).                                                          |
+| `cmd/nightshift/commands`  | Cobra subcommands (`run`, `report`, `budget`, `setup`, `stats`, etc.).             |
+| `cmd/provider-calibration` | Standalone tool that estimates per-repo token usage from local agent session logs. |
+| `internal/orchestrator`    | The plan-implement-review loop that drives task execution.                         |
+| `internal/agents`          | Agent interface and CLI implementations (Claude, Codex, Copilot).                  |
+| `internal/providers`       | Provider interface for coding-agent backends and per-token cost.                   |
+| `internal/tasks`           | Task structures, cost/risk tiers, loading, and selection.                          |
+| `internal/budget`          | Token budget calculation and allocation across daily/weekly modes.                 |
+| `internal/calibrator`      | Infers weekly subscription budgets from usage history.                             |
+| `internal/scheduler`       | Cron, fixed-interval, and time-window job scheduling.                              |
+| `internal/projects`        | Multi-project discovery, config merging, and priority weighting.                   |
+| `internal/integrations`    | Readers for claude.md, agents.md, td, and GitHub issues.                           |
+| `internal/config`          | YAML config loading with environment overrides.                                    |
+| `internal/db`              | SQLite storage, migrations, and legacy state import.                               |
+| `internal/state`           | Persistent run history driving staleness and de-duplication.                       |
+| `internal/snapshots`       | Periodic usage-snapshot collection.                                                |
+| `internal/trends`          | Historical usage profiling, anomaly detection, and forecasting.                    |
+| `internal/stats`           | Aggregate statistics for the stats CLI.                                            |
+| `internal/reporting`       | Markdown run reports and summaries.                                                |
+| `internal/security`        | Credentials, sandboxing, audit logging, and safe defaults.                         |
+| `internal/logging`         | Structured zerolog logging with file rotation.                                     |
+| `internal/commits`         | Conventional Commits message normalization.                                        |
+| `internal/tmux`            | tmux session control and token-usage scraping.                                     |
+| `internal/analysis`        | Git-based ownership and bus-factor analysis.                                       |
+| `internal/setup`           | Interactive config and task-preset selection.                                      |
+
 ### Pre-commit hooks
 
 Install the git pre-commit hook to catch formatting and vet issues before pushing:
@@ -267,6 +303,7 @@ make install-hooks
 ```
 
 This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
+
 - **gofmt** — flags any staged `.go` files that need formatting
 - **go vet** — catches common correctness issues
 - **go build** — ensures the project compiles

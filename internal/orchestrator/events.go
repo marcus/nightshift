@@ -5,6 +5,8 @@ import "time"
 // EventType classifies orchestrator lifecycle events.
 type EventType int
 
+// EventType values describe the lifecycle stages of a task as it moves through
+// the orchestrator's plan-implement-review loop.
 const (
 	EventTaskStart      EventType = iota // task execution begins
 	EventPhaseStart                      // entering a phase (plan/implement/review)

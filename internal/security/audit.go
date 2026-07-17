@@ -14,6 +14,9 @@ import (
 // AuditEventType categorizes audit events.
 type AuditEventType string
 
+// AuditEventType values enumerate the kinds of operations recorded in the
+// append-only audit log, covering agent activity, file and git operations,
+// security decisions, and configuration or budget checks.
 const (
 	AuditAgentStart     AuditEventType = "agent_start"
 	AuditAgentComplete  AuditEventType = "agent_complete"

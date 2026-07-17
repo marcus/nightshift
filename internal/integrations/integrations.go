@@ -57,6 +57,8 @@ type Hint struct {
 // HintType categorizes hints.
 type HintType int
 
+// HintType values enumerate the kinds of lightweight suggestions that a
+// Reader can extract from configuration files.
 const (
 	HintTaskSuggestion HintType = iota // Suggested task to run
 	HintConvention                     // Coding convention
