@@ -9,8 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/marcus/nightshift/internal/config"
 	"github.com/robfig/cron/v3"
+
+	"github.com/marcus/nightshift/internal/config"
 )
 
 // Errors for scheduler operations.
