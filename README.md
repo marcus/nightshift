@@ -301,18 +301,70 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Git hooks and commit messages
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Enable the repository-managed hooks before committing:
 
 ```bash
 make install-hooks
+# Equivalent:
+./scripts/install-git-hooks.sh
 ```
 
-This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
+The installer writes `core.hooksPath` to this repository's local `.git/config`.
+It does not change system- or user-level Git configuration. If the repository
+already has a different local hooks path, the installer stops without changing
+it; merge those hooks into `.githooks` or remove the local setting before
+installing.
+
+The `pre-commit` hook runs:
 - **gofmt** - flags any staged `.go` files that need formatting
 - **go vet** - catches common correctness issues
 - **go build** - ensures the project compiles
+
+The `commit-msg` hook normalizes and validates Conventional Commit subjects in
+the `type(scope)!: summary` format. The scope and `!` marker are optional. The
+supported types are `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`,
+`refactor`, `style`, and `test`.
+
+The normalizer lowercases supported types, removes spacing around the optional
+scope and breaking-change marker, collapses repeated subject whitespace, trims
+leading and trailing blank lines, and removes trailing whitespace. Message body
+paragraphs and Git trailers otherwise keep their original content.
+
+Examples:
+
+```text
+feat(run): add pause command
+fix(config)!: reject unknown provider keys
+docs: explain hook installation
+```
+
+Merge and revert messages, `fixup!`, `squash!`, and `amend!` commits, stash
+subjects, and Git's comment-led combined-commit messages are preserved byte for
+byte. Combined-commit detection honors Git's configured `core.commentChar` or
+`core.commentString` prefix, falling back to Git's default `#` prefix. Other
+comment-led subjects are validated normally, so a manual subject such as
+`# invalid subject` is rejected. An empty message, unsupported type, missing
+summary, or malformed scope is rejected without changing the message file.
+
+Run the shell regression suite directly with:
+
+```bash
+make test-commit-message
+```
+
+To check and preview normalization for a message manually:
+
+```bash
+message_file=$(mktemp)
+printf '%s\n' ' FEAT (cli) :   add status output ' > "$message_file"
+./scripts/normalize-commit-message.sh "$message_file" && cat "$message_file"
+rm "$message_file"
+```
+
+The command exits nonzero and leaves the file unchanged when the subject cannot
+be normalized unambiguously.
 
 To bypass in a pinch: `git commit --no-verify`
 

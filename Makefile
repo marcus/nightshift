@@ -1,4 +1,4 @@
-.PHONY: build test test-verbose test-race coverage coverage-html lint clean deps check install calibrate-providers install-hooks help
+.PHONY: build test test-commit-message test-verbose test-race coverage coverage-html lint clean deps check install calibrate-providers install-hooks help
 
 # Binary name
 BINARY=nightshift
@@ -18,8 +18,12 @@ calibrate-providers:
 	go run ./cmd/provider-calibration --repo "$$(pwd)" --codex-originator codex_cli_rs --min-user-turns 2
 
 # Run all tests
-test:
+test: test-commit-message
 	go test ./...
+
+# Run commit-message hook regression tests
+test-commit-message:
+	./tests/commit-message-normalizer.sh
 
 # Run tests with verbose output
 test-verbose:
@@ -65,6 +69,7 @@ help:
 	@echo "Available targets:"
 	@echo "  build         - Build the binary"
 	@echo "  test          - Run all tests"
+	@echo "  test-commit-message - Run commit-message hook regression tests"
 	@echo "  test-verbose  - Run tests with verbose output"
 	@echo "  test-race     - Run tests with race detection"
 	@echo "  coverage      - Run tests with coverage report"
@@ -75,10 +80,9 @@ help:
 	@echo "  check         - Run tests and lint"
 	@echo "  install       - Build and install to Go bin directory"
 	@echo "  calibrate-providers - Compare local Claude/Codex session usage for calibration"
-	@echo "  install-hooks  - Install git pre-commit hook"
+	@echo "  install-hooks  - Enable repository-managed git hooks"
 	@echo "  help          - Show this help"
 
-# Install git pre-commit hook
+# Enable repository-managed git hooks
 install-hooks:
-	@ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit
-	@echo "✓ pre-commit hook installed (.git/hooks/pre-commit → scripts/pre-commit.sh)"
+	@./scripts/install-git-hooks.sh
