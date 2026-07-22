@@ -48,9 +48,21 @@ case "$comment_prefix" in
     ;;
 esac
 
-case "$first_line" in
-  "$comment_prefix"*)
-    exit 0
+comment_text=${first_line#"$comment_prefix"}
+combination_prefix=' This is a combination of '
+case "$comment_text" in
+  "$combination_prefix"*' commits.')
+    commit_count=${comment_text#"$combination_prefix"}
+    commit_count=${commit_count%' commits.'}
+    case "$commit_count" in
+      ""|*[!0-9]*)
+        ;;
+      *)
+        if [ "$commit_count" -ge 2 ]; then
+          exit 0
+        fi
+        ;;
+    esac
     ;;
 esac
 

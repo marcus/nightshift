@@ -81,6 +81,27 @@ assert_rejected() {
   echo "ok - $name"
 }
 
+assert_rejected_with_comment_prefix() {
+  name=$1
+  comment_key=$2
+  comment_prefix=$3
+  input=$4
+  message="$test_dir/message"
+  original="$test_dir/original"
+
+  printf '%b' "$input" > "$message"
+  cp "$message" "$original"
+  if GIT_CONFIG_COUNT=1 \
+    GIT_CONFIG_KEY_0="core.$comment_key" \
+    GIT_CONFIG_VALUE_0="$comment_prefix" \
+    "$normalizer" "$message" >/dev/null 2>&1; then
+    fail "$name (unexpected success)"
+  fi
+  cmp -s "$original" "$message" || fail "$name (message changed)"
+  tests_run=$((tests_run + 1))
+  echo "ok - $name"
+}
+
 assert_normalizes \
   "already-valid subject" \
   'feat(cli): add status output
@@ -146,6 +167,16 @@ assert_rejected "empty scope" 'feat(): add status output
 '
 assert_rejected "missing summary" 'feat(cli):
 '
+assert_rejected "manual comment subject" '# invalid manual subject
+'
+assert_rejected "lookalike generated comment subject" '# This is a combination of banana commits.
+'
+assert_rejected_with_comment_prefix \
+  "manual subject with configured comment string" \
+  "commentString" \
+  "//" \
+  '// invalid manual subject
+'
 
 assert_preserved "merge message" 'Merge branch '\''main'\'' into feature\040\040\040
 
@@ -168,15 +199,19 @@ assert_preserved_with_comment_prefix \
   "generated message with configured comment character" \
   "commentChar" \
   ";" \
-  '; Please enter the commit message for your changes.\040\040\040
-; Lines starting with '\'';'\'' will be ignored.
+  '; This is a combination of 2 commits.
+; This is the 1st commit message:
+
+feat: first message\040\040\040
 '
 assert_preserved_with_comment_prefix \
   "generated message with configured comment string" \
   "commentString" \
   "//" \
-  '// Please enter the commit message for your changes.\040\040\040
-// Lines starting with '\''//'\'' will be ignored.
+  '// This is a combination of 2 commits.
+// This is the 1st commit message:
+
+feat: first message\040\040\040
 '
 
 message="$test_dir/message"
@@ -218,5 +253,19 @@ echo "ok - hook installer"
 echo "ok - hook installer writes local config"
 echo "ok - hook installer preserves user config"
 echo "ok - hook installer idempotence"
+
+conflict_repo="$test_dir/conflict-repo"
+mkdir -p "$conflict_repo/scripts" "$conflict_repo/.githooks"
+cp "$installer" "$conflict_repo/scripts/install-git-hooks.sh"
+git -C "$conflict_repo" init -q
+git -C "$conflict_repo" config --local core.hooksPath .custom-hooks
+if "$conflict_repo/scripts/install-git-hooks.sh" >/dev/null 2>&1; then
+  fail "hook installer rejects conflicting local config"
+fi
+conflict_path=$(git -C "$conflict_repo" config --local --get core.hooksPath)
+[ "$conflict_path" = ".custom-hooks" ] || fail "hook installer preserves conflicting local config"
+tests_run=$((tests_run + 2))
+echo "ok - hook installer rejects conflicting local config"
+echo "ok - hook installer preserves conflicting local config"
 
 echo "$tests_run tests passed"
