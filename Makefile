@@ -85,5 +85,4 @@ help:
 
 # Enable repository-managed git hooks
 install-hooks:
-	@git config core.hooksPath .githooks
-	@echo "✓ repository hooks enabled (.githooks)"
+	@./scripts/install-git-hooks.sh

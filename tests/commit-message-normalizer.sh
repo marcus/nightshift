@@ -4,6 +4,7 @@ set -eu
 repo_root=$(CDPATH= cd "$(dirname "$0")/.." && pwd)
 normalizer="$repo_root/scripts/normalize-commit-message.sh"
 hook="$repo_root/.githooks/commit-msg"
+installer="$repo_root/scripts/install-git-hooks.sh"
 test_dir=$(mktemp -d "${TMPDIR:-/tmp}/nightshift-commit-msg-test.XXXXXX")
 cleanup() {
   rm -rf "$test_dir"
@@ -121,10 +122,29 @@ Nightshift-Task: commit-normalize
 Nightshift-Ref: https://github.com/marcus/nightshift
 '
 
+assert_normalizes \
+  "Git comments after subject" \
+  ' CHORE :   normalize messages
+
+# Please enter the commit message for your changes.
+# Lines starting with '\''#'\'' will be ignored.
+' \
+  'chore: normalize messages
+
+# Please enter the commit message for your changes.
+# Lines starting with '\''#'\'' will be ignored.
+'
+
 assert_rejected "blank input" '
 \040\040\040
 '
 assert_rejected "unsupported type" 'release: prepare 1.0
+'
+assert_rejected "missing separator" 'feat add status output
+'
+assert_rejected "empty scope" 'feat(): add status output
+'
+assert_rejected "missing summary" 'feat(cli):
 '
 
 assert_preserved "merge message" 'Merge branch '\''main'\'' into feature\040\040\040
@@ -178,5 +198,25 @@ cp "$message" "$test_dir/once"
 cmp -s "$test_dir/once" "$message" || fail "idempotence"
 tests_run=$((tests_run + 1))
 echo "ok - idempotence"
+
+installer_repo="$test_dir/installer-repo"
+mkdir -p "$installer_repo/scripts" "$installer_repo/.githooks"
+cp "$installer" "$installer_repo/scripts/install-git-hooks.sh"
+git -C "$installer_repo" init -q
+global_config="$test_dir/global-gitconfig"
+GIT_CONFIG_GLOBAL="$global_config" git config --global core.hooksPath /user/hooks
+GIT_CONFIG_GLOBAL="$global_config" "$installer_repo/scripts/install-git-hooks.sh" >/dev/null ||
+  fail "hook installer"
+installed_path=$(GIT_CONFIG_GLOBAL="$global_config" git -C "$installer_repo" config --local --get core.hooksPath)
+[ "$installed_path" = ".githooks" ] || fail "hook installer writes local config"
+global_path=$(GIT_CONFIG_GLOBAL="$global_config" git config --global --get core.hooksPath)
+[ "$global_path" = "/user/hooks" ] || fail "hook installer preserves user config"
+GIT_CONFIG_GLOBAL="$global_config" "$installer_repo/scripts/install-git-hooks.sh" >/dev/null ||
+  fail "hook installer idempotence"
+tests_run=$((tests_run + 4))
+echo "ok - hook installer"
+echo "ok - hook installer writes local config"
+echo "ok - hook installer preserves user config"
+echo "ok - hook installer idempotence"
 
 echo "$tests_run tests passed"

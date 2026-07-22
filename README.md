@@ -307,9 +307,12 @@ Enable the repository-managed hooks before committing:
 
 ```bash
 make install-hooks
-# Equivalent command:
-git config core.hooksPath .githooks
+# Equivalent:
+./scripts/install-git-hooks.sh
 ```
+
+The installer writes `core.hooksPath` to this repository's local `.git/config`.
+It does not change system- or user-level Git configuration.
 
 The `pre-commit` hook runs:
 - **gofmt** - flags any staged `.go` files that need formatting
@@ -346,6 +349,18 @@ Run the shell regression suite directly with:
 ```bash
 make test-commit-message
 ```
+
+To check and preview normalization for a message manually:
+
+```bash
+message_file=$(mktemp)
+printf '%s\n' ' FEAT (cli) :   add status output ' > "$message_file"
+./scripts/normalize-commit-message.sh "$message_file" && cat "$message_file"
+rm "$message_file"
+```
+
+The command exits nonzero and leaves the file unchanged when the subject cannot
+be normalized unambiguously.
 
 To bypass in a pinch: `git commit --no-verify`
 
