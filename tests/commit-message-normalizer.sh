@@ -12,6 +12,17 @@ cleanup() {
 trap cleanup 0
 trap 'exit 1' 1 2 15
 
+# Keep the default-prefix fixtures independent of system, user, repository, and
+# inherited command-scope Git configuration. Individual tests override this
+# command-scope value when exercising core.commentChar or core.commentString.
+GIT_CONFIG_NOSYSTEM=1
+GIT_CONFIG_GLOBAL="$test_dir/empty-gitconfig"
+GIT_CONFIG_COUNT=1
+GIT_CONFIG_KEY_0=core.commentChar
+GIT_CONFIG_VALUE_0='#'
+export GIT_CONFIG_NOSYSTEM GIT_CONFIG_GLOBAL GIT_CONFIG_COUNT
+export GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0
+
 tests_run=0
 
 fail() {
