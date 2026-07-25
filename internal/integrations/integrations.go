@@ -1,5 +1,3 @@
-// Package integrations provides readers for external configuration and task sources.
-// Supports claude.md, agents.md, td task management, and GitHub issues.
 package integrations
 
 import (
