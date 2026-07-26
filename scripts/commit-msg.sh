@@ -34,8 +34,8 @@ if [[ $STATUS -ne 0 ]]; then
   echo "🪡 commit-msg: message does not follow Conventional Commits" >&2
   sed 's/^/    /' /tmp/nightshift-commit-msg.err >&2 || true
   echo "" >&2
-  echo "    Expected format: <type>(<scope>): <subject>" >&2
-  echo "    Types: feat fix docs style refactor test chore perf build ci" >&2
+  echo "    Expected format: <type>(<scope>)!: <subject>" >&2
+  echo "    Types: feat fix docs style refactor test chore perf build ci revert" >&2
   echo "    (rewrite your message, or bypass with: git commit --no-verify)" >&2
   exit 1
 fi

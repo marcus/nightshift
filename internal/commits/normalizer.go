@@ -4,9 +4,12 @@
 //
 // The supported format follows the Conventional Commits 1.0.0 specification:
 //
-//	<type>(<scope>): <subject>
+//	<type>(<scope>)!: <subject>
 //
 //	<body>
+//
+// The optional "!" after the type (or scope) marks a breaking change, and the
+// special "BREAKING CHANGE:" footer in the body is preserved verbatim.
 //
 // The normalizer is intentionally strict but constructive: rather than silently
 // accepting malformed input it fixes the trivially fixable (whitespace, type
@@ -39,6 +42,7 @@ var allowedTypes = map[string]struct{}{
 	"perf":     {},
 	"build":    {},
 	"ci":       {},
+	"revert":   {},
 }
 
 // Errors returned by the normalizer. They are wrapped so callers can match on
@@ -77,7 +81,7 @@ func Normalize(msg string) (string, error) {
 	header := lines[0]
 	body := lines[1:]
 
-	typ, scope, subject, err := parseHeader(header)
+	typ, scope, subject, breaking, err := parseHeader(header)
 	if err != nil {
 		return "", err
 	}
@@ -85,7 +89,7 @@ func Normalize(msg string) (string, error) {
 	subject = cleanSubject(subject)
 
 	var b strings.Builder
-	b.WriteString(formatHeader(typ, scope, subject))
+	b.WriteString(formatHeader(typ, scope, subject, breaking))
 
 	wrapped := wrapBody(body, BodyWrapWidth)
 	if wrapped != "" {
@@ -121,20 +125,30 @@ func stripComments(msg string) []string {
 
 // parseHeader splits the first line into its Conventional Commit components and
 // validates them. The returned type is lower-cased to match the allowed set.
-func parseHeader(header string) (typ, scope, subject string, err error) {
+// A trailing "!" on the type/scope (e.g. "feat!:" or "feat(scope)!:") is parsed
+// as the Conventional Commits breaking-change marker and reported via the
+// breaking return value.
+func parseHeader(header string) (typ, scope, subject string, breaking bool, err error) {
 	header = strings.TrimSpace(header)
 	colon := strings.Index(header, ":")
 	if colon <= 0 {
-		return "", "", "", ErrMissingType
+		return "", "", "", false, ErrMissingType
 	}
 	prefix := header[:colon]
 	subject = strings.TrimSpace(header[colon+1:])
 
-	// Split an optional "(scope)" from the type.
+	// Detect the breaking-change marker "!" that sits between the type/scope
+	// and the colon before any further parsing.
 	prefix = strings.TrimSpace(prefix)
+	if strings.HasSuffix(prefix, "!") {
+		breaking = true
+		prefix = prefix[:len(prefix)-1]
+	}
+
+	// Split an optional "(scope)" from the type.
 	if strings.HasPrefix(prefix, "(") {
 		// A leading "(" with no type is not a valid conventional header.
-		return "", "", "", ErrMissingType
+		return "", "", "", false, ErrMissingType
 	}
 	if open := strings.Index(prefix, "("); open > 0 && strings.HasSuffix(prefix, ")") {
 		typ = prefix[:open]
@@ -146,21 +160,21 @@ func parseHeader(header string) (typ, scope, subject string, err error) {
 	scope = strings.TrimSpace(scope)
 
 	if typ == "" {
-		return "", "", "", ErrMissingType
+		return "", "", "", false, ErrMissingType
 	}
 	if !isAllowedType(typ) {
-		return "", "", "", fmt.Errorf("%w: %q", ErrUnknownType, typ)
+		return "", "", "", false, fmt.Errorf("%w: %q", ErrUnknownType, typ)
 	}
 	if strings.TrimSpace(subject) == "" {
-		return "", "", "", ErrMissingSubject
+		return "", "", "", false, ErrMissingSubject
 	}
 	if utf8.RuneCountInString(subject) > MaxSubjectLength {
-		return "", "", "", ErrSubjectTooLong
+		return "", "", "", false, ErrSubjectTooLong
 	}
 	if startsUpper(subject) {
-		return "", "", "", ErrSubjectLowercase
+		return "", "", "", false, ErrSubjectLowercase
 	}
-	return typ, scope, subject, nil
+	return typ, scope, subject, breaking, nil
 }
 
 // cleanSubject normalizes the subject text: lowercases a leading uppercase
@@ -172,19 +186,49 @@ func cleanSubject(subject string) string {
 	return s
 }
 
-// formatHeader reassembles a canonical header line from its components.
-func formatHeader(typ, scope, subject string) string {
-	if scope != "" {
-		return typ + "(" + scope + "): " + subject
+// formatHeader reassembles a canonical header line from its components. A
+// breaking-change marker ("!") is emitted after the type or scope when set.
+func formatHeader(typ, scope, subject string, breaking bool) string {
+	bang := ""
+	if breaking {
+		bang = "!"
 	}
-	return typ + ": " + subject
+	if scope != "" {
+		return typ + "(" + scope + ")" + bang + ": " + subject
+	}
+	return typ + bang + ": " + subject
 }
 
 // wrapBody collapses runs of blank lines, preserves non-blank paragraphs, and
 // hard-wraps each paragraph line to width. Paragraph breaks (a single blank
-// line) are preserved.
+// line) are preserved. A trailing footer block — one or more paragraphs whose
+// every line is a git footer (a "<Key>: <value>" or "<Key>#<value>" line, or a
+// "BREAKING CHANGE:" line) — is emitted verbatim rather than reflowed, so that
+// structured metadata such as "Fixes #123", "BREAKING CHANGE: ...", and the
+// project's own trailers survive normalization untouched.
 func wrapBody(body []string, width int) string {
-	var paragraphs [][]string
+	paragraphs, footerStart := bodyParagraphs(body)
+
+	var b strings.Builder
+	for i, p := range paragraphs {
+		if i > 0 {
+			b.WriteString("\n\n")
+		}
+		if i >= footerStart {
+			// Footer block: preserve internal line breaks, do not reflow.
+			b.WriteString(strings.Join(p, "\n"))
+		} else {
+			b.WriteString(wrapParagraph(strings.Join(p, " "), width))
+		}
+	}
+	return b.String()
+}
+
+// bodyParagraphs splits the body into paragraphs (maximal runs of non-blank
+// lines). It also returns footerStart, the index of the first paragraph of a
+// trailing contiguous footer block; it equals len(paragraphs) when the body has
+// no footer block.
+func bodyParagraphs(body []string) (paragraphs [][]string, footerStart int) {
 	var cur []string
 	for _, l := range body {
 		if strings.TrimSpace(l) == "" {
@@ -200,14 +244,68 @@ func wrapBody(body []string, width int) string {
 		paragraphs = append(paragraphs, cur)
 	}
 
-	var b strings.Builder
-	for i, p := range paragraphs {
-		if i > 0 {
-			b.WriteString("\n\n")
+	footerStart = len(paragraphs)
+	for i := len(paragraphs) - 1; i >= 0; i-- {
+		if isFooterParagraph(paragraphs[i]) {
+			footerStart = i
+		} else {
+			break
 		}
-		b.WriteString(wrapParagraph(strings.Join(p, " "), width))
 	}
-	return b.String()
+	return paragraphs, footerStart
+}
+
+// isFooterParagraph reports whether every line in the paragraph is a git footer
+// line. A footer paragraph is emitted verbatim rather than reflowed.
+func isFooterParagraph(lines []string) bool {
+	if len(lines) == 0 {
+		return false
+	}
+	for _, l := range lines {
+		if !isFooterLine(l) {
+			return false
+		}
+	}
+	return true
+}
+
+// isFooterLine reports whether l has the shape of a git trailer footer:
+//   - "BREAKING CHANGE: <value>", or
+//   - "<Token>: <value>" with a colon separator, or
+//   - "<Token> #<value>" issue-reference style (e.g. "Fixes #123"),
+//
+// where Token is a non-empty run of ASCII letters, digits, and dashes, and a
+// non-empty value follows the separator.
+func isFooterLine(l string) bool {
+	if rest := strings.TrimPrefix(l, "BREAKING CHANGE:"); rest != l {
+		return strings.TrimSpace(rest) != ""
+	}
+	if i := strings.Index(l, ": "); i > 0 && isFooterToken(l[:i]) && strings.TrimSpace(l[i+2:]) != "" {
+		return true
+	}
+	if i := strings.Index(l, " #"); i > 0 && isFooterToken(l[:i]) && strings.TrimSpace(l[i+2:]) != "" {
+		return true
+	}
+	return false
+}
+
+// isFooterToken reports whether s is a valid footer token: a non-empty run of
+// ASCII letters, digits, and dashes.
+func isFooterToken(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		switch {
+		case r >= 'A' && r <= 'Z':
+		case r >= 'a' && r <= 'z':
+		case r >= '0' && r <= '9':
+		case r == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // wrapParagraph hard-wraps a single-line paragraph at width, breaking on word

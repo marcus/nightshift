@@ -106,16 +106,16 @@ selected provider, budget status, projects, and planned tasks. In interactive
 terminals you are prompted for confirmation; in non-TTY environments (cron,
 daemon, CI) confirmation is auto-skipped.
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--dry-run` | `false` | Show preflight summary and exit without executing |
-| `--project`, `-p` | _(all configured)_ | Target a single project directory |
-| `--task`, `-t` | _(auto-select)_ | Run a specific task by name |
-| `--max-projects` | `1` | Max projects to process (ignored when `--project` is set) |
-| `--max-tasks` | `1` | Max tasks per project (ignored when `--task` is set) |
-| `--random-task` | `false` | Pick a random task from eligible tasks instead of the highest-scored one |
-| `--ignore-budget` | `false` | Bypass budget checks (use with caution) |
-| `--yes`, `-y` | `false` | Skip the confirmation prompt |
+| Flag              | Default            | Description                                                              |
+| ----------------- | ------------------ | ------------------------------------------------------------------------ |
+| `--dry-run`       | `false`            | Show preflight summary and exit without executing                        |
+| `--project`, `-p` | _(all configured)_ | Target a single project directory                                        |
+| `--task`, `-t`    | _(auto-select)_    | Run a specific task by name                                              |
+| `--max-projects`  | `1`                | Max projects to process (ignored when `--project` is set)                |
+| `--max-tasks`     | `1`                | Max tasks per project (ignored when `--task` is set)                     |
+| `--random-task`   | `false`            | Pick a random task from eligible tasks instead of the highest-scored one |
+| `--ignore-budget` | `false`            | Bypass budget checks (use with caution)                                  |
+| `--yes`, `-y`     | `false`            | Skip the confirmation prompt                                             |
 
 ```bash
 # Interactive run with preflight summary + confirmation prompt
@@ -141,6 +141,7 @@ nightshift run -p ./my-project -t lint-fix
 ```
 
 Other useful flags:
+
 - `nightshift status --today` to see today's activity summary
 - `nightshift daemon start --foreground` for debug
 - `--category` — filter tasks by category (pr, analysis, options, safe, map, emergency)
@@ -153,8 +154,9 @@ Other useful flags:
 ## Authentication (Subscriptions)
 
 Nightshift supports three AI providers:
+
 - **Claude Code** - Anthropic's Claude via local CLI
-- **Codex** - OpenAI's GPT via local CLI  
+- **Codex** - OpenAI's GPT via local CLI
 - **GitHub Copilot** - GitHub's Copilot via GitHub CLI
 
 ### Claude Code
@@ -267,11 +269,54 @@ make install-hooks
 ```
 
 This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
+
 - **gofmt** — flags any staged `.go` files that need formatting
 - **go vet** — catches common correctness issues
 - **go build** — ensures the project compiles
 
 To bypass in a pinch: `git commit --no-verify`
+
+### Commit messages
+
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>)!: <subject>
+
+<body>
+
+<footer>
+```
+
+- **type** (required) — one of `feat`, `fix`, `docs`, `style`, `refactor`,
+  `test`, `chore`, `perf`, `build`, `ci`, `revert`.
+- **scope** (optional) — a lowercase noun in parentheses, e.g. `fix(api):`.
+- **`!`** (optional) — the breaking-change marker, placed after the type or
+  scope: `feat!:` or `feat(api)!:`. A `BREAKING CHANGE: <description>` footer
+  in the body documents the break.
+- **subject** (required) — a short, imperative, lowercase summary of at most
+  72 characters, with no trailing period.
+- **body** (optional) — wrapped at 72 columns; paragraphs are separated by a
+  blank line.
+- **footer** (optional) — git trailers such as `Fixes #123`,
+  `Reviewed-by: Alice`, or `Nightshift-Task: ...`. Footer blocks are preserved
+  verbatim (never reflowed) so structured metadata stays intact.
+
+The normalizer is available as a CLI command and is enforced by a `commit-msg`
+hook:
+
+```bash
+# Validate and rewrite a message into canonical form
+nightshift commit normalize "FEAT(api): rename endpoint"
+
+# Only validate (non-zero exit on violations)
+nightshift commit normalize --check --file .git/COMMIT_EDITMSG
+```
+
+`make install-hooks` also installs `scripts/commit-msg.sh`, which normalizes the
+message before the commit is created and rejects messages it cannot fix (missing
+or unknown type, capitalized or overlong subject). The same `--no-verify` bypass
+applies.
 
 ## Uninstalling
 
