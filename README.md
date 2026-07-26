@@ -56,6 +56,19 @@ Or kick off a run immediately:
 nightshift run
 ```
 
+For a non-interactive configuration bootstrap:
+
+```bash
+nightshift init --global              # ~/.config/nightshift/config.yaml
+nightshift init                       # ./nightshift.yaml
+nightshift config validate
+nightshift config get budget.max_percent
+nightshift config set budget.max_percent 60 --global
+```
+
+Configuration precedence is built-in defaults, global config, project `nightshift.yaml`,
+environment overrides, then command flags.
+
 ## Common CLI Usage
 
 Full reference: [CLI Reference docs](https://nightshift.haplab.com/docs/cli-reference)
@@ -71,6 +84,12 @@ nightshift preview --write ./nightshift-prompts
 
 # Guided global setup
 nightshift setup
+
+# Create and validate config
+nightshift init --global
+nightshift init
+nightshift config
+nightshift config validate
 
 # Check environment and config health
 nightshift doctor
@@ -93,8 +112,17 @@ nightshift task show lint-fix --prompt-only
 
 # Run a task immediately
 nightshift task run lint-fix --provider claude
-nightshift task run skill-groom --provider codex --dry-run
-nightshift task run lint-fix --provider codex --dry-run
+nightshift task run skill-groom --provider codex --dry-run --branch main
+nightshift task run docs-backfill --provider copilot --timeout 45m
+
+# Persistent scheduler lifecycle
+nightshift daemon start
+nightshift daemon status
+nightshift daemon stop
+
+# Or install an OS-managed scheduled run
+nightshift install
+nightshift uninstall
 ```
 
 If `gum` is available, preview output is shown through the gum pager. Use `--plain` to disable.
@@ -116,6 +144,9 @@ daemon, CI) confirmation is auto-skipped.
 | `--random-task` | `false` | Pick a random task from eligible tasks instead of the highest-scored one |
 | `--ignore-budget` | `false` | Bypass budget checks (use with caution) |
 | `--yes`, `-y` | `false` | Skip the confirmation prompt |
+| `--branch`, `-b` | _(current branch)_ | Base branch for new task branches |
+| `--timeout` | `30m` | Per-agent execution timeout |
+| `--no-color` | `false` | Disable colored output (`NO_COLOR` also works) |
 
 ```bash
 # Interactive run with preflight summary + confirmation prompt
@@ -138,6 +169,9 @@ nightshift run --ignore-budget
 
 # Target a specific project and task directly
 nightshift run -p ./my-project -t lint-fix
+
+# Select a base branch and timeout
+nightshift run --branch develop --timeout 45m
 ```
 
 Other useful flags:
@@ -146,7 +180,7 @@ Other useful flags:
 - `--category` — filter tasks by category (pr, analysis, options, safe, map, emergency)
 - `--cost` — filter by cost tier (low, medium, high, veryhigh)
 - `--prompt-only` — output just the raw prompt text for piping
-- `--provider` — required for `task run`, choose claude or codex
+- `--provider` — required for `task run`, choose claude, codex, or copilot
 - `--dry-run` — preview the prompt without executing
 - `--timeout` — execution timeout (default 30m)
 
@@ -177,13 +211,19 @@ Supports signing in with ChatGPT or an API key.
 ### GitHub Copilot
 
 ```bash
-# Install Copilot CLI
+# Preferred: standalone Copilot CLI
 npm install -g @github/copilot
-# or
-curl -fsSL https://gh.io/copilot-install | bash
+copilot login
+
+# Also supported: legacy gh copilot extension
+gh auth login --web
+gh extension install github/gh-copilot --force
 ```
 
-Requires GitHub Copilot subscription. See [docs/COPILOT_INTEGRATION.md](docs/COPILOT_INTEGRATION.md) for details.
+Nightshift prefers the standalone `copilot` executable, then falls back to `gh` when the
+`github/gh-copilot` extension appears in `gh extension list`. The upstream extension is
+deprecated, so prefer standalone Copilot for new installations. A Copilot plan and any required
+organization policy are prerequisites.
 
 If you prefer API-based usage, you can authenticate Claude and Codex CLIs with API keys instead.
 
@@ -198,9 +238,11 @@ Nightshift uses YAML config files to define:
 - Task priorities
 - Schedule preferences
 
-Run `nightshift setup` to create/update the global config at `~/.config/nightshift/config.yaml`.
+Run `nightshift setup` or `nightshift init --global` to create the global config at
+`~/.config/nightshift/config.yaml`. A project config is named exactly `nightshift.yaml`.
 
-See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) or [SPEC.md](docs/SPEC.md) for detailed options.
+See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) for detailed
+options.
 
 Minimal example:
 
@@ -220,14 +262,19 @@ providers:
   preference:
     - claude
     - codex
+    - copilot
   claude:
     enabled: true
     data_path: "~/.claude"
-    dangerously_skip_permissions: true
+    dangerously_skip_permissions: false
   codex:
     enabled: true
     data_path: "~/.codex"
-    dangerously_bypass_approvals_and_sandbox: true
+    dangerously_bypass_approvals_and_sandbox: false
+  copilot:
+    enabled: true
+    data_path: "~/.copilot"
+    dangerously_skip_permissions: false
 
 projects:
   - path: ~/code/sidecar
@@ -255,6 +302,10 @@ tasks:
 Each task has a default cooldown interval to prevent the same task from running too frequently on a project (e.g., 24h for lint-fix, 7d for docs-backfill). Override per-task with `tasks.intervals`.
 
 `skill-groom` is enabled by default. Add it to `tasks.disabled` if you want to opt out. It updates project-local skills under `.claude/skills` and `.codex/skills` using `README.md` as project context and starts Agent Skills docs lookup from `https://agentskills.io/llms.txt`.
+
+Provider executables are discovered through `PATH`; `providers.*.data_path` points to usage and
+session data, not to the executable. Automatic selection uses `providers.preference` and skips
+disabled, unavailable, or budget-exhausted providers.
 
 ## Development
 
