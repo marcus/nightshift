@@ -46,7 +46,19 @@ nightshift config validate
 
 `init` creates `nightshift.yaml` in the current directory. `init --global` creates
 `~/.config/nightshift/config.yaml`. Without `--global`, `config set` writes to the current
-project config when it exists and otherwise writes to the global config.
+project config when it exists and otherwise writes to the global config. `init --force` skips the
+overwrite prompt.
+
+The generated global file is an opinionated starter, not a dump of built-in defaults. In the
+current template it limits provider preference to Claude and Codex, enables their unattended
+permission-bypass options, and includes legacy task aliases. Review the file after creation and
+use `nightshift task list` for accepted task slugs.
+
+`config validate` validates each existing file and the merged configuration. It catches schema
+rules such as mutually exclusive `schedule.cron` and `schedule.interval`, budget ranges, provider
+preference names, task durations, and custom-task fields. It does not parse cron syntax,
+`schedule.interval`, or execution-window values. Use `nightshift doctor`, `nightshift preview`,
+or `nightshift daemon start --foreground` for scheduler parsing.
 
 ## `nightshift run`
 
@@ -57,9 +69,9 @@ cron and system services, skip the prompt automatically.
 | Flag | Default | Behavior |
 |------|---------|----------|
 | `--dry-run` | `false` | Show the preflight plan and exit without execution |
-| `--project`, `-p` | configured projects or current directory | Target one existing directory; ignores `--max-projects` |
-| `--task`, `-t` | automatic selection | Run one named task; ignores `--max-tasks` and bypasses the processed-today skip |
-| `--max-projects` | `1` | Maximum eligible projects; a positive `schedule.max_projects` supplies the default when the flag is omitted |
+| `--project`, `-p` | configured paths or current directory | Target one existing directory, load its `nightshift.yaml`, and ignore `--max-projects` |
+| `--task`, `-t` | automatic selection | Run one built-in task; ignores `--max-tasks`, task enablement, cooldown, estimated-cost filtering, and the processed-today skip |
+| `--max-projects` | `1` | Maximum eligible projects; a positive `schedule.max_projects` supplies the default when the flag is omitted; explicit `0` is unlimited |
 | `--max-tasks` | `1` | Maximum selected tasks per project; a positive `schedule.max_tasks` supplies the default when the flag is omitted |
 | `--random-task` | `false` | Pick exactly one random eligible task; cannot be combined with `--task` |
 | `--ignore-budget` | `false` | Permit selection even when a provider budget is exhausted |
@@ -78,7 +90,8 @@ nightshift run --branch develop --timeout 45m
 
 ## `nightshift preview`
 
-Preview never executes tasks or modifies run state.
+Preview requires a valid schedule. It never executes tasks or records project/task runs, although
+it opens the configured database and `--write` deliberately creates prompt files.
 
 | Flag | Default | Behavior |
 |------|---------|----------|
@@ -98,6 +111,10 @@ nightshift preview --json
 nightshift preview --write ./nightshift-prompts
 ```
 
+Preview chooses the first enabled provider in the fixed order Claude, Codex, Copilot. It does not
+use `providers.preference` or test the provider executable. Its task plan contains one task per
+project per previewed run.
+
 ## `nightshift task`
 
 ```bash
@@ -115,6 +132,12 @@ Its cost filter accepts `low`, `medium`, `high`, and `veryhigh`. `task run` requ
 `claude`, `codex`, or `copilot`; its default project is the current directory and its default
 timeout is `30m`.
 
+The `task` subcommands currently expose built-in tasks only; they do not register `tasks.custom`
+from configuration. `task run` is a direct execution path: it does not consult provider
+enablement, provider preference, budgets, task enablement, cooldowns, or run history. Even
+`--dry-run` checks that the requested provider executable is available (and, for the `gh`
+Copilot fallback, that the extension is listed).
+
 ## `nightshift budget`
 
 All budget commands accept `--provider`/`-p` with `claude`, `codex`, or `copilot`.
@@ -130,7 +153,7 @@ nightshift budget calibrate --provider copilot
 
 `budget history` defaults to 20 snapshots. `snapshot --local-only` records provider data without
 starting a tmux scraping session. `calibrate` reports inferred budget status; it does not consume
-an agent run.
+an agent run. Claude and Codex support tmux percentage scraping; Copilot snapshots are local-only.
 
 ## Daemon and installed services
 
@@ -142,6 +165,11 @@ nightshift daemon start --foreground --timeout 45m
 nightshift daemon status
 nightshift daemon stop
 ```
+
+It loads global plus current-directory configuration once at startup and does not reload changed
+files. At each scheduled time it walks every existing explicit `projects[].path`, skips projects
+already processed that day, and selects up to five tasks per project. The daemon does not use
+`schedule.max_projects` or `schedule.max_tasks`; those fields affect `nightshift run` only.
 
 An installed service is OS-managed and invokes `nightshift run` at scheduled times:
 
@@ -155,7 +183,15 @@ nightshift uninstall
 
 With no argument, `install` chooses launchd on macOS, systemd on Linux when `systemctl` is
 available, and cron otherwise. `uninstall` looks for and removes all three Nightshift service
-types. See [Scheduling](/docs/scheduling) for lifecycle details.
+types.
+
+For predictable installed-service timing, configure a simple five-field cron schedule before
+installation. Cron preserves that expression; launchd uses only its numeric minute and hour;
+systemd converts only its minute, hour, day-of-month, and month fields. Installed services ignore
+execution windows. Interval configuration is fully supported by `daemon start`, but the service
+generators do not translate it consistently: launchd and cron fall back to 02:00, while systemd
+performs only a simple minute-style conversion. See [Scheduling](/docs/scheduling) for lifecycle
+details.
 
 ## History, reports, logs, and diagnostics
 
@@ -185,6 +221,11 @@ local date/time, or RFC3339 timestamp.
 
 `logs --level` accepts `debug`, `info`, `warn`, or `error`. Statistics periods are `all`,
 `last-7d`, `last-30d`, and `last-night`.
+
+`doctor` parses the scheduler and checks enabled Claude/Codex executables, provider data paths,
+database state, budget readiness, snapshots, tmux, daemon state, and the detected service files.
+It does not test provider authentication, and it does not check whether a Copilot executable or
+the retired `gh copilot` extension is installed.
 
 ## Bus factor analysis
 

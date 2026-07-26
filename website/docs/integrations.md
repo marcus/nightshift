@@ -7,8 +7,7 @@ title: Integrations
 
 ## Execution providers
 
-Nightshift supports Claude Code, Codex, and GitHub Copilot. They are enabled by default and tried
-in configured preference order:
+Nightshift supports Claude Code, Codex, and GitHub Copilot. They are enabled by built-in defaults:
 
 ```yaml
 providers:
@@ -27,8 +26,14 @@ providers:
     dangerously_skip_permissions: false
 ```
 
-Nightshift skips a provider when it is disabled, its executable is unavailable, or its allowance
-is exhausted. `run --ignore-budget` changes only the exhausted-budget decision.
+Automatic `nightshift run` walks `providers.preference` and skips a provider when it is disabled,
+its executable is unavailable, or its calculated allowance is exhausted. It does not test
+authentication before selection. `run --ignore-budget` changes only the exhausted-budget
+decision.
+
+The generated `nightshift init --global` starter differs from these built-in defaults: it
+explicitly prefers Claude and Codex, omits Copilot from the preference list, and enables the
+Claude/Codex unattended permission-bypass settings.
 
 ### Claude Code
 
@@ -47,7 +52,7 @@ Nightshift invokes `claude --print`. When
 
 ```bash
 npm install -g @openai/codex
-codex --login
+codex
 ```
 
 Nightshift invokes `codex exec` for headless work. Codex may use ChatGPT sign-in or
@@ -77,7 +82,20 @@ gh extension install github/gh-copilot --force
 gh extension list
 ```
 
-The upstream extension is deprecated, so the standalone CLI is recommended.
+GitHub has retired the extension, so standalone Copilot is recommended. `task run` confirms that
+the extension is listed before using the fallback. Automatic `run` only checks for `gh` on
+`PATH`; if the extension is absent, it can select Copilot and then fail during execution.
+
+## Provider selection exceptions
+
+- `preview` ignores `providers.preference`, chooses the first enabled provider in fixed Claude,
+  Codex, Copilot order, and does not check executable availability.
+- `task run --provider NAME` uses the requested provider even when it is disabled in
+  configuration. It checks executable availability but bypasses budgets and automatic
+  eligibility.
+- Copilot usage is modeled as local premium-request counts under `providers.copilot.data_path`.
+  The current agent execution path does not increment that counter, so budget output cannot be
+  treated as authoritative Copilot account usage.
 
 ## Project instruction files
 
@@ -96,9 +114,11 @@ Nightshift looks in the project root, in order:
 | Claude context | `claude.md`, `CLAUDE.md`, `.claude.md` |
 | Agent instructions | `AGENTS.md`, `agents.md`, `.agents.md` |
 
-The full file becomes prompt context. Nightshift also extracts task suggestions, conventions,
-constraints, safety guidance, and action/tool restrictions as hints. Task types mentioned in
-these files receive a selection score bonus.
+The readers can return the full file as context and extract task suggestions, conventions,
+constraints, safety guidance, and action/tool restrictions as hints. However, the current CLI
+does not construct or call the integration manager, so these files do not currently change
+prompts or task selection through these configuration keys. Provider CLIs may still discover
+their own instruction files independently.
 
 ## td task source
 
@@ -110,9 +130,9 @@ integrations:
         teach_agent: true
 ```
 
-When `td` is on `PATH`, Nightshift runs `td list --format json` from each project. A missing or
-unconfigured td CLI is non-fatal. `teach_agent: true` adds the core assign, inspect, comment, and
-complete workflow to the agent context.
+The implemented reader runs `td list --format json` from each project and can add td usage
+context. A missing or unconfigured td CLI is non-fatal. The current Nightshift commands do not
+invoke this reader, so configuring it does not yet import td work.
 
 ## GitHub issue source
 
@@ -128,12 +148,18 @@ This reader requires:
 - A GitHub `origin` remote in the project.
 - Open issues labeled `nightshift`.
 
-Nightshift reads issue number, title, body, labels, and state with `gh issue list`. Priority labels
-such as `critical`, `high`, `medium`, `low`, or `p0` through `p3` affect the imported task
-priority. Authentication or repository failures are non-fatal and leave the source empty.
+The implemented reader uses `gh issue list` to read number, title, body, labels, and state.
+Priority labels such as `critical`, `high`, `medium`, `low`, or `p0` through `p3` affect the
+imported task priority. Authentication or repository failures are non-fatal. The current
+Nightshift commands do not invoke this reader, so configuring it does not yet add GitHub issues
+to task selection.
+
+`task_sources[].file` is accepted by the configuration schema, but there is no file-source reader
+in the current implementation.
 
 ## Generated reports
 
 `reporting.morning_summary` defaults to `true` and writes local summaries after runs. The
 `reporting.email` and `reporting.slack_webhook` keys are accepted by the configuration schema,
-but the current run implementation does not send those notifications.
+and notification helper implementations exist, but the current run finalizer does not call
+notification dispatch.

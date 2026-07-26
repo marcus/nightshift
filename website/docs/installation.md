@@ -56,17 +56,22 @@ and supported enterprise providers can authenticate the CLI. See
 ### Codex
 
 ```bash
+# macOS or Linux installer
+curl -fsSL https://chatgpt.com/codex/install.sh | sh
+
+# Alternatives
 npm install -g @openai/codex
-codex --login
+brew install --cask codex
+
+codex
 ```
 
-Choose ChatGPT sign-in, or supply `OPENAI_API_KEY` for API-billed use. See
-[OpenAI's Codex CLI setup](https://help.openai.com/en/articles/11381614-api-codex-cli-and-sign-in-with-chatgpt).
+Choose ChatGPT sign-in on first launch, or configure API-key authentication. See the
+[official Codex CLI README](https://github.com/openai/codex#readme).
 
 ### GitHub Copilot CLI
 
-The standalone `copilot` executable is Nightshift's preferred Copilot mode. The npm package
-requires Node.js 22 or later:
+The standalone `copilot` executable is Nightshift's preferred Copilot mode:
 
 ```bash
 npm install -g @github/copilot
@@ -93,15 +98,17 @@ gh extension install github/gh-copilot --force
 gh extension list
 ```
 
-GitHub has deprecated that extension in favor of the standalone CLI, so prefer `copilot` for new
-installations. The fallback remains documented because the current Nightshift implementation
-detects `github/gh-copilot` in `gh extension list`.
+GitHub has retired that extension in favor of the standalone CLI, so prefer `copilot` for new
+installations. The fallback remains documented only because Nightshift retains a compatibility
+execution path.
 
 ## Provider discovery
 
 Nightshift looks for `claude`, `codex`, and `copilot` on `PATH`. For Copilot it prefers
-standalone `copilot`, then falls back to `gh` plus the installed extension. Provider
-`data_path` settings point to usage data and do not override executable paths.
+standalone `copilot`, then falls back to `gh`. `task run` verifies the retired extension through
+`gh extension list`, but automatic `run` selection only verifies that `gh` exists; without the
+extension, execution fails later. Provider `data_path` settings point to usage data and do not
+override executable paths.
 
 When launched by a daemon or service, Nightshift also searches existing directories at:
 
@@ -123,4 +130,6 @@ nightshift preview --explain
 
 The wizard creates or updates the global config, checks provider availability, adds projects,
 configures budget and safety options, captures a snapshot, previews a run, and can install a
-scheduled service.
+scheduled service. Its environment screen treats any `gh` executable as Copilot availability and
+does not test authentication, so verify standalone `copilot` and its login directly before
+unattended use.
