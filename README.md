@@ -43,7 +43,8 @@ After installing, run the guided setup:
 nightshift setup
 ```
 
-This walks you through provider configuration, project selection, budget calibration, and daemon setup. Once complete you can preview what nightshift will do:
+This walks you through provider configuration, project selection, budget calibration, and
+scheduled-service setup. Once complete you can preview what nightshift will do:
 
 ```bash
 nightshift preview
@@ -66,8 +67,10 @@ nightshift config get budget.max_percent
 nightshift config set budget.max_percent 60 --global
 ```
 
-Configuration precedence is built-in defaults, global config, project `nightshift.yaml`,
-environment overrides, then command flags.
+Configuration precedence is built-in defaults, global config, one project `nightshift.yaml`,
+then supported environment overrides. `run --project`, `preview --project`, and
+`task run --project` load the project file from the selected directory; otherwise Nightshift uses the
+current directory. Command flags then override the behavior of that invocation.
 
 ## Common CLI Usage
 
@@ -137,7 +140,7 @@ daemon, CI) confirmation is auto-skipped.
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--dry-run` | `false` | Show preflight summary and exit without executing |
-| `--project`, `-p` | _(all configured)_ | Target a single project directory |
+| `--project`, `-p` | configured paths, or current directory | Target one project and load its `nightshift.yaml` |
 | `--task`, `-t` | _(auto-select)_ | Run a specific task by name |
 | `--max-projects` | `1` | Max projects to process (ignored when `--project` is set) |
 | `--max-tasks` | `1` | Max tasks per project (ignored when `--task` is set) |
@@ -175,6 +178,7 @@ nightshift run --branch develop --timeout 45m
 ```
 
 Other useful flags:
+
 - `nightshift status --today` to see today's activity summary
 - `nightshift daemon start --foreground` for debug
 - `--category` — filter tasks by category (pr, analysis, options, safe, map, emergency)
@@ -189,7 +193,7 @@ Other useful flags:
 Nightshift supports three AI providers:
 - **Claude Code** - Anthropic's Claude via local CLI
 - **Codex** - OpenAI's GPT via local CLI  
-- **GitHub Copilot** - GitHub's Copilot via GitHub CLI
+- **GitHub Copilot** - GitHub's standalone Copilot CLI, with a retired `gh` extension fallback
 
 ### Claude Code
 
@@ -203,10 +207,10 @@ Supports Claude.ai subscriptions or Anthropic Console credentials.
 ### Codex
 
 ```bash
-codex --login
+codex
 ```
 
-Supports signing in with ChatGPT or an API key.
+Choose ChatGPT sign-in, or configure API-key authentication.
 
 ### GitHub Copilot
 
@@ -215,14 +219,15 @@ Supports signing in with ChatGPT or an API key.
 npm install -g @github/copilot
 copilot login
 
-# Also supported: legacy gh copilot extension
+# Compatibility only: retired gh copilot extension
 gh auth login --web
 gh extension install github/gh-copilot --force
 ```
 
-Nightshift prefers the standalone `copilot` executable, then falls back to `gh` when the
-`github/gh-copilot` extension appears in `gh extension list`. The upstream extension is
-deprecated, so prefer standalone Copilot for new installations. A Copilot plan and any required
+Nightshift prefers the standalone `copilot` executable. It retains a `gh copilot` compatibility
+path, but GitHub has retired that extension. Automatic `nightshift run` checks only that `gh`
+exists before selecting this fallback; `nightshift task run` also checks the extension list.
+Install standalone Copilot for reliable unattended runs. A Copilot plan and any required
 organization policy are prerequisites.
 
 If you prefer API-based usage, you can authenticate Claude and Codex CLIs with API keys instead.
@@ -240,6 +245,10 @@ Nightshift uses YAML config files to define:
 
 Run `nightshift setup` or `nightshift init --global` to create the global config at
 `~/.config/nightshift/config.yaml`. A project config is named exactly `nightshift.yaml`.
+`init` writes an opinionated starter rather than the built-in defaults: the current global
+template prefers Claude and Codex and explicitly enables their unattended permission-bypass
+flags. Review those values and replace the template's task names with slugs reported by
+`nightshift task list`.
 
 See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) for detailed
 options.
@@ -304,8 +313,10 @@ Each task has a default cooldown interval to prevent the same task from running 
 `skill-groom` is enabled by default. Add it to `tasks.disabled` if you want to opt out. It updates project-local skills under `.claude/skills` and `.codex/skills` using `README.md` as project context and starts Agent Skills docs lookup from `https://agentskills.io/llms.txt`.
 
 Provider executables are discovered through `PATH`; `providers.*.data_path` points to usage and
-session data, not to the executable. Automatic selection uses `providers.preference` and skips
-disabled, unavailable, or budget-exhausted providers.
+session data, not to the executable. Automatic `run` selection uses `providers.preference` and
+skips disabled, missing, or budget-exhausted providers. It does not verify authentication before
+execution. `preview` uses the first enabled provider in the fixed Claude, Codex, Copilot order
+and does not check executable availability.
 
 ## Development
 

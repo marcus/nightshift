@@ -37,16 +37,21 @@ nightshift config set logging.level debug --global
 otherwise it writes to the global file. It parses `true`/`false`, integers, and decimal numbers,
 and treats other values as strings.
 
+The `init` templates are opinionated examples rather than serialized built-in defaults. In
+particular, the current global template prefers only Claude and Codex, explicitly enables their
+unattended permission-bypass flags, and contains legacy task aliases such as `lint` and `docs`.
+Review the generated file and use `nightshift task list` for current task slugs.
+
 ## Source precedence
 
 From lowest to highest precedence:
 
 1. Built-in defaults.
 2. `~/.config/nightshift/config.yaml`.
-3. `nightshift.yaml` in the current directory, or in the directory supplied by
-   `run --project`.
+3. One project `nightshift.yaml`: normally from the current directory, or from the directory
+   supplied to `run --project`, `preview --project`, or `task run --project`.
 4. `NIGHTSHIFT_` environment overrides.
-5. Command-line flags for the command being run.
+5. Command-line flags that override behavior for the command being run.
 
 The project filename is exactly `nightshift.yaml`; `.nightshift.yaml` is not loaded automatically.
 The explicitly bound environment variables are:
@@ -151,7 +156,12 @@ Choose exactly one scheduler:
 | `schedule.max_tasks` | `0` | Positive value supplies the default for `run --max-tasks`; otherwise the CLI default is 1 |
 
 `cron` and `interval` are mutually exclusive. A missing schedule is valid for manual commands,
-but `daemon start` requires one. Windows may stay within one day or cross midnight.
+but `preview` and `daemon start` require one. Windows may stay within one day or cross midnight.
+
+`config validate` checks mutual exclusion, but it does not parse the cron expression, interval,
+window times, or timezone. Scheduler construction in `doctor`, `preview`, and `daemon start`
+performs those checks. A five-field cron expression and a positive Go duration are required at
+that point.
 
 ## Budget
 
@@ -183,8 +193,9 @@ providers:
 ```
 
 At run time, Nightshift walks that order and chooses the first enabled provider whose executable
-is available and whose calculated allowance is positive. Preference names are case-insensitive
-when used and must be unique values from `claude`, `codex`, and `copilot` during validation.
+is available and whose calculated allowance is positive. This selection checks executable
+presence, not authentication. Preference names are case-insensitive when used and must be unique
+values from `claude`, `codex`, and `copilot` during validation.
 
 `data_path` points to a provider's local usage/session data. It does not select an executable;
 executables must be discoverable through `PATH`. The effective data-path defaults are
@@ -195,9 +206,13 @@ configuration defaults are `false`. Codex execution itself preserves its headles
 when the setting is not enabled, so disable the Codex provider if you do not want it selected for
 autonomous execution.
 
+`preview` is an exception to provider preference: it uses the first enabled provider in the fixed
+Claude, Codex, Copilot order and does not check executable availability. `task run` is another
+exception: its required `--provider` is used even when that provider is disabled in configuration.
+
 ## Projects
 
-Explicit paths are the reliable execution configuration:
+Top-level commands currently resolve explicit `path` entries:
 
 ```yaml
 projects:
@@ -207,7 +222,7 @@ projects:
     priority: 1
 ```
 
-The configuration schema also accepts discovery patterns:
+The schema also accepts `priority`, `tasks`, `config`, `pattern`, and `exclude` fields:
 
 ```yaml
 projects:
@@ -217,13 +232,15 @@ projects:
       - ~/code/open-source/archived
 ```
 
-Patterns expand `~`, match directories with filepath glob syntax, and exclude exact paths and
-their descendants. The current top-level `run` path enumeration uses explicit `path` entries,
-so list concrete paths for unattended execution.
+The project resolver package implements pattern expansion, exclusions, priority ordering, and a
+limited per-project merge, but `run`, `preview`, and the daemon do not call that resolver. Their
+current path enumeration uses only existing `projects[].path` values and preserves configuration
+order. List concrete paths for unattended execution; the other project fields are accepted by
+the schema but do not affect those commands.
 
-When a configured project contains `nightshift.yaml`, project resolution can override
-`schedule.cron`, `schedule.interval`, budget max/reserve percentages, task enabled/disabled/
-priorities, Claude/Codex enabled state, and log level.
+Nightshift also does not automatically merge a `nightshift.yaml` found inside each configured
+project. To use a project's file, invoke `run --project PATH`, `preview --project PATH`, or
+`task run --project PATH`, or start Nightshift with that project as the current directory.
 
 ## Task customization
 
@@ -249,14 +266,19 @@ Custom `type` values use lowercase letters, numbers, and hyphens. `type`, `name`
 `emergency`; cost tiers are `low`, `medium`, `high`, or `very-high`; risk levels are `low`,
 `medium`, or `high`.
 
+`run` and `preview` register configured custom tasks. The `task list`, `task show`, and `task run`
+commands currently expose only built-in task definitions.
+
 ## Integrations, logging, and reporting
 
-`integrations.claude_md` and `integrations.agents_md` default to `true`. They read supported
-case variants of `CLAUDE.md` and `AGENTS.md` from each project. `task_sources` can enable td and
-open GitHub issues carrying the `nightshift` label. See [Integrations](/docs/integrations).
+`integrations.claude_md` and `integrations.agents_md` default to `true`. The schema also accepts
+td, GitHub issue, and file task-source entries. Reader implementations exist for Claude/agent
+instruction files, td, and GitHub issues, but no current CLI command invokes the integration
+manager, so these settings do not yet add prompt context or tasks. See
+[Integrations](/docs/integrations).
 
 Logging defaults to level `info`, JSON format, and
 `~/.local/share/nightshift/logs`. Valid levels are `debug`, `info`, `warn`, and `error`; valid
 formats are `json` and `text`. `reporting.morning_summary` defaults to `true`. Email and Slack
-webhook fields exist in the configuration schema but are not currently dispatched by the run
-implementation.
+webhook fields exist in the configuration schema. Notification implementations also exist, but
+the run finalizer currently saves the local summary without calling notification dispatch.
