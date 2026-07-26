@@ -33,14 +33,16 @@ nightshift config set budget.max_percent 60
 nightshift config set logging.level debug --global
 ```
 
-`config set` writes to `nightshift.yaml` when that file exists in the current directory;
-otherwise it writes to the global file. It parses `true`/`false`, integers, and decimal numbers,
-and treats other values as strings.
+`config` prints the effective configuration after built-in defaults are applied. `config get`
+reads a key from the merged files and environment layer, but does not inject built-in defaults
+for keys absent from both files. `config set` writes to `nightshift.yaml` when that file exists
+in the current directory; otherwise it writes to the global file. It parses `true`/`false`,
+integers, and decimal numbers, and treats other values as strings.
 
-The `init` templates are opinionated examples rather than serialized built-in defaults. In
-particular, the current global template prefers only Claude and Codex, explicitly enables their
-unattended permission-bypass flags, and contains legacy task aliases such as `lint` and `docs`.
-Review the generated file and use `nightshift task list` for current task slugs.
+The `init` templates are opinionated examples rather than serialized built-in defaults. Both
+templates contain legacy task aliases such as `lint` and `docs`. The global template also
+prefers only Claude and Codex and explicitly enables their unattended permission-bypass flags.
+Review either generated file and use `nightshift task list` for current task slugs.
 
 ## Source precedence
 
@@ -53,6 +55,10 @@ From lowest to highest precedence:
 4. `NIGHTSHIFT_` environment overrides.
 5. Command-line flags that override behavior for the command being run.
 
+Nested maps from global and project files are merged. Project scalars and lists replace their
+global counterparts; for example, a project `tasks.enabled` list replaces the global list while
+entries in `tasks.priorities` are merged by key.
+
 The project filename is exactly `nightshift.yaml`; `.nightshift.yaml` is not loaded automatically.
 The explicitly bound environment variables are:
 
@@ -62,6 +68,10 @@ The explicitly bound environment variables are:
 | `NIGHTSHIFT_BUDGET_MODE` | `budget.mode` |
 | `NIGHTSHIFT_LOG_LEVEL` | `logging.level` |
 | `NIGHTSHIFT_LOG_PATH` | `logging.path` |
+
+Viper also checks `NIGHTSHIFT_` names for keys already present through a built-in default or a
+loaded file. The four bindings above are the stable overrides that do not depend on a key first
+appearing in a file; use YAML for schedules, lists, and maps.
 
 ## Complete example
 
@@ -244,8 +254,10 @@ project. To use a project's file, invoke `run --project PATH`, `preview --projec
 
 ## Task customization
 
-An empty `tasks.enabled` list means all built-in tasks are eligible. `tasks.disabled` always wins.
-Higher priority numbers increase selection score. Interval values must be valid Go durations.
+For automatic selection, an empty `tasks.enabled` list makes every registered task eligible
+except a built-in marked disabled by default (`td-review`). A non-empty list acts as an
+allowlist, and `tasks.disabled` wins over that list. Higher priority numbers increase selection
+score. Interval values must be valid Go durations.
 
 ```yaml
 tasks:
@@ -266,8 +278,9 @@ Custom `type` values use lowercase letters, numbers, and hyphens. `type`, `name`
 `emergency`; cost tiers are `low`, `medium`, `high`, or `very-high`; risk levels are `low`,
 `medium`, or `high`.
 
-`run` and `preview` register configured custom tasks. The `task list`, `task show`, and `task run`
-commands currently expose only built-in task definitions.
+`run` and `preview` register configured custom tasks, so automatic selection and
+`run --task dependency-review` can use them. The persistent daemon and the `task list`,
+`task show`, and `task run` commands currently expose only built-in task definitions.
 
 ## Integrations, logging, and reporting
 

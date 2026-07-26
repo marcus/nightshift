@@ -48,7 +48,8 @@ schedule:
 
 Times use `HH:MM`. The start is inclusive and the end is exclusive. When start is later than end,
 the window crosses midnight. If `timezone` is omitted, Nightshift uses the machine's local
-timezone. Invalid times and unknown IANA timezone names prevent scheduler creation.
+timezone. Invalid times and unknown IANA timezone names prevent scheduler creation. Equal start
+and end values pass parsing but create an empty window, so use different values.
 
 The scheduler moves an out-of-window next-run preview to the next window start. For an interval
 daemon that becomes the next timer firing. Cron jobs are different: the cron engine still fires
@@ -70,7 +71,8 @@ project and one task per project. `--project` ignores the project limit; `--task
 task limit. `--random-task` always selects exactly one task.
 
 The persistent daemon does not use these two fields. It visits every existing explicit
-`projects[].path` in configuration order and selects up to five tasks per project.
+`projects[].path` in configuration order and selects up to five built-in tasks per project.
+It does not register configured custom tasks.
 
 Task cooldowns and budget filters can reduce the actual count. Projects already processed today
 are skipped during automatic selection; specifying `--task` bypasses that processed-today skip.
@@ -101,8 +103,10 @@ Use foreground mode to see failures directly:
 nightshift daemon start --foreground --timeout 45m
 ```
 
-`daemon status` reports the PID, schedule, window, and PID-file path. `daemon stop` sends SIGTERM,
-waits up to ten seconds, and sends SIGKILL if the process does not exit.
+`daemon status` reports the PID and PID-file path. It also displays the schedule and window from
+the configuration visible to the status command, which can differ from the configuration cached
+by an already-running daemon. `daemon stop` sends SIGTERM, waits up to ten seconds, and sends
+SIGKILL if the process does not exit.
 
 ## OS-managed service
 
@@ -127,9 +131,9 @@ nightshift install cron
 With no type, macOS selects launchd. Linux selects systemd when `systemctl` exists and cron
 otherwise; other systems select cron.
 
-The service captures the resolved path of the Nightshift executable. Reinstall after moving or
-upgrading a manually placed binary. It also runs non-interactively, so `run` confirmation is
-automatically skipped.
+The service captures the resolved path of the Nightshift executable. Reinstall after moving the
+binary or when an upgrade changes that resolved path. It also runs non-interactively, so `run`
+confirmation is automatically skipped.
 
 The three generators do not implement identical schedule semantics:
 

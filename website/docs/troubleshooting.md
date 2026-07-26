@@ -91,6 +91,7 @@ Common skip reasons include:
 - No task fits the remaining token allowance.
 - All preferred providers are disabled, unavailable, or out of budget.
 - A configured project path does not exist.
+- Window start and end are equal, so the scheduler's execution window is empty.
 
 If configuration contains only project patterns, add explicit `path` entries; current execution
 commands do not invoke pattern discovery.
@@ -167,14 +168,17 @@ Then authenticate the provider directly:
 claude                 # Complete Claude Code login
 codex                  # Choose ChatGPT sign-in or API-key setup
 copilot login
-gh auth status         # Legacy gh copilot fallback
-gh extension list
+gh auth status
+gh copilot             # Current GitHub CLI fallback
 ```
 
-Nightshift prefers standalone `copilot`. The direct `task run` path checks `gh extension list`
-before using the retired fallback, but automatic `run` selection checks only whether `gh` exists
-and can fail later when the extension is missing. Install standalone Copilot for unattended use.
-A provider `data_path` is not an executable path; changing it will not fix a missing CLI.
+Nightshift prefers standalone `copilot`. Recent GitHub CLI releases include `gh copilot`, which
+downloads and runs the current Copilot CLI; the older `github/gh-copilot` extension is retired
+and should not be installed. The direct `task run` path still applies a stale extension-list
+check when standalone Copilot is absent, so use standalone `copilot` for that command. Automatic
+`run` checks only whether `gh` exists and can fail later when GitHub CLI is too old to provide
+the built-in command. A provider `data_path` is not an executable path; changing it will not fix
+a missing CLI.
 
 For a service-only PATH problem, compare the interactive executable path with the PATH captured
 by launchd, systemd, or cron. Nightshift supplements service PATH with common local bin

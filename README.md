@@ -193,7 +193,7 @@ Other useful flags:
 Nightshift supports three AI providers:
 - **Claude Code** - Anthropic's Claude via local CLI
 - **Codex** - OpenAI's GPT via local CLI  
-- **GitHub Copilot** - GitHub's standalone Copilot CLI, with a retired `gh` extension fallback
+- **GitHub Copilot** - GitHub's standalone Copilot CLI, directly or through current `gh copilot`
 
 ### Claude Code
 
@@ -219,16 +219,18 @@ Choose ChatGPT sign-in, or configure API-key authentication.
 npm install -g @github/copilot
 copilot login
 
-# Compatibility only: retired gh copilot extension
+# Alternative: current GitHub CLI downloads/runs Copilot CLI
 gh auth login --web
-gh extension install github/gh-copilot --force
+gh copilot
 ```
 
-Nightshift prefers the standalone `copilot` executable. It retains a `gh copilot` compatibility
-path, but GitHub has retired that extension. Automatic `nightshift run` checks only that `gh`
-exists before selecting this fallback; `nightshift task run` also checks the extension list.
-Install standalone Copilot for reliable unattended runs. A Copilot plan and any required
-organization policy are prerequisites.
+Nightshift prefers the standalone `copilot` executable. Recent GitHub CLI releases also expose a
+built-in `gh copilot` command; the older `github/gh-copilot` extension is retired and should not
+be installed. Automatic `nightshift run` can use the built-in command, but
+`nightshift task run --provider copilot` still applies a stale extension-list check when
+standalone Copilot is absent. Install standalone Copilot for direct task execution. The npm
+package requires Node.js 22 or later, and a Copilot plan plus any required organization policy
+are prerequisites.
 
 If you prefer API-based usage, you can authenticate Claude and Codex CLIs with API keys instead.
 
@@ -245,10 +247,10 @@ Nightshift uses YAML config files to define:
 
 Run `nightshift setup` or `nightshift init --global` to create the global config at
 `~/.config/nightshift/config.yaml`. A project config is named exactly `nightshift.yaml`.
-`init` writes an opinionated starter rather than the built-in defaults: the current global
-template prefers Claude and Codex and explicitly enables their unattended permission-bypass
-flags. Review those values and replace the template's task names with slugs reported by
-`nightshift task list`.
+`init` writes opinionated starters rather than the built-in defaults: both templates contain
+legacy task aliases, and the current global template prefers Claude and Codex and explicitly
+enables their unattended permission-bypass flags. Review those values and replace the template's
+task names with slugs reported by `nightshift task list`.
 
 See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) for detailed
 options.

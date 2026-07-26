@@ -69,22 +69,24 @@ npm install -g @github/copilot
 copilot login
 ```
 
-Copilot can also authenticate with `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN`, or reuse
-an authenticated `gh` session. Nightshift invokes non-interactive prompt mode and, when
+The npm install requires Node.js 22 or later. Copilot can also authenticate with
+`COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN`, or reuse an authenticated `gh` session.
+Nightshift invokes non-interactive prompt mode and, when
 `providers.copilot.dangerously_skip_permissions` is true, allows all tools and URLs.
 
-If `copilot` is absent, Nightshift falls back to `gh` and requires the legacy Copilot extension
-to appear in `gh extension list`:
+If `copilot` is absent, automatic Nightshift runs fall back to `gh copilot`. Recent GitHub CLI
+releases provide that command directly and download the current Copilot CLI when needed:
 
 ```bash
 gh auth login --web
-gh extension install github/gh-copilot --force
-gh extension list
+gh copilot
 ```
 
-GitHub has retired the extension, so standalone Copilot is recommended. `task run` confirms that
-the extension is listed before using the fallback. Automatic `run` only checks for `gh` on
-`PATH`; if the extension is absent, it can select Copilot and then fail during execution.
+The old `github/gh-copilot` extension is retired and should not be installed. A Nightshift
+compatibility bug remains in `task run --provider copilot`: when standalone `copilot` is absent,
+that command still checks `gh extension list` and can reject the new built-in `gh copilot`.
+Install standalone Copilot for direct task execution. Automatic `run` only checks for `gh` on
+`PATH`, so it requires a recent GitHub CLI with the built-in command.
 
 ## Provider selection exceptions
 

@@ -78,7 +78,8 @@ npm install -g @github/copilot
 copilot login
 ```
 
-Homebrew and GitHub's install script are also supported:
+The npm package requires Node.js 22 or later. Homebrew and GitHub's install script are also
+supported:
 
 ```bash
 brew install copilot-cli
@@ -89,26 +90,26 @@ An eligible Copilot plan and any required organization policy are prerequisites.
 reuse an authenticated GitHub CLI token. See
 [GitHub's Copilot CLI installation guide](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli).
 
-Nightshift also recognizes the legacy `gh copilot` extension when standalone `copilot` is not
-installed:
+Recent GitHub CLI releases also provide a built-in `gh copilot` command that downloads and runs
+the current standalone Copilot CLI when needed:
 
 ```bash
 gh auth login --web
-gh extension install github/gh-copilot --force
-gh extension list
+gh copilot
 ```
 
-GitHub has retired that extension in favor of the standalone CLI, so prefer `copilot` for new
-installations. The fallback remains documented only because Nightshift retains a compatibility
-execution path.
+Do not install the retired `github/gh-copilot` extension; it stopped working in October 2025.
+Nightshift's automatic `run` path can invoke the new built-in `gh copilot` command. The direct
+`task run --provider copilot` availability check still looks for the retired extension when no
+standalone `copilot` executable exists, so install standalone Copilot for that command.
 
 ## Provider discovery
 
 Nightshift looks for `claude`, `codex`, and `copilot` on `PATH`. For Copilot it prefers
-standalone `copilot`, then falls back to `gh`. `task run` verifies the retired extension through
-`gh extension list`, but automatic `run` selection only verifies that `gh` exists; without the
-extension, execution fails later. Provider `data_path` settings point to usage data and do not
-override executable paths.
+standalone `copilot`, then falls back to `gh`. Automatic `run` verifies only that `gh` exists
+before invoking `gh copilot`, so an old GitHub CLI without the built-in command fails at
+execution. `task run` additionally applies the stale extension-list check described above.
+Provider `data_path` settings point to usage data and do not override executable paths.
 
 When launched by a daemon or service, Nightshift also searches existing directories at:
 

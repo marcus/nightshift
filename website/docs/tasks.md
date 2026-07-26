@@ -98,7 +98,11 @@ tasks:
       interval: "72h"
 ```
 
-Custom tasks use the same scoring, cooldowns, and budget controls as built-in tasks. The `description` field becomes the agent prompt. Only `type`, `name`, and `description` are required — other fields have sensible defaults.
+When registered by `run` or `preview`, custom tasks use the same scoring, cooldowns, and budget
+controls as built-in tasks. The `description` field becomes the agent prompt. Only `type`, `name`,
+and `description` are required; other fields have defaults. The persistent daemon and the
+`task list`, `task show`, and `task run` subcommands do not currently register custom tasks.
+Execute one directly with `nightshift run --task CUSTOM_TYPE --project PATH`.
 
 ## Task Cooldowns
 
@@ -136,4 +140,6 @@ tasks:
     - td-review
 ```
 
-Requires the td integration to be enabled (see [Integrations](/docs/integrations)).
+The task prompt expects the `td` executable and a td-enabled project. The
+`integrations.task_sources` settings are not required for this built-in task and are not wired
+into current command execution.

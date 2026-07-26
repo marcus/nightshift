@@ -49,10 +49,15 @@ nightshift config validate
 project config when it exists and otherwise writes to the global config. `init --force` skips the
 overwrite prompt.
 
-The generated global file is an opinionated starter, not a dump of built-in defaults. In the
-current template it limits provider preference to Claude and Codex, enables their unattended
-permission-bypass options, and includes legacy task aliases. Review the file after creation and
-use `nightshift task list` for accepted task slugs.
+`config` displays the effective configuration with built-in defaults. `config get` reads the
+merged file/environment value for a key but returns `key not found` for a value supplied only by
+a built-in default. `config set` accepts scalar values only and saves the change before printing
+a validation warning, so run `config validate` after edits.
+
+The generated files are opinionated starters, not dumps of built-in defaults. Both templates
+include legacy task aliases. The global template also limits provider preference to Claude and
+Codex and enables their unattended permission-bypass options. Review either file after creation
+and use `nightshift task list` for accepted task slugs.
 
 `config validate` validates each existing file and the merged configuration. It catches schema
 rules such as mutually exclusive `schedule.cron` and `schedule.interval`, budget ranges, provider
@@ -70,7 +75,7 @@ cron and system services, skip the prompt automatically.
 |------|---------|----------|
 | `--dry-run` | `false` | Show the preflight plan and exit without execution |
 | `--project`, `-p` | configured paths or current directory | Target one existing directory, load its `nightshift.yaml`, and ignore `--max-projects` |
-| `--task`, `-t` | automatic selection | Run one built-in task; ignores `--max-tasks`, task enablement, cooldown, estimated-cost filtering, and the processed-today skip |
+| `--task`, `-t` | automatic selection | Run one built-in or configured custom task; ignores `--max-tasks`, task enablement, cooldown, estimated-cost filtering, and the processed-today skip |
 | `--max-projects` | `1` | Maximum eligible projects; a positive `schedule.max_projects` supplies the default when the flag is omitted; explicit `0` is unlimited |
 | `--max-tasks` | `1` | Maximum selected tasks per project; a positive `schedule.max_tasks` supplies the default when the flag is omitted |
 | `--random-task` | `false` | Pick exactly one random eligible task; cannot be combined with `--task` |
@@ -133,10 +138,12 @@ Its cost filter accepts `low`, `medium`, `high`, and `veryhigh`. `task run` requ
 timeout is `30m`.
 
 The `task` subcommands currently expose built-in tasks only; they do not register `tasks.custom`
-from configuration. `task run` is a direct execution path: it does not consult provider
+from configuration. Use `nightshift run --task CUSTOM_TYPE --project PATH` for a configured
+custom task. `task run` is a direct execution path: it does not consult provider
 enablement, provider preference, budgets, task enablement, cooldowns, or run history. Even
-`--dry-run` checks that the requested provider executable is available (and, for the `gh`
-Copilot fallback, that the extension is listed).
+`--dry-run` checks that the requested provider executable is available. When standalone
+`copilot` is absent, this direct path still uses a legacy `gh extension list` gate and can reject
+the current built-in `gh copilot` command; install standalone Copilot for `task run`.
 
 ## `nightshift budget`
 
@@ -168,8 +175,9 @@ nightshift daemon stop
 
 It loads global plus current-directory configuration once at startup and does not reload changed
 files. At each scheduled time it walks every existing explicit `projects[].path`, skips projects
-already processed that day, and selects up to five tasks per project. The daemon does not use
-`schedule.max_projects` or `schedule.max_tasks`; those fields affect `nightshift run` only.
+already processed that day, and selects up to five built-in tasks per project. The daemon does
+not register `tasks.custom` and does not use `schedule.max_projects` or `schedule.max_tasks`;
+those fields affect `nightshift run` only.
 
 An installed service is OS-managed and invokes `nightshift run` at scheduled times:
 
@@ -214,6 +222,33 @@ nightshift stats --json
 nightshift doctor
 ```
 
+### `status`, `report`, `logs`, and `stats` flags
+
+| Command | Flag | Default | Behavior |
+|---------|------|---------|----------|
+| `status` | `--last`, `-n` | `5` | Show the last N database run records |
+| `status` | `--today` | `false` | Show today's activity summary instead |
+| `report` | `--report`, `-r` | `overview` | Select `overview`, `tasks`, `projects`, `budget`, or `raw` |
+| `report` | `--period`, `-p` | `last-night` | Select `last-night`, `last-run`, `last-24h`, `last-7d`, `today`, `yesterday`, or `all` |
+| `report` | `--runs`, `-n` | `3` | Limit included runs; `0` means all matching runs |
+| `report` | `--since`, `--until` | unset | Use explicit date, local date/time, or RFC3339 boundaries instead of `--period` |
+| `report` | `--format` | `fancy` | Select `fancy`, `plain`, `markdown`, or `json` |
+| `report` | `--no-color` | `false` | Disable ANSI color |
+| `report` | `--paths` | `false` | Include report and log paths |
+| `report` | `--max-items` | `5` | Limit highlights shown per run |
+| `logs` | `--tail`, `-n` | `50` | Limit output to the last N matching lines; non-positive means unlimited |
+| `logs` | `--follow`, `-f` | `false` | Stream appended entries; incompatible with `--summary` and `--until` |
+| `logs` | `--export`, `-e` | unset | Write matching logs to a file |
+| `logs` | `--since`, `--until` | unset | Apply date, local date/time, or RFC3339 boundaries |
+| `logs` | `--level` | unset | Minimum `debug`, `info`, `warn`, or `error` level |
+| `logs` | `--component`, `--match` | unset | Filter component or message by substring |
+| `logs` | `--summary` | `false` | Show counts and range without entries |
+| `logs` | `--raw` | `false` | Print raw stored log lines |
+| `logs` | `--no-color` | `false` | Disable ANSI color |
+| `logs` | `--path` | configured log path | Read a different log directory |
+| `stats` | `--period`, `-p` | `all` | Select `all`, `last-7d`, `last-30d`, or `last-night` |
+| `stats` | `--json` | `false` | Emit machine-readable JSON |
+
 Report types are `overview`, `tasks`, `projects`, `budget`, and `raw`. Report formats are
 `fancy`, `plain`, `markdown`, and `json`. `--period` accepts `last-night`, `last-run`,
 `last-24h`, `last-7d`, `today`, `yesterday`, or `all`; `--since` and `--until` accept a date,
@@ -224,8 +259,8 @@ local date/time, or RFC3339 timestamp.
 
 `doctor` parses the scheduler and checks enabled Claude/Codex executables, provider data paths,
 database state, budget readiness, snapshots, tmux, daemon state, and the detected service files.
-It does not test provider authentication, and it does not check whether a Copilot executable or
-the retired `gh copilot` extension is installed.
+It does not test provider authentication or check whether standalone `copilot` or the current
+built-in `gh copilot` command is available.
 
 ## Bus factor analysis
 
@@ -236,8 +271,21 @@ nightshift busfactor . --file "internal/*.go" --save
 nightshift busfactor . --db ~/.local/share/nightshift/nightshift.db
 ```
 
-The optional positional path and `--path`/`-p` select the repository. Date boundaries accept
-`YYYY-MM-DD` or RFC3339.
+The optional positional path and `--path`/`-p` select the repository; the current directory is
+the default. `--since` and `--until` accept `YYYY-MM-DD` or RFC3339 boundaries. `--file`/`-f`
+limits analysis to a file or pattern, `--json` changes the output, `--save` stores the result,
+and `--db` overrides the configured database path used by `--save`.
+
+## Shell completion
+
+Generate a completion script using Cobra's built-in subcommands:
+
+```bash
+nightshift completion bash
+nightshift completion zsh
+nightshift completion fish
+nightshift completion powershell
+```
 
 ## Global flags
 
