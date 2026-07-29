@@ -21,7 +21,6 @@ title: CLI Reference
 | `nightshift logs` | Stream or export logs |
 | `nightshift stats` | Token usage statistics |
 | `nightshift report` | Read run reports |
-| `nightshift snapshot` | Capture usage snapshots |
 | `nightshift busfactor` | Analyze ownership concentration |
 | `nightshift daemon` | Manage the background daemon lifecycle |
 | `nightshift install` | Install a launchd/systemd/cron service |
@@ -180,17 +179,171 @@ nightshift task run lint-fix --provider claude -p ~/code/myapp --branch develop
 
 `nightshift task run` requires `--provider`. It accepts `--project`, `--dry-run`, `--timeout` (default 30m), and `--branch` for new feature branches.
 
-## Reports and Diagnostics
+## Observability and Diagnostics
+
+### Run Status
+
+`nightshift status` reads run history from the Nightshift database. It shows the
+five most recent runs by default, or an aggregate for the current day.
 
 ```bash
+nightshift status
+nightshift status --last 10
 nightshift status --today
-nightshift logs --follow
-nightshift stats
-nightshift report --period last-night
-nightshift snapshot --provider claude
-nightshift busfactor .
-nightshift doctor
 ```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--last`, `-n` | `5` | Show the last N runs |
+| `--today` | `false` | Show today's activity summary instead of individual runs |
+
+If both flags are present, `--today` takes precedence.
+
+### Logs
+
+`nightshift logs` reads structured log files from the configured log directory.
+It can filter, summarize, follow, or export matching entries.
+
+```bash
+nightshift logs
+nightshift logs --tail 100 --level warn
+nightshift logs --since today --component scheduler
+nightshift logs --since "2025-02-10 22:00" --until "2025-02-11 06:00"
+nightshift logs --summary --match timeout
+nightshift logs --follow --raw
+nightshift logs --export ./nightshift-logs.txt
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--tail`, `-n` | `50` | Limit output to the last N matching log lines |
+| `--follow`, `-f` | `false` | Continue streaming new log entries |
+| `--export`, `-e` | _(unset)_ | Export matching logs to a file |
+| `--since` | _(unset)_ | Include entries at or after this time |
+| `--until` | _(unset)_ | Include entries at or before this time |
+| `--level` | _(unset)_ | Minimum level: `debug`, `info`, `warn`, or `error` |
+| `--component` | _(unset)_ | Filter by a case-insensitive component substring |
+| `--match` | _(unset)_ | Filter by a case-insensitive message substring |
+| `--summary` | `false` | Show the matched-log summary without individual entries |
+| `--raw` | `false` | Print original log lines without formatting |
+| `--no-color` | `false` | Disable ANSI colors |
+| `--path` | configured log path | Override the log directory; the fallback is `~/.local/share/nightshift/logs` |
+
+`--since` and `--until` accept `now`, `today`, `yesterday`, `tomorrow`,
+`YYYY-MM-DD`, `YYYY-MM-DD HH:MM`, `YYYY-MM-DD HH:MM:SS`, or RFC3339. Values
+without an explicit offset use the local timezone. `--summary` cannot be
+combined with `--follow`, and `--until` cannot be used while following logs.
+
+### Aggregate Statistics
+
+`nightshift stats` summarizes runs, task outcomes, tokens, budget projections,
+and per-project activity. JSON output is available for scripts.
+
+```bash
+nightshift stats
+nightshift stats --period last-7d
+nightshift stats --period last-night --json
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--period`, `-p` | `all` | Period: `all`, `last-7d`, `last-30d`, or `last-night` |
+| `--json` | `false` | Output machine-readable JSON |
+
+### Run Reports
+
+`nightshift report` renders saved run reports. The default is a styled overview
+of up to three runs from the last configured night window.
+
+```bash
+nightshift report
+nightshift report --period last-run --report tasks
+nightshift report --period last-7d --runs 0 --format plain
+nightshift report --since yesterday --until now --report budget
+nightshift report --period today --format json
+nightshift report --period last-night --format markdown
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--report`, `-r` | `overview` | View: `overview`, `tasks`, `projects`, `budget`, or `raw` |
+| `--period`, `-p` | `last-night` | Period: `last-night`, `last-run`, `last-24h`, `last-7d`, `today`, `yesterday`, or `all` |
+| `--runs`, `-n` | `3` | Maximum runs to include; `0` includes all matching runs |
+| `--since` | _(unset)_ | Override the period start time |
+| `--until` | _(unset)_ | Override the period end time |
+| `--format` | `fancy` | Output: `fancy`, `plain`, `markdown`, or `json` |
+| `--no-color` | `false` | Disable ANSI colors in styled output |
+| `--paths` | `false` | Include report and log file paths |
+| `--max-items` | `5` | Maximum highlights shown per run |
+
+Report time values accept the same forms as log times. Values without an
+explicit offset use `schedule.window.timezone` when configured, otherwise the
+local timezone. Setting either `--since` or `--until` overrides `--period`.
+`plain` keeps the styled report layout but disables ANSI colors; `markdown` and
+`json` emit dedicated machine-friendly representations.
+
+### Bus Factor
+
+`nightshift busfactor` uses Git history to report contributor concentration,
+including bus factor, Herfindahl index, Gini coefficient, and a risk level.
+
+```bash
+nightshift busfactor
+nightshift busfactor ~/code/myapp --since 2025-01-01
+nightshift busfactor --path . --file "internal/**" --json
+nightshift busfactor . --save
+nightshift busfactor . --save --db ./nightshift.db
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `[path]` | current directory | Repository or directory to analyze |
+| `--path`, `-p` | _(unset)_ | Repository or directory; overrides the positional path |
+| `--file`, `-f` | _(unset)_ | Restrict analysis to a file or pattern |
+| `--since` | _(unset)_ | Include commits on or after an RFC3339 or `YYYY-MM-DD` date |
+| `--until` | _(unset)_ | Include commits on or before an RFC3339 or `YYYY-MM-DD` date |
+| `--json` | `false` | Output machine-readable JSON |
+| `--save` | `false` | Save the analysis result to the database |
+| `--db` | configured database | Override the database path used by `--save` |
+
+`--path` takes precedence over the positional path. JSON mode writes the report
+and exits without saving, so use `--save` with the default human-readable mode.
+
+### Doctor
+
+`nightshift doctor` checks configuration loading, database and state access,
+scheduling, service and daemon status, enabled provider CLIs and data paths,
+budget readiness, snapshots, and tmux availability.
+
+```bash
+nightshift doctor
+nightshift --verbose doctor
+```
+
+The command has no command-specific flags. Warnings are reported without
+failing the command; failed checks produce a non-zero exit status.
+
+### Budget Snapshot
+
+Usage snapshots combine local token counts with an optional provider percentage
+scraped through tmux. Nightshift stores them for budget calibration and can infer
+a weekly budget when both values are available. This is a `budget` subcommand;
+there is no top-level `nightshift snapshot` command.
+
+```bash
+nightshift budget snapshot
+nightshift budget snapshot --provider claude
+nightshift budget snapshot --provider codex --local-only
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--provider`, `-p` | all enabled providers | Provider: `claude`, `codex`, or `copilot` |
+| `--local-only` | `false` | Skip tmux scraping and store only local usage data |
+
+Without `--local-only`, scraping also requires tmux,
+`budget.calibrate_enabled: true`, and subscription billing mode. Local-only
+snapshots remain available when scraping is disabled.
 
 ## Shared Flags
 
