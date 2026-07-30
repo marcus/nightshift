@@ -58,12 +58,57 @@ run_normalizer() {
   )
 }
 
+run_normalizer_in() {
+  working_directory=$1
+  message_file=$2
+  (
+    cd "$working_directory" || exit 1
+    "$normalizer" "$message_file"
+  )
+}
+
 valid_message="$temporary_root/valid-message"
 valid_expected="$temporary_root/valid-expected"
 printf ' FIX (CLI) ! :   Preserve\t API   IDs \n\nBody  spacing stays.\n\nNightshift-Task: commit-normalize\nNightshift-Ref: https://github.com/marcus/nightshift\n' > "$valid_message"
 printf 'fix(cli)!: Preserve API IDs\n\nBody  spacing stays.\n\nNightshift-Task: commit-normalize\nNightshift-Ref: https://github.com/marcus/nightshift\n' > "$valid_expected"
 run_normalizer "$valid_message"
 assert_files_equal "normalizes metadata capitalization and whitespace while preserving the body and trailers" "$valid_expected" "$valid_message"
+
+in_place_message="$temporary_root/in-place-message"
+in_place_expected="$temporary_root/in-place-expected"
+printf ' DOCS :   Preserve file identity\n' > "$in_place_message"
+printf 'docs: Preserve file identity\n' > "$in_place_expected"
+chmod 640 "$in_place_message"
+in_place_inode_before=$(ls -di "$in_place_message" | awk '{print $1}')
+in_place_mode_before=$(ls -ld "$in_place_message" | awk '{print substr($1, 1, 10)}')
+run_normalizer "$in_place_message"
+in_place_inode_after=$(ls -di "$in_place_message" | awk '{print $1}')
+in_place_mode_after=$(ls -ld "$in_place_message" | awk '{print substr($1, 1, 10)}')
+assert_files_equal "normalizes an existing message in place" "$in_place_expected" "$in_place_message"
+if [ "$in_place_inode_after" = "$in_place_inode_before" ]; then
+  pass "preserves the commit message inode"
+else
+  fail "preserves the commit message inode"
+fi
+if [ "$in_place_mode_after" = "$in_place_mode_before" ]; then
+  pass "preserves the commit message mode"
+else
+  fail "preserves the commit message mode"
+fi
+
+symlink_target="$temporary_root/symlink-target"
+symlink_message="$temporary_root/symlink-message"
+symlink_expected="$temporary_root/symlink-expected"
+printf ' TEST :   Preserve symlinks\n' > "$symlink_target"
+printf 'test: Preserve symlinks\n' > "$symlink_expected"
+ln -s "$symlink_target" "$symlink_message"
+run_normalizer "$symlink_message"
+if [ -L "$symlink_message" ]; then
+  pass "preserves a commit message symlink"
+else
+  fail "preserves a commit message symlink"
+fi
+assert_files_equal "updates the target of a commit message symlink" "$symlink_expected" "$symlink_target"
 
 idempotent_copy="$temporary_root/idempotent-copy"
 cp "$valid_message" "$idempotent_copy"
@@ -146,30 +191,36 @@ comment_copy="$comment_repository/message.copy"
 git -C "$comment_repository" config --local core.commentChar ';'
 printf '; This is a combination of 3 commits.\n' > "$comment_message"
 cp "$comment_message" "$comment_copy"
-(
-  cd "$comment_repository" || exit 1
-  "$normalizer" "$comment_message"
-)
+if run_normalizer_in "$comment_repository" "$comment_message"; then
+  comment_char_status=0
+else
+  comment_char_status=$?
+fi
+assert_status "accepts a combined message using core.commentChar" 0 "$comment_char_status"
 assert_files_equal "honors core.commentChar for combined messages" "$comment_copy" "$comment_message"
 
 git -C "$comment_repository" config --local --unset-all core.commentChar
 git -C "$comment_repository" config --local core.commentString '//'
 printf '// This is a combination of 10 commits.\n' > "$comment_message"
 cp "$comment_message" "$comment_copy"
-(
-  cd "$comment_repository" || exit 1
-  "$normalizer" "$comment_message"
-)
+if run_normalizer_in "$comment_repository" "$comment_message"; then
+  comment_string_status=0
+else
+  comment_string_status=$?
+fi
+assert_status "accepts a combined message using core.commentString" 0 "$comment_string_status"
 assert_files_equal "honors core.commentString for combined messages" "$comment_copy" "$comment_message"
 
 git -C "$comment_repository" config --local --unset-all core.commentString
 git -C "$comment_repository" config --local core.commentChar auto
 printf '; This is a combination of 4 commits.\n' > "$comment_message"
 cp "$comment_message" "$comment_copy"
-(
-  cd "$comment_repository" || exit 1
-  "$normalizer" "$comment_message"
-)
+if run_normalizer_in "$comment_repository" "$comment_message"; then
+  comment_auto_status=0
+else
+  comment_auto_status=$?
+fi
+assert_status "accepts a combined message using an automatic comment prefix" 0 "$comment_auto_status"
 assert_files_equal "honors an automatically selected Git comment prefix" "$comment_copy" "$comment_message"
 
 git -C "$comment_repository" config --local --unset-all core.commentChar
@@ -217,6 +268,46 @@ else
   precommit_hook_status=$?
 fi
 assert_status "pre-commit hook propagates existing check failures" 38 "$precommit_hook_status"
+
+commit_repository="$temporary_root/commit-repository"
+git init -q "$commit_repository"
+mkdir -p "$commit_repository/.githooks" "$commit_repository/scripts"
+cp "$repository_root/.githooks/commit-msg" "$commit_repository/.githooks/commit-msg"
+cp "$repository_root/.githooks/pre-commit" "$commit_repository/.githooks/pre-commit"
+cp "$normalizer" "$commit_repository/scripts/normalize-commit-message.sh"
+printf '#!/bin/sh\nexit 0\n' > "$commit_repository/scripts/pre-commit.sh"
+chmod +x "$commit_repository/.githooks/commit-msg" "$commit_repository/.githooks/pre-commit"
+chmod +x "$commit_repository/scripts/normalize-commit-message.sh" "$commit_repository/scripts/pre-commit.sh"
+git -C "$commit_repository" config user.name "Commit Normalizer Test"
+git -C "$commit_repository" config user.email "commit-normalizer@example.com"
+git -C "$commit_repository" config core.hooksPath .githooks
+
+if git -C "$commit_repository" commit --allow-empty -m ' FEAT (CLI) :   Normalize   commits' >/dev/null 2>&1; then
+  git_commit_status=0
+else
+  git_commit_status=$?
+fi
+assert_status "normalizes a message during an end-to-end Git commit" 0 "$git_commit_status"
+committed_subject=$(git -C "$commit_repository" log -1 --format=%s)
+if [ "$committed_subject" = "feat(cli): Normalize commits" ]; then
+  pass "records the normalized subject in Git history"
+else
+  fail "records the normalized subject in Git history"
+fi
+
+commit_count_before=$(git -C "$commit_repository" rev-list --count HEAD)
+if git -C "$commit_repository" commit --allow-empty -m 'invalid subject' >/dev/null 2>&1; then
+  invalid_commit_status=0
+else
+  invalid_commit_status=$?
+fi
+assert_status "rejects an invalid message during an end-to-end Git commit" 1 "$invalid_commit_status"
+commit_count_after=$(git -C "$commit_repository" rev-list --count HEAD)
+if [ "$commit_count_after" = "$commit_count_before" ]; then
+  pass "does not create a commit after commit-msg rejection"
+else
+  fail "does not create a commit after commit-msg rejection"
+fi
 
 install_repository="$temporary_root/install-repository"
 global_config="$temporary_root/global-gitconfig"

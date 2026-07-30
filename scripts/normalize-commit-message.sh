@@ -145,9 +145,10 @@ if ! dd if="$message_file" bs=1 skip="$subject_bytes" >> "$temporary_file" 2>/de
   exit 2
 fi
 
-if ! mv "$temporary_file" "$message_file"; then
-  echo "commit-msg: could not replace the commit message" >&2
+if ! cat "$temporary_file" > "$message_file"; then
+  echo "commit-msg: could not update the commit message" >&2
   exit 2
 fi
 
+rm -f "$temporary_file"
 trap - EXIT HUP INT TERM
