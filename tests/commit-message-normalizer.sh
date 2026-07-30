@@ -346,29 +346,51 @@ else
 fi
 assert_status "installer is idempotent" 0 "$installer_second_status"
 
-conflict_repository="$temporary_root/conflict-repository"
-git init -q "$conflict_repository"
-mkdir -p "$conflict_repository/.githooks"
-cp "$repository_root/.githooks/commit-msg" "$conflict_repository/.githooks/commit-msg"
-cp "$repository_root/.githooks/pre-commit" "$conflict_repository/.githooks/pre-commit"
-chmod +x "$conflict_repository/.githooks/commit-msg" "$conflict_repository/.githooks/pre-commit"
-git -C "$conflict_repository" config --local core.hooksPath /custom/hooks
+assert_installer_rejects_paths() {
+  conflict_slug=$1
+  conflict_description=$2
+  shift 2
 
-if (
-  cd "$conflict_repository" || exit 1
-  "$installer"
-) >/dev/null 2>&1; then
-  conflict_status=0
-else
-  conflict_status=$?
-fi
-assert_status "installer rejects a conflicting repository-local hook path" 1 "$conflict_status"
-conflict_path=$(git -C "$conflict_repository" config --local --get core.hooksPath)
-if [ "$conflict_path" = "/custom/hooks" ]; then
-  pass "installer leaves a conflicting hook path unchanged"
-else
-  fail "installer leaves a conflicting hook path unchanged"
-fi
+  conflict_repository="$temporary_root/conflict-$conflict_slug"
+  git init -q "$conflict_repository"
+  mkdir -p "$conflict_repository/.githooks"
+  cp "$repository_root/.githooks/commit-msg" "$conflict_repository/.githooks/commit-msg"
+  cp "$repository_root/.githooks/pre-commit" "$conflict_repository/.githooks/pre-commit"
+  chmod +x "$conflict_repository/.githooks/commit-msg" "$conflict_repository/.githooks/pre-commit"
+
+  for conflict_path do
+    git -C "$conflict_repository" config --local --add core.hooksPath "$conflict_path"
+  done
+  cp "$conflict_repository/.git/config" "$conflict_repository/config.before"
+
+  if (
+    cd "$conflict_repository" || exit 1
+    "$installer"
+  ) >/dev/null 2>&1; then
+    conflict_status=0
+  else
+    conflict_status=$?
+  fi
+  assert_status "installer rejects $conflict_description" 1 "$conflict_status"
+  assert_files_equal "installer leaves $conflict_description unchanged" \
+    "$conflict_repository/config.before" "$conflict_repository/.git/config"
+}
+
+assert_installer_rejects_paths "single" \
+  "a conflicting repository-local hook path" \
+  "/custom/hooks"
+assert_installer_rejects_paths "conflict-first" \
+  "multiple hook paths when the managed path is last" \
+  "/custom/hooks" ".githooks"
+assert_installer_rejects_paths "conflict-last" \
+  "multiple hook paths when the managed path is first" \
+  ".githooks" "/custom/hooks"
+assert_installer_rejects_paths "duplicate" \
+  "duplicate repository-local managed hook paths" \
+  ".githooks" ".githooks"
+assert_installer_rejects_paths "empty-last" \
+  "an additional empty repository-local hook path" \
+  ".githooks" ""
 
 printf '1..%d\n' "$tests_run"
 if [ "$tests_failed" -ne 0 ]; then
