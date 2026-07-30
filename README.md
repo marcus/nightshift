@@ -301,20 +301,65 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Git hooks
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Enable the repository-managed hooks:
 
 ```bash
 make install-hooks
 ```
 
-This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
+The installer sets the repository-local `core.hooksPath` to `.githooks`. It does
+not change global Git configuration, is safe to run repeatedly, and stops
+without changing anything if the repository already has a different local hook
+path.
+
+The pre-commit hook retains the existing checks:
+
 - **gofmt** - flags any staged `.go` files that need formatting
 - **go vet** - catches common correctness issues
 - **go build** - ensures the project compiles
 
-To bypass in a pinch: `git commit --no-verify`
+The commit-msg hook standardizes future commit subjects. It does not rewrite
+existing history. Subjects use this format:
+
+```text
+type(scope)!: summary
+```
+
+The scope and breaking-change `!` marker are optional. Supported types are
+`build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`,
+`style`, and `test`.
+
+The normalizer lowercases the type and scope, removes whitespace around the
+optional scope and `!`, trims the subject, and collapses repeated spaces or tabs
+in the summary. It preserves the body and trailers exactly.
+
+```text
+ FIX (CLI) ! :   Preserve  API IDs
+```
+
+becomes:
+
+```text
+fix(cli)!: Preserve API IDs
+```
+
+Malformed or unsupported subjects fail the commit and remain byte-for-byte
+unchanged so they can be corrected. Git-generated merge, revert, autosquash,
+stash, and combined-commit messages are left alone. Combined-commit detection
+respects `core.commentChar`, `core.commentString`, and automatic comment
+prefixes without exempting ordinary invalid comment-led subjects.
+
+Run the hook regression suite by itself or together with the Go tests:
+
+```bash
+make test-commit-normalizer
+make test
+```
+
+Both hooks propagate failures. To bypass them in a pinch, use the existing
+escape hatch: `git commit --no-verify`.
 
 ## Uninstalling
 

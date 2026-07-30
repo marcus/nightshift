@@ -1,0 +1,5 @@
+#!/bin/sh
+
+repository_root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 1
+cd "$repository_root" || exit 1
+exec "$repository_root/scripts/pre-commit.sh" "$@"
