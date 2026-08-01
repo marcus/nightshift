@@ -27,8 +27,13 @@ if [[ -z "$NIGHTSHIFT" ]]; then
   NIGHTSHIFT="go run github.com/marcus/nightshift/cmd/nightshift"
 fi
 
-NORMALIZED="$($NIGHTSHIFT commit normalize --file "$MSG_FILE" 2>/tmp/nightshift-commit-msg.err)"
+# `commit normalize --file` rewrites the message file in place (only when it
+# changes) and exits non-zero with a diagnostic on stderr when the message
+# cannot be normalized.
+set +e
+$NIGHTSHIFT commit normalize --file "$MSG_FILE" >/dev/null 2>/tmp/nightshift-commit-msg.err
 STATUS=$?
+set -e
 
 if [[ $STATUS -ne 0 ]]; then
   echo "🪡 commit-msg: message does not follow Conventional Commits" >&2
@@ -36,11 +41,10 @@ if [[ $STATUS -ne 0 ]]; then
   echo "" >&2
   echo "    Expected format: <type>(<scope>): <subject>" >&2
   echo "    Types: feat fix docs style refactor test chore perf build ci" >&2
+  echo "    (use \"type!\" or a BREAKING CHANGE: footer to flag breaking changes)" >&2
   echo "    (rewrite your message, or bypass with: git commit --no-verify)" >&2
   exit 1
 fi
 
-# Rewrite the message file into canonical form.
-printf '%s\n' "$NORMALIZED" > "$MSG_FILE"
 echo "🪡 commit-msg: normalized"
 exit 0

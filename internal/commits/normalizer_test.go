@@ -76,6 +76,31 @@ func TestNormalize(t *testing.T) {
 			in:      "\n\n# only comments\n  \n",
 			wantErr: ErrEmptyMessage,
 		},
+		{
+			name: "breaking-change bang indicator",
+			in:   "feat!: drop support for Go 1.20",
+			want: "feat!: drop support for Go 1.20",
+		},
+		{
+			name: "breaking-change bang indicator with scope",
+			in:   "fix(api)!: change response shape",
+			want: "fix(api)!: change response shape",
+		},
+		{
+			name: "breaking-change footer preserved verbatim",
+			in:   "feat: redesign API\n\nBREAKING CHANGE: the old /v1 endpoints are gone",
+			want: "feat: redesign API\n\nBREAKING CHANGE: the old /v1 endpoints are gone",
+		},
+		{
+			name: "breaking-change hyphen footer preserved verbatim",
+			in:   "feat: redesign API\n\nBREAKING-CHANGE: the old /v1 endpoints are gone",
+			want: "feat: redesign API\n\nBREAKING-CHANGE: the old /v1 endpoints are gone",
+		},
+		{
+			name: "breaking footer not hard-wrapped",
+			in:   "feat: redesign API\n\nBREAKING CHANGE: " + strings.Repeat("word ", 40),
+			want: "feat: redesign API\n\nBREAKING CHANGE: " + strings.Join(strings.Fields(strings.Repeat("word ", 40)), " "),
+		},
 	}
 
 	for _, tc := range tests {
@@ -105,6 +130,8 @@ func TestNormalizeIdempotent(t *testing.T) {
 		"feat: add login screen",
 		"fix(api): handle nil response\n\nLong body that explains the fix in more detail than the subject alone can manage so that we exercise the wrapping path too and then some more words here.",
 		"docs: update README\n\nfirst paragraph\n\nsecond paragraph stays separate",
+		"feat!: drop the legacy CLI\n\nBREAKING CHANGE: the legacy CLI is removed",
+		"fix(api)!: change response shape\n\nBREAKING-CHANGE: payloads no longer include legacy fields",
 	}
 	for _, in := range cases {
 		once, err := Normalize(in)

@@ -35,36 +35,65 @@ when no argument and no --file are given.
 
 Use --check to only validate without rewriting; the exit code is non-zero
 when the message does not conform.`,
-	Args: cobra.MaximumNArgs(1),
+	Args:          cobra.MaximumNArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		check, _ := cmd.Flags().GetBool("check")
 		file, _ := cmd.Flags().GetString("file")
 
 		raw, err := readCommitMessage(args, file)
 		if err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "error: %v\n", err)
 			return err
 		}
 
 		normalized, err := commits.Normalize(raw)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			fmt.Fprintf(cmd.ErrOrStderr(), "error: %v\n", err)
 			return err
 		}
 
-		if check {
-			fmt.Fprintln(os.Stdout, normalized)
+		switch {
+		case check:
+			// Validate-only: print nothing on success and never rewrite the
+			// file. The non-zero exit from the error above is what makes
+			// --check usable as a pre-receive / CI gate.
+			return nil
+		case file != "":
+			// Rewrite the message file in place so a commit-msg hook can
+			// normalize the actual commit. Only touch the file when the result
+			// differs, to avoid churning mtime on already-canonical messages.
+			return writeCommitMessageFile(file, normalized)
+		default:
+			fmt.Fprintln(cmd.OutOrStdout(), normalized)
 			return nil
 		}
-		fmt.Fprintln(os.Stdout, normalized)
-		return nil
 	},
 }
 
 func init() {
 	commitNormalizeCmd.Flags().BoolP("check", "c", false, "Only validate; do not rewrite")
-	commitNormalizeCmd.Flags().StringP("file", "f", "", "Read the message from this file (use by the commit-msg hook)")
+	commitNormalizeCmd.Flags().StringP("file", "f", "", "Normalize this message file in place (used by the commit-msg hook)")
 	commitCmd.AddCommand(commitNormalizeCmd)
 	rootCmd.AddCommand(commitCmd)
+}
+
+// writeCommitMessageFile writes normalized to path followed by a trailing
+// newline, but only when it differs from the file's current contents. This
+// keeps already-canonical messages untouched so commit-msg hooks don't churn
+// file mtimes on every commit.
+func writeCommitMessageFile(path, normalized string) error {
+	want := normalized + "\n"
+	if existing, err := os.ReadFile(path); err == nil {
+		if string(existing) == want {
+			return nil
+		}
+	}
+	if err := os.WriteFile(path, []byte(want), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
 }
 
 // readCommitMessage resolves the message source in order: positional arg,

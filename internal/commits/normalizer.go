@@ -77,7 +77,7 @@ func Normalize(msg string) (string, error) {
 	header := lines[0]
 	body := lines[1:]
 
-	typ, scope, subject, err := parseHeader(header)
+	typ, scope, subject, breaking, err := parseHeader(header)
 	if err != nil {
 		return "", err
 	}
@@ -85,7 +85,7 @@ func Normalize(msg string) (string, error) {
 	subject = cleanSubject(subject)
 
 	var b strings.Builder
-	b.WriteString(formatHeader(typ, scope, subject))
+	b.WriteString(formatHeader(typ, scope, subject, breaking))
 
 	wrapped := wrapBody(body, BodyWrapWidth)
 	if wrapped != "" {
@@ -121,11 +121,13 @@ func stripComments(msg string) []string {
 
 // parseHeader splits the first line into its Conventional Commit components and
 // validates them. The returned type is lower-cased to match the allowed set.
-func parseHeader(header string) (typ, scope, subject string, err error) {
+// The breaking flag is true when the type/scope prefix ends with a "!"
+// (e.g. "feat!:" or "feat(api)!:"), per the Conventional Commits 1.0.0 spec.
+func parseHeader(header string) (typ, scope, subject string, breaking bool, err error) {
 	header = strings.TrimSpace(header)
 	colon := strings.Index(header, ":")
 	if colon <= 0 {
-		return "", "", "", ErrMissingType
+		return "", "", "", false, ErrMissingType
 	}
 	prefix := header[:colon]
 	subject = strings.TrimSpace(header[colon+1:])
@@ -134,7 +136,14 @@ func parseHeader(header string) (typ, scope, subject string, err error) {
 	prefix = strings.TrimSpace(prefix)
 	if strings.HasPrefix(prefix, "(") {
 		// A leading "(" with no type is not a valid conventional header.
-		return "", "", "", ErrMissingType
+		return "", "", "", false, ErrMissingType
+	}
+	// A trailing "!" after the type/scope marks a breaking change. It must be
+	// stripped before scope validation so "feat(api)!:" is parsed as
+	// feat/(api)/breaking rather than rejected.
+	if strings.HasSuffix(prefix, "!") {
+		breaking = true
+		prefix = strings.TrimSuffix(prefix, "!")
 	}
 	if open := strings.Index(prefix, "("); open > 0 && strings.HasSuffix(prefix, ")") {
 		typ = prefix[:open]
@@ -146,21 +155,21 @@ func parseHeader(header string) (typ, scope, subject string, err error) {
 	scope = strings.TrimSpace(scope)
 
 	if typ == "" {
-		return "", "", "", ErrMissingType
+		return "", "", "", false, ErrMissingType
 	}
 	if !isAllowedType(typ) {
-		return "", "", "", fmt.Errorf("%w: %q", ErrUnknownType, typ)
+		return "", "", "", false, fmt.Errorf("%w: %q", ErrUnknownType, typ)
 	}
 	if strings.TrimSpace(subject) == "" {
-		return "", "", "", ErrMissingSubject
+		return "", "", "", false, ErrMissingSubject
 	}
 	if utf8.RuneCountInString(subject) > MaxSubjectLength {
-		return "", "", "", ErrSubjectTooLong
+		return "", "", "", false, ErrSubjectTooLong
 	}
 	if startsUpper(subject) {
-		return "", "", "", ErrSubjectLowercase
+		return "", "", "", false, ErrSubjectLowercase
 	}
-	return typ, scope, subject, nil
+	return typ, scope, subject, breaking, nil
 }
 
 // cleanSubject normalizes the subject text: lowercases a leading uppercase
@@ -172,12 +181,18 @@ func cleanSubject(subject string) string {
 	return s
 }
 
-// formatHeader reassembles a canonical header line from its components.
-func formatHeader(typ, scope, subject string) string {
-	if scope != "" {
-		return typ + "(" + scope + "): " + subject
+// formatHeader reassembles a canonical header line from its components. When
+// breaking is true the "!" indicator is re-emitted after the type/scope prefix,
+// matching the Conventional Commits 1.0.0 breaking-change form.
+func formatHeader(typ, scope, subject string, breaking bool) string {
+	bang := ""
+	if breaking {
+		bang = "!"
 	}
-	return typ + ": " + subject
+	if scope != "" {
+		return typ + "(" + scope + ")" + bang + ": " + subject
+	}
+	return typ + bang + ": " + subject
 }
 
 // wrapBody collapses runs of blank lines, preserves non-blank paragraphs, and
@@ -205,9 +220,24 @@ func wrapBody(body []string, width int) string {
 		if i > 0 {
 			b.WriteString("\n\n")
 		}
+		if isBreakingFooter(p[0]) {
+			// The BREAKING CHANGE: footer is a trailer, not prose: emit it
+			// verbatim (preserving its original line breaks) instead of
+			// joining its lines into a single wrapped paragraph.
+			b.WriteString(strings.Join(p, "\n"))
+			continue
+		}
 		b.WriteString(wrapParagraph(strings.Join(p, " "), width))
 	}
 	return b.String()
+}
+
+// isBreakingFooter reports whether the given line opens a Conventional Commits
+// "BREAKING CHANGE:" (or "BREAKING-CHANGE:") footer. Both spellings are valid
+// per the 1.0.0 spec.
+func isBreakingFooter(line string) bool {
+	line = strings.TrimSpace(line)
+	return strings.HasPrefix(line, "BREAKING CHANGE:") || strings.HasPrefix(line, "BREAKING-CHANGE:")
 }
 
 // wrapParagraph hard-wraps a single-line paragraph at width, breaking on word
