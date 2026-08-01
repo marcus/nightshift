@@ -106,16 +106,16 @@ selected provider, budget status, projects, and planned tasks. In interactive
 terminals you are prompted for confirmation; in non-TTY environments (cron,
 daemon, CI) confirmation is auto-skipped.
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--dry-run` | `false` | Show preflight summary and exit without executing |
-| `--project`, `-p` | _(all configured)_ | Target a single project directory |
-| `--task`, `-t` | _(auto-select)_ | Run a specific task by name |
-| `--max-projects` | `1` | Max projects to process (ignored when `--project` is set) |
-| `--max-tasks` | `1` | Max tasks per project (ignored when `--task` is set) |
-| `--random-task` | `false` | Pick a random task from eligible tasks instead of the highest-scored one |
-| `--ignore-budget` | `false` | Bypass budget checks (use with caution) |
-| `--yes`, `-y` | `false` | Skip the confirmation prompt |
+| Flag              | Default            | Description                                                              |
+| ----------------- | ------------------ | ------------------------------------------------------------------------ |
+| `--dry-run`       | `false`            | Show preflight summary and exit without executing                        |
+| `--project`, `-p` | _(all configured)_ | Target a single project directory                                        |
+| `--task`, `-t`    | _(auto-select)_    | Run a specific task by name                                              |
+| `--max-projects`  | `1`                | Max projects to process (ignored when `--project` is set)                |
+| `--max-tasks`     | `1`                | Max tasks per project (ignored when `--task` is set)                     |
+| `--random-task`   | `false`            | Pick a random task from eligible tasks instead of the highest-scored one |
+| `--ignore-budget` | `false`            | Bypass budget checks (use with caution)                                  |
+| `--yes`, `-y`     | `false`            | Skip the confirmation prompt                                             |
 
 ```bash
 # Interactive run with preflight summary + confirmation prompt
@@ -141,6 +141,7 @@ nightshift run -p ./my-project -t lint-fix
 ```
 
 Other useful flags:
+
 - `nightshift status --today` to see today's activity summary
 - `nightshift daemon start --foreground` for debug
 - `--category` — filter tasks by category (pr, analysis, options, safe, map, emergency)
@@ -153,8 +154,9 @@ Other useful flags:
 ## Authentication (Subscriptions)
 
 Nightshift supports three AI providers:
+
 - **Claude Code** - Anthropic's Claude via local CLI
-- **Codex** - OpenAI's GPT via local CLI  
+- **Codex** - OpenAI's GPT via local CLI
 - **GitHub Copilot** - GitHub's Copilot via GitHub CLI
 
 ### Claude Code
@@ -258,18 +260,63 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Conventional Commits
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Commit messages follow the [Conventional Commits 1.0.0](https://www.conventionalcommits.org/)
+specification. Every commit subject must look like:
+
+```
+<type>(<scope>): <subject>
+```
+
+where `type` is one of `feat fix docs style refactor test chore perf build ci`.
+The `nightshift commit normalize` command parses, validates, and rewrites a
+message into canonical form — fixing trivial issues (whitespace, type casing,
+trailing punctuation, body wrapping) while rejecting anything that needs a
+human decision (missing/unknown type, capitalized or overlong subject).
+
+```bash
+nightshift commit normalize "feat: add login"            # print the normalized message
+nightshift commit normalize --file .git/COMMIT_EDITMSG   # rewrite the message file in place
+nightshift commit normalize --check "feat: add login"    # validate only, exit non-zero if invalid
+```
+
+Breaking changes use the `!` indicator or a `BREAKING CHANGE:` footer:
+
+```
+feat(api)!: change the response shape
+fix!: drop support for Go 1.20
+
+docs!: remove the legacy guide
+
+BREAKING CHANGE: the legacy guide is gone
+```
+
+Git trailers in the footer (`Signed-off-by:`, `Co-authored-by:`, `Fixes #…`,
+`BREAKING CHANGE:`, and this project's own `Nightshift-Task:` / `Nightshift-Ref:`
+trailers) are preserved verbatim — they are never collapsed into prose or
+re-wrapped.
+
+### Git hooks
+
+Install the git hooks to catch issues before a commit is created:
 
 ```bash
 make install-hooks
 ```
 
-This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
+This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit` and
+`scripts/commit-msg.sh` into `.git/hooks/commit-msg`.
+
+The **pre-commit** hook runs:
+
 - **gofmt** — flags any staged `.go` files that need formatting
 - **go vet** — catches common correctness issues
 - **go build** — ensures the project compiles
+
+The **commit-msg** hook normalizes the commit message into canonical
+Conventional Commits form (rewriting the message file in place), and rejects
+messages that cannot be normalized.
 
 To bypass in a pinch: `git commit --no-verify`
 
