@@ -579,3 +579,42 @@ func TestScheduleInterval_Legacy(t *testing.T) {
 		t.Errorf("len(jobs) = %d, want 1", len(s.jobs))
 	}
 }
+
+func TestSchedule_RunsExactlyOnce(t *testing.T) {
+	s := New()
+	ctx := context.Background()
+
+	var count int32
+	// Schedule for a time already in the past so the job is eligible.
+	s.Schedule(time.Now().Add(-time.Minute), func() {
+		atomic.AddInt32(&count, 1)
+	})
+
+	// Simulate multiple scheduler ticks; the job must only run once.
+	for i := 0; i < 5; i++ {
+		s.runJobs(ctx)
+	}
+
+	if got := atomic.LoadInt32(&count); got != 1 {
+		t.Errorf("Schedule one-time job ran %d times, want 1", got)
+	}
+}
+
+func TestSchedule_NotBeforeTargetTime(t *testing.T) {
+	s := New()
+	ctx := context.Background()
+
+	var count int32
+	// Schedule for a time in the future; the job must not fire yet.
+	s.Schedule(time.Now().Add(time.Hour), func() {
+		atomic.AddInt32(&count, 1)
+	})
+
+	for i := 0; i < 3; i++ {
+		s.runJobs(ctx)
+	}
+
+	if got := atomic.LoadInt32(&count); got != 0 {
+		t.Errorf("Schedule job ran %d times before target, want 0", got)
+	}
+}
