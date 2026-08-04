@@ -1,3 +1,10 @@
+// Command provider-calibration compares Codex CLI token usage across
+// codex_originator variants to calibrate per-provider budget attribution.
+//
+// It reads recorded Codex session metrics, groups them by originator, and
+// reports the token attribution that should be applied for each provider so
+// the nightshift budget accounting stays accurate. Run via `make
+// calibrate-providers`.
 package main
 
 import (
