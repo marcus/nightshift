@@ -237,7 +237,7 @@ func ValidateProjectPath(path string) error {
 	return nil
 }
 
-// Operation types for safety checks.
+// OperationType categorizes an operation performed by an agent for safety checks.
 type OperationType string
 
 const (
