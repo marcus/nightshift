@@ -30,7 +30,9 @@ Fully formed, review-ready artifacts. These tasks create branches and open pull 
 | `td-review` | TD Review Session | Review open td reviews, fix obvious bugs, create tasks for bigger issues | High | Medium | 72h |
 
 :::note
-`td-review` is **disabled by default** and must be explicitly opted in via `tasks.enabled`. It requires the td integration to be enabled (see [Integrations](/docs/integrations)).
+`td-review` is **disabled by default** and must be explicitly opted in via `tasks.enabled`. Its
+prompt expects the `td` executable and a td-enabled project; the currently unwired
+`integrations.task_sources` settings are not required.
 :::
 
 ## Analysis Tasks — "Here's what I found"
