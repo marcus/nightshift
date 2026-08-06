@@ -809,6 +809,116 @@ func TestBuildImplementPrompt_WithoutBranch(t *testing.T) {
 	}
 }
 
+func TestBuildPlanPrompt_CommitNormalizeIncludesRepoAwareGuidance(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "commit-normalize:/tmp/nightshift",
+		Title:       "Commit Message Normalizer",
+		Description: "Standardize commit message format",
+		Type:        tasks.TaskCommitNormalize,
+	}
+
+	prompt := o.buildPlanPrompt(task)
+
+	expected := []string{
+		"## Task-Specific Guidance",
+		"Inspect recent commit subjects on the repo and active work branch or PR",
+		"infer the local convention from recent commits",
+		"Do not plan git hooks, broad repository rewrites, or history changes outside the relevant commit range",
+		"Preserve existing Nightshift trailers",
+		"rewording the relevant commits or documenting the exact normalization steps",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("plan prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+
+	if strings.Count(prompt, "\n6. ") != 1 {
+		t.Errorf("plan prompt should contain exactly one step 6\nGot:\n%s", prompt)
+	}
+	if strings.Count(prompt, "\n7. ") != 1 {
+		t.Errorf("plan prompt should contain exactly one step 7\nGot:\n%s", prompt)
+	}
+}
+
+func TestBuildImplementPrompt_CommitNormalizeIncludesRepoAwareGuidance(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "commit-normalize:/tmp/nightshift",
+		Title:       "Commit Message Normalizer",
+		Description: "Standardize commit message format",
+		Type:        tasks.TaskCommitNormalize,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"Inspect recent commits", "Normalize relevant branch commits"},
+		Description: "Normalize commit messages for the current work branch.",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+
+	expected := []string{
+		"## Task-Specific Guidance",
+		"Inspect recent commit subjects on the repo and active work branch or PR",
+		"Infer the local convention from recent commits when no documented standard exists",
+		"Normalize only the commit messages relevant to the active branch or PR",
+		"Do not install git hooks or rewrite unrelated history",
+		"Keep Nightshift trailers intact",
+		"If the exact commit range is ambiguous, state the assumption and choose the narrowest safe scope",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("implement prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+
+	if strings.Count(prompt, "\n4. Ensure tests pass") != 1 {
+		t.Errorf("implement prompt should contain exactly one step 4\nGot:\n%s", prompt)
+	}
+	if strings.Count(prompt, "\n5. Output a summary as JSON:") != 1 {
+		t.Errorf("implement prompt should contain exactly one step 5\nGot:\n%s", prompt)
+	}
+}
+
+func TestBuildPrompts_GenericTasksDoNotReceiveCommitNormalizeGuidance(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "lint-fix:/tmp/nightshift",
+		Title:       "Linter Fixes",
+		Description: "Automatically fix linting errors and style issues",
+		Type:        tasks.TaskLintFix,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"Run linters", "Fix issues"},
+		Description: "Apply lint fixes.",
+	}
+
+	planPrompt := o.buildPlanPrompt(task)
+	implPrompt := o.buildImplementPrompt(task, plan, 1)
+
+	unexpected := []string{
+		"active work branch or PR",
+		"git hooks",
+		"Nightshift trailers",
+		"exact normalization steps",
+		"exact commit range is ambiguous",
+	}
+
+	for _, notWant := range unexpected {
+		if strings.Contains(planPrompt, notWant) {
+			t.Errorf("generic plan prompt should not contain %q\nGot:\n%s", notWant, planPrompt)
+		}
+		if strings.Contains(implPrompt, notWant) {
+			t.Errorf("generic implement prompt should not contain %q\nGot:\n%s", notWant, implPrompt)
+		}
+	}
+}
+
 func TestBuildMetadataBlock_WithBranch(t *testing.T) {
 	o := New()
 	o.SetRunMetadata(&RunMetadata{
