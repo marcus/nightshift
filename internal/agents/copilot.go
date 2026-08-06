@@ -27,6 +27,7 @@ import (
 type CopilotAgent struct {
 	binaryPath           string        // Path to binary: "gh" or "copilot" (default: "gh")
 	dangerouslySkipPerms bool          // Pass --allow-all-tools --allow-all-urls
+	model                string        // Default model to use
 	timeout              time.Duration // Default timeout
 	runner               CommandRunner // Command executor (for testing)
 }
@@ -52,6 +53,13 @@ func WithCopilotDangerouslySkipPermissions(enabled bool) CopilotOption {
 func WithCopilotDefaultTimeout(d time.Duration) CopilotOption {
 	return func(a *CopilotAgent) {
 		a.timeout = d
+	}
+}
+
+// WithCopilotModel sets the default model to use.
+func WithCopilotModel(model string) CopilotOption {
+	return func(a *CopilotAgent) {
+		a.model = model
 	}
 }
 
@@ -102,16 +110,23 @@ func (a *CopilotAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execu
 	// 1. gh copilot: gh copilot -- -p <prompt> --no-ask-user [--allow-all-tools --allow-all-urls] --silent
 	// 2. standalone: copilot -p <prompt> --no-ask-user [--allow-all-tools --allow-all-urls] --silent
 	var args []string
+
+	// Determine model
+	model := opts.Model
+	if model == "" {
+		model = a.model
+	}
+
 	if a.binaryPath == "gh" {
 		args = []string{"copilot", "--", "-p", opts.Prompt, "--no-ask-user", "--silent"}
-		if a.dangerouslySkipPerms {
-			args = append(args, "--allow-all-tools", "--allow-all-urls")
-		}
 	} else {
 		args = []string{"-p", opts.Prompt, "--no-ask-user", "--silent"}
-		if a.dangerouslySkipPerms {
-			args = append(args, "--allow-all-tools", "--allow-all-urls")
-		}
+	}
+	if model != "" {
+		args = append(args, "--model", model)
+	}
+	if a.dangerouslySkipPerms {
+		args = append(args, "--allow-all-tools", "--allow-all-urls")
 	}
 
 	// Build stdin content from files if provided

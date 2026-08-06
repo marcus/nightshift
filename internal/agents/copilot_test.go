@@ -47,6 +47,7 @@ func TestNewCopilotAgent_WithOptions(t *testing.T) {
 		WithCopilotBinaryPath("/custom/gh"),
 		WithCopilotDefaultTimeout(5*time.Minute),
 		WithCopilotRunner(mockRunner),
+		WithCopilotModel("claude-sonnet-4.6"),
 	)
 
 	if agent.binaryPath != "/custom/gh" {
@@ -57,6 +58,9 @@ func TestNewCopilotAgent_WithOptions(t *testing.T) {
 	}
 	if agent.runner != mockRunner {
 		t.Error("expected custom runner")
+	}
+	if agent.model != "claude-sonnet-4.6" {
+		t.Errorf("model = %q, want %q", agent.model, "claude-sonnet-4.6")
 	}
 }
 
@@ -237,6 +241,95 @@ func TestCopilotAgent_ExecuteWithFiles(t *testing.T) {
 	if mock.CapturedDir != "/workdir" {
 		t.Errorf("dir = %q, want %q", mock.CapturedDir, "/workdir")
 	}
+}
+
+func TestCopilotAgent_Execute_WithModel_Standalone(t *testing.T) {
+	mock := &MockRunner{Stdout: "response", ExitCode: 0}
+	agent := NewCopilotAgent(
+		WithCopilotBinaryPath("copilot"),
+		WithCopilotModel("claude-sonnet-4.6"),
+		WithCopilotRunner(mock),
+	)
+
+	_, err := agent.Execute(context.Background(), ExecuteOptions{Prompt: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !containsArg(mock.CapturedArgs, "--model") {
+		t.Error("expected --model in args")
+	}
+	if !containsArg(mock.CapturedArgs, "claude-sonnet-4.6") {
+		t.Error("expected model value in args")
+	}
+}
+
+func TestCopilotAgent_Execute_WithModel_GH(t *testing.T) {
+	mock := &MockRunner{Stdout: "response", ExitCode: 0}
+	agent := NewCopilotAgent(
+		WithCopilotModel("gpt-5.1"),
+		WithCopilotRunner(mock),
+	)
+
+	_, err := agent.Execute(context.Background(), ExecuteOptions{Prompt: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !containsArg(mock.CapturedArgs, "--model") {
+		t.Error("expected --model in args for gh mode")
+	}
+	if !containsArg(mock.CapturedArgs, "gpt-5.1") {
+		t.Error("expected model value in args for gh mode")
+	}
+}
+
+func TestCopilotAgent_Execute_NoModel(t *testing.T) {
+	mock := &MockRunner{Stdout: "response", ExitCode: 0}
+	agent := NewCopilotAgent(WithCopilotRunner(mock))
+
+	_, err := agent.Execute(context.Background(), ExecuteOptions{Prompt: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if containsArg(mock.CapturedArgs, "--model") {
+		t.Error("expected no --model flag when model is not set")
+	}
+}
+
+func TestCopilotAgent_Execute_ModelFromOptions(t *testing.T) {
+	mock := &MockRunner{Stdout: "response", ExitCode: 0}
+	agent := NewCopilotAgent(
+		WithCopilotModel("claude-haiku-4.5"),
+		WithCopilotRunner(mock),
+	)
+
+	// ExecuteOptions.Model overrides the agent default
+	_, err := agent.Execute(context.Background(), ExecuteOptions{
+		Prompt: "test",
+		Model:  "gpt-5.2",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !containsArg(mock.CapturedArgs, "gpt-5.2") {
+		t.Error("expected ExecuteOptions.Model to override agent default")
+	}
+	if containsArg(mock.CapturedArgs, "claude-haiku-4.5") {
+		t.Error("expected agent default model to be overridden")
+	}
+}
+
+// containsArg checks if a string slice contains a value.
+func containsArg(args []string, val string) bool {
+	for _, a := range args {
+		if a == val {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCopilotAgent_ExtractJSON(t *testing.T) {

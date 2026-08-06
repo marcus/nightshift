@@ -18,6 +18,7 @@ type CodexAgent struct {
 	timeout    time.Duration // Default timeout
 	runner     CommandRunner // Command executor (for testing)
 	bypassPerm bool          // Pass --dangerously-bypass-approvals-and-sandbox
+	model      string        // Default model to use
 }
 
 // CodexOption configures a CodexAgent.
@@ -41,6 +42,13 @@ func WithCodexDefaultTimeout(d time.Duration) CodexOption {
 func WithDangerouslyBypassApprovalsAndSandbox(enabled bool) CodexOption {
 	return func(a *CodexAgent) {
 		a.bypassPerm = enabled
+	}
+}
+
+// WithCodexModel sets the default model to use.
+func WithCodexModel(model string) CodexOption {
+	return func(a *CodexAgent) {
+		a.model = model
 	}
 }
 
@@ -89,6 +97,15 @@ func (a *CodexAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execute
 	args := []string{"exec"}
 	if a.bypassPerm {
 		args = append(args, "--dangerously-bypass-approvals-and-sandbox")
+	}
+
+	// Add model if specified
+	model := opts.Model
+	if model == "" {
+		model = a.model
+	}
+	if model != "" {
+		args = append(args, "--model", model)
 	}
 
 	// Add prompt directly as argument
