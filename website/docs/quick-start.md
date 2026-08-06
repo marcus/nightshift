@@ -15,10 +15,17 @@ brew install marcus/tap/nightshift
 
 ## 2. Setup
 
-Run the guided setup to configure providers, projects, and budget:
+Run the guided setup to configure providers, projects, budget, and daemon/service options:
 
 ```bash
 nightshift setup
+```
+
+If you want to create a config file directly instead of using the wizard, run:
+
+```bash
+nightshift init
+nightshift init --global
 ```
 
 ## 3. Preview
