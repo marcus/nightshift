@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// Compile-time interface satisfaction check.
+var _ Provider = (*Copilot)(nil)
+
 // Copilot wraps the GitHub Copilot CLI as a provider.
 //
 // Usage tracking approach:

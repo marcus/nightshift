@@ -15,6 +15,9 @@ import (
 	"time"
 )
 
+// Compile-time interface satisfaction check.
+var _ Provider = (*Codex)(nil)
+
 // CodexRateLimits represents the rate_limits object in Codex session JSONL.
 type CodexRateLimits struct {
 	Primary   *CodexRateLimit `json:"primary"`

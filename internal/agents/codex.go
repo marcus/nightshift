@@ -12,6 +12,9 @@ import (
 	"time"
 )
 
+// Compile-time interface satisfaction check.
+var _ Agent = (*CodexAgent)(nil)
+
 // CodexAgent spawns Codex CLI for task execution.
 type CodexAgent struct {
 	binaryPath string        // Path to codex binary (default: "codex")

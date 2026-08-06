@@ -15,6 +15,9 @@ import (
 	"time"
 )
 
+// Compile-time interface satisfaction check.
+var _ Provider = (*Claude)(nil)
+
 // StatsCache represents the stats-cache.json structure from Claude Code.
 // The file uses two arrays: dailyActivity (message/session/tool counts)
 // and dailyModelTokens (per-model token counts keyed by date).

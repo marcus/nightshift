@@ -11,6 +11,9 @@ import (
 	"github.com/marcus/nightshift/internal/config"
 )
 
+// Compile-time interface satisfaction check.
+var _ Reader = (*ClaudeMDReader)(nil)
+
 // ClaudeMDReader reads claude.md files for project context.
 type ClaudeMDReader struct {
 	enabled bool

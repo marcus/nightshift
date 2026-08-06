@@ -10,6 +10,9 @@ import (
 	"time"
 )
 
+// Compile-time interface satisfaction check.
+var _ CommandRunner = (*ExecRunner)(nil)
+
 // CommandRunner executes commands for tmux interactions.
 type CommandRunner interface {
 	Run(ctx context.Context, name string, args ...string) ([]byte, error)

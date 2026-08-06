@@ -396,11 +396,6 @@ func TestCodexAgent_ContextCancellation(t *testing.T) {
 	}
 }
 
-func TestCodexAgent_ImplementsAgentInterface(t *testing.T) {
-	// Verify CodexAgent implements the Agent interface
-	var _ Agent = (*CodexAgent)(nil)
-}
-
 // TestCodexAgentDefaultsBypassFlag verifies that a CodexAgent created with no
 // options includes --dangerously-bypass-approvals-and-sandbox (required for
 // non-interactive execution). This guards against Bug #19 fix 3, where

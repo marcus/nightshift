@@ -10,6 +10,9 @@ import (
 	"github.com/marcus/nightshift/internal/config"
 )
 
+// Compile-time interface satisfaction check.
+var _ Reader = (*TDReader)(nil)
+
 // TDReader integrates with the td task management CLI.
 type TDReader struct {
 	enabled    bool
