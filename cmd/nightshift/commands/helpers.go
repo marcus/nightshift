@@ -76,7 +76,7 @@ func newCopilotAgentFromConfig(cfg *config.Config, binaryPath ...string) *agents
 		return agents.NewCopilotAgent()
 	}
 
-	binary := ""
+	var binary string
 	if len(binaryPath) > 0 && binaryPath[0] != "" {
 		binary = binaryPath[0]
 	} else {

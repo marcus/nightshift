@@ -96,7 +96,7 @@ func (r *TDReader) listTasks(ctx context.Context, projectPath string) ([]TaskIte
 	}
 
 	// Convert to TaskItems
-	var tasks []TaskItem
+	tasks := make([]TaskItem, 0, len(tdTasks))
 	for _, t := range tdTasks {
 		tasks = append(tasks, TaskItem{
 			ID:          t.ID,

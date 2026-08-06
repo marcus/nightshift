@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -316,7 +317,7 @@ func formatTokens64(tokens int64) string {
 	if tokens >= 1000 {
 		return fmt.Sprintf("%.1fK", float64(tokens)/1000)
 	}
-	return fmt.Sprintf("%d", tokens)
+	return strconv.FormatInt(tokens, 10)
 }
 
 func formatBudgetMeta(estimate budget.BudgetEstimate) string {
@@ -391,10 +392,10 @@ func progressBar(percent float64, width int) string {
 	empty := width - filled
 
 	bar := ""
-	for i := 0; i < filled; i++ {
+	for range filled {
 		bar += "#"
 	}
-	for i := 0; i < empty; i++ {
+	for range empty {
 		bar += "-"
 	}
 

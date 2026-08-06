@@ -12,14 +12,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Service type constants
+// Service type constants.
 const (
 	ServiceLaunchd = "launchd"
 	ServiceSystemd = "systemd"
 	ServiceCron    = "cron"
 )
 
-// File paths for installed services
+// File paths for installed services.
 const (
 	launchdPlistName   = "com.nightshift.agent.plist"
 	systemdServiceName = "nightshift.service"
@@ -57,7 +57,7 @@ func init() {
 // runInstall implements the install command
 func runInstall(cmd *cobra.Command, args []string) error {
 	// Determine service type
-	serviceType := ""
+	var serviceType string
 	if len(args) > 0 {
 		serviceType = args[0]
 	} else {

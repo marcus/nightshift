@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -91,7 +92,7 @@ func (s *Session) Start(ctx context.Context) error {
 
 // Resize sets the pane size.
 func (s *Session) Resize(ctx context.Context, width, height int) error {
-	if _, err := s.run(ctx, "resize-pane", "-t", s.name, "-x", fmt.Sprint(width), "-y", fmt.Sprint(height)); err != nil {
+	if _, err := s.run(ctx, "resize-pane", "-t", s.name, "-x", strconv.Itoa(width), "-y", strconv.Itoa(height)); err != nil {
 		return fmt.Errorf("tmux resize-pane: %w", err)
 	}
 	return nil
