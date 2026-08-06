@@ -430,6 +430,7 @@ func TestBuildPrompts(t *testing.T) {
 		ID:          "prompt-test",
 		Title:       "Build Prompts",
 		Description: "Test prompt generation",
+		Type:        tasks.TaskLintFix,
 	}
 
 	// Test plan prompt
@@ -440,6 +441,16 @@ func TestBuildPrompts(t *testing.T) {
 	if !containsIgnoreCase(planPrompt, "prompt-test") {
 		t.Error("plan prompt should contain task ID")
 	}
+	for _, want := range []string{
+		"Subject: short imperative summary.",
+		"Body: optional brief rationale or context when the subject alone is not enough.",
+		"Nightshift-Task: lint-fix",
+		"Nightshift-Ref: https://github.com/marcus/nightshift",
+	} {
+		if !strings.Contains(planPrompt, want) {
+			t.Errorf("plan prompt missing %q\nGot:\n%s", want, planPrompt)
+		}
+	}
 
 	// Test implement prompt
 	plan := &PlanOutput{
@@ -449,6 +460,16 @@ func TestBuildPrompts(t *testing.T) {
 	implPrompt := o.buildImplementPrompt(task, plan, 1)
 	if !containsIgnoreCase(implPrompt, "implementation") {
 		t.Error("implement prompt should mention implementation")
+	}
+	for _, want := range []string{
+		"Subject: short imperative summary.",
+		"Body: optional brief rationale or context when the subject alone is not enough.",
+		"Nightshift-Task: lint-fix",
+		"Nightshift-Ref: https://github.com/marcus/nightshift",
+	} {
+		if !strings.Contains(implPrompt, want) {
+			t.Errorf("implement prompt missing %q\nGot:\n%s", want, implPrompt)
+		}
 	}
 
 	// Test implement prompt iteration 2
@@ -857,6 +878,84 @@ func TestBuildMetadataBlock_NoBranch(t *testing.T) {
 	block := o.buildMetadataBlock(task, result)
 	if strings.Contains(block, "branch:") {
 		t.Errorf("metadata block should not contain branch when empty\nGot:\n%s", block)
+	}
+}
+
+func TestBuildPlanPrompt_CommitNormalizeGuardrails(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{Branch: "main"})
+
+	task := &tasks.Task{
+		ID:          "commit-normalize:/repo",
+		Title:       "Commit Message Normalizer",
+		Description: "Normalize commit messages safely",
+		Type:        tasks.TaskCommitNormalize,
+	}
+
+	prompt := o.buildPlanPrompt(task)
+	for _, want := range []string{
+		"Create your feature branch from `main`.",
+		"Subject: short imperative summary.",
+		"Nightshift-Task: commit-normalize",
+		"For `commit-normalize`, these are work guardrails, not commit trailers:",
+		"- Allowed scope: normalize only commits you create for this task or commits that exist only on your feature branch and are not yet shared.",
+		"- Rewrite safety: do not rewrite the primary branch, protected branches, tags, or already-shared history; explain the limitation instead.",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("plan prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+	if strings.Contains(prompt, "\n      Scope:") || strings.Contains(prompt, "\n      Safety:") {
+		t.Errorf("plan prompt should not render scope/safety as trailer lines\nGot:\n%s", prompt)
+	}
+}
+
+func TestBuildImplementPrompt_CommitNormalizeGuardrails(t *testing.T) {
+	o := New()
+	o.SetRunMetadata(&RunMetadata{Branch: "main"})
+
+	task := &tasks.Task{
+		ID:          "commit-normalize:/repo",
+		Title:       "Commit Message Normalizer",
+		Description: "Normalize commit messages safely",
+		Type:        tasks.TaskCommitNormalize,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"update prompt guidance"},
+		Description: "Normalize only safe-to-rewrite commits",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+	for _, want := range []string{
+		"Checkout `main` before creating your feature branch.",
+		"Subject: short imperative summary.",
+		"Nightshift-Task: commit-normalize",
+		"For `commit-normalize`, these are work guardrails, not commit trailers:",
+		"- Allowed scope: normalize only commits you create for this task or commits that exist only on your feature branch and are not yet shared.",
+		"- Rewrite safety: do not rewrite the primary branch, protected branches, tags, or already-shared history; explain the limitation instead.",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("implement prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+	if strings.Contains(prompt, "\n      Scope:") || strings.Contains(prompt, "\n      Safety:") {
+		t.Errorf("implement prompt should not render scope/safety as trailer lines\nGot:\n%s", prompt)
+	}
+}
+
+func TestBuildPlanPrompt_NonCommitNormalizeOmitsRewriteGuardrails(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "lint-fix:/repo",
+		Title:       "Lint Fix",
+		Description: "Fix lint",
+		Type:        tasks.TaskLintFix,
+	}
+
+	prompt := o.buildPlanPrompt(task)
+	if strings.Contains(prompt, "work guardrails, not commit trailers") {
+		t.Errorf("plan prompt should not include commit-normalize-specific guardrails\nGot:\n%s", prompt)
 	}
 }
 

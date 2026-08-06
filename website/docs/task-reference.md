@@ -23,7 +23,7 @@ Fully formed, review-ready artifacts. These tasks create branches and open pull 
 | `backward-compat` | Backward-Compatibility Checks | Check and ensure backward compatibility | Medium | Low | 7d |
 | `build-optimize` | Build Time Optimization | Optimize build configuration for faster builds | High | Medium | 7d |
 | `docs-backfill` | Documentation Backfiller | Generate missing documentation | Low | Low | 7d |
-| `commit-normalize` | Commit Message Normalizer | Standardize commit message format | Low | Low | 24h |
+| `commit-normalize` | Commit Message Normalizer | Standardize commit messages created by Nightshift to use a short imperative subject, optional body, and required trailers without rewriting shared history | Low | Low | 24h |
 | `changelog-synth` | Changelog Synthesizer | Generate changelog from commits | Low | Low | 7d |
 | `release-notes` | Release Note Drafter | Draft release notes from changes | Low | Low | 7d |
 | `adr-draft` | ADR Drafter | Draft Architecture Decision Records | Medium | Low | 7d |
@@ -32,6 +32,8 @@ Fully formed, review-ready artifacts. These tasks create branches and open pull 
 :::note
 `td-review` is **disabled by default** and must be explicitly opted in via `tasks.enabled`. It requires the td integration to be enabled (see [Integrations](/docs/integrations)).
 :::
+
+`commit-normalize` is intentionally scoped to safe normalization. Agents should standardize commit messages they create for the task, or private feature-branch commits that have not been shared yet, using a short imperative subject, an optional explanatory body, and the required `Nightshift-Task` and `Nightshift-Ref` trailers. They should not rewrite protected or already-shared history.
 
 ## Analysis Tasks — "Here's what I found"
 
