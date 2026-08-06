@@ -711,11 +711,39 @@ func (o *Orchestrator) PlanPrompt(task *tasks.Task) string {
 	return o.buildPlanPrompt(task)
 }
 
+func taskSpecificPlanGuidance(task *tasks.Task) string {
+	switch task.Type {
+	case tasks.TaskReleaseNotes:
+		return "\n\n## Task-Specific Guidance\n" +
+			"- Inspect the repo's existing release signals before deciding the scope: CHANGELOG.md, .github/workflows/release.yml, and recent git tags/commits.\n" +
+			"- Use recent tags and commits to infer the release boundary. If the boundary is unclear, state the assumptions you made.\n" +
+			"- Prefer updating the current release-notes artifact and format instead of inventing a new template.\n" +
+			"- Plan for release notes with clear sections such as Features, Fixes, Breaking Changes, and Other. Omit empty sections when appropriate.\n"
+	default:
+		return ""
+	}
+}
+
+func taskSpecificImplementGuidance(task *tasks.Task) string {
+	switch task.Type {
+	case tasks.TaskReleaseNotes:
+		return "\n\n## Task-Specific Guidance\n" +
+			"- Inspect the repo's existing release signals before drafting: CHANGELOG.md, .github/workflows/release.yml, and recent git tags/commits.\n" +
+			"- Use recent tags and commits to infer the release boundary. If the boundary is unclear, state the assumptions you made.\n" +
+			"- Prefer updating the current release-notes artifact and format instead of inventing a new template.\n" +
+			"- Organize the draft into clear sections such as Features, Fixes, Breaking Changes, and Other. Omit empty sections when appropriate.\n"
+	default:
+		return ""
+	}
+}
+
 func (o *Orchestrator) buildPlanPrompt(task *tasks.Task) string {
 	branchInstruction := ""
 	if o.runMeta != nil && o.runMeta.Branch != "" {
 		branchInstruction = fmt.Sprintf("\n   Create your feature branch from `%s`.", o.runMeta.Branch)
 	}
+
+	taskGuidance := taskSpecificPlanGuidance(task)
 
 	return fmt.Sprintf(`You are a planning agent. Create a detailed execution plan for this task.
 
@@ -733,7 +761,7 @@ Description: %s
    Nightshift-Ref: https://github.com/marcus/nightshift
 4. Analyze the task requirements
 5. Identify files that need to be modified
-6. Create step-by-step implementation plan
+6. Create step-by-step implementation plan%s
 7. Output only valid JSON (no markdown, no extra text). The output is read by a machine. Use this schema:
 
 {
@@ -741,7 +769,7 @@ Description: %s
   "files": ["file1.go", "file2.go", ...],
   "description": "overall approach"
 }
-`, task.ID, task.Title, task.Description, branchInstruction, task.Type)
+`, task.ID, task.Title, task.Description, branchInstruction, task.Type, taskGuidance)
 }
 
 func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, iteration int) string {
@@ -754,6 +782,8 @@ func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, 
 	if o.runMeta != nil && o.runMeta.Branch != "" {
 		branchInstruction = fmt.Sprintf("\n   Checkout `%s` before creating your feature branch.", o.runMeta.Branch)
 	}
+
+	taskGuidance := taskSpecificImplementGuidance(task)
 
 	return fmt.Sprintf(`You are an implementation agent. Execute the plan for this task.
 
@@ -776,14 +806,14 @@ Description: %s
    Nightshift-Ref: https://github.com/marcus/nightshift
 2. Implement the plan step by step
 3. Make all necessary code changes
-4. Ensure tests pass
+4. Ensure tests pass%s
 5. Output a summary as JSON:
 
 {
   "files_modified": ["file1.go", ...],
   "summary": "what was done"
 }
-`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, task.Type)
+`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, task.Type, taskGuidance)
 }
 
 func (o *Orchestrator) buildReviewPrompt(task *tasks.Task, impl *ImplementOutput) string {

@@ -350,7 +350,7 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		Type:            TaskReleaseNotes,
 		Category:        CategoryPR,
 		Name:            "Release Note Drafter",
-		Description:     "Draft release notes from changes",
+		Description:     "Draft release-ready notes for the next version",
 		CostTier:        CostLow,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 168 * time.Hour,
