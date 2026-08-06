@@ -258,20 +258,47 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Git hooks and commit messages
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Install the local git hooks before pushing:
 
 ```bash
 make install-hooks
 ```
 
-This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
+This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit` and `scripts/commit-msg.sh` into `.git/hooks/commit-msg`.
+
+The `pre-commit` hook runs:
 - **gofmt** — flags any staged `.go` files that need formatting
 - **go vet** — catches common correctness issues
 - **go build** — ensures the project compiles
 
-To bypass in a pinch: `git commit --no-verify`
+The `commit-msg` hook validates the first non-comment line of each commit message. Use Conventional Commits:
+- `type: summary`
+- `type(scope): summary`
+
+Accepted types:
+- `build`
+- `chore`
+- `ci`
+- `docs`
+- `feat`
+- `fix`
+- `perf`
+- `refactor`
+- `style`
+- `test`
+
+Examples:
+- `feat(run): add pause command`
+- `fix(config): preserve provider YAML keys`
+- `docs(readme): explain hook installation`
+
+Git-generated `Merge ...` and `Revert ...` subjects are allowed automatically.
+
+Pull request titles are validated in CI with the same script so squash-merge commits on `main` stay consistent even when local hooks are skipped.
+
+To bypass local hooks in a pinch: `git commit --no-verify`
 
 ## Uninstalling
 
