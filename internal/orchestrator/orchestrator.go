@@ -17,6 +17,7 @@ import (
 	"github.com/marcus/nightshift/internal/agents"
 	"github.com/marcus/nightshift/internal/budget"
 	"github.com/marcus/nightshift/internal/logging"
+	"github.com/marcus/nightshift/internal/observe"
 	"github.com/marcus/nightshift/internal/tasks"
 )
 
@@ -119,6 +120,7 @@ type Orchestrator struct {
 	logger       *logging.Logger
 	eventHandler EventHandler // optional callback for real-time events
 	runMeta      *RunMetadata
+	obs          *observe.Collector // optional metrics collector
 }
 
 // Option configures an Orchestrator.
@@ -166,6 +168,13 @@ func WithEventHandler(h EventHandler) Option {
 	}
 }
 
+// WithObserver sets the metrics collector. A nil collector disables metrics.
+func WithObserver(c *observe.Collector) Option {
+	return func(o *Orchestrator) {
+		o.obs = c
+	}
+}
+
 // emit sends an event to the registered handler, if any.
 func (o *Orchestrator) emit(e Event) {
 	if o.eventHandler != nil {
@@ -189,6 +198,7 @@ func New(opts ...Option) *Orchestrator {
 // RunTask executes a single task through the plan-implement-review loop.
 func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir string) (*TaskResult, error) {
 	start := time.Now()
+	o.obs.Counter("task_total", 1)
 	result := &TaskResult{
 		TaskID: task.ID,
 		Status: StatusPending,
@@ -208,6 +218,7 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 		result.Status = StatusFailed
 		result.Error = "no agent configured"
 		result.Duration = time.Since(start)
+		o.obs.Counter("task_failed", 1)
 		o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: StatusFailed, Duration: result.Duration, Error: result.Error})
 		return result, errors.New("no agent configured")
 	}
@@ -229,18 +240,21 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 		result.Status = StatusFailed
 		result.Error = fmt.Sprintf("planning failed: %v", err)
 		result.Duration = time.Since(start)
+		o.obs.Counter("task_failed", 1)
 		o.log(result, "error", "plan failed", map[string]any{"error": err.Error()})
 		o.emit(Event{Type: EventPhaseEnd, Phase: StatusPlanning, TaskID: task.ID, Duration: time.Since(phaseStart), Error: err.Error()})
 		o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: StatusFailed, Duration: result.Duration, Error: result.Error})
 		return result, err
 	}
 	result.Plan = plan
+	o.obs.Duration("plan_duration_ms", time.Since(phaseStart))
 	o.log(result, "info", "plan created", map[string]any{"steps": len(plan.Steps)})
 	o.emit(Event{Type: EventPhaseEnd, Phase: StatusPlanning, TaskID: task.ID, Duration: time.Since(phaseStart)})
 
 	// Step 2-4: Implement -> Review loop
 	for iteration := 1; iteration <= o.config.MaxIterations; iteration++ {
 		result.Iterations = iteration
+		o.obs.Counter("iteration_total", 1)
 		o.log(result, "info", "iteration start", map[string]any{"iteration": iteration})
 
 		o.emit(Event{Type: EventIterationStart, TaskID: task.ID, Iteration: iteration, MaxIter: o.config.MaxIterations})
@@ -255,12 +269,14 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 			result.Status = StatusFailed
 			result.Error = fmt.Sprintf("implement failed (iteration %d): %v", iteration, err)
 			result.Duration = time.Since(start)
+			o.obs.Counter("task_failed", 1)
 			o.log(result, "error", "implement failed", map[string]any{"iteration": iteration, "error": err.Error()})
 			o.emit(Event{Type: EventPhaseEnd, Phase: StatusExecuting, TaskID: task.ID, Duration: time.Since(phaseStart), Error: err.Error()})
 			o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: StatusFailed, Duration: result.Duration, Error: result.Error})
 			return result, err
 		}
 		result.Output = impl.Summary
+		o.obs.Duration("implement_duration_ms", time.Since(phaseStart))
 		o.log(result, "info", "implementation complete", map[string]any{"files_modified": len(impl.FilesModified)})
 		o.emit(Event{Type: EventPhaseEnd, Phase: StatusExecuting, TaskID: task.ID, Duration: time.Since(phaseStart), Iteration: iteration})
 
@@ -274,11 +290,13 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 			result.Status = StatusFailed
 			result.Error = fmt.Sprintf("review failed (iteration %d): %v", iteration, err)
 			result.Duration = time.Since(start)
+			o.obs.Counter("task_failed", 1)
 			o.log(result, "error", "review failed", map[string]any{"iteration": iteration, "error": err.Error()})
 			o.emit(Event{Type: EventPhaseEnd, Phase: StatusReviewing, TaskID: task.ID, Duration: time.Since(phaseStart), Error: err.Error()})
 			o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: StatusFailed, Duration: result.Duration, Error: result.Error})
 			return result, err
 		}
+		o.obs.Duration("review_duration_ms", time.Since(phaseStart))
 		o.emit(Event{Type: EventPhaseEnd, Phase: StatusReviewing, TaskID: task.ID, Duration: time.Since(phaseStart), Iteration: iteration})
 
 		if review.Passed {
@@ -305,6 +323,7 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 				}
 			}
 
+			o.obs.Counter("task_completed", 1)
 			o.log(result, "info", "task completed", map[string]any{"duration": result.Duration.String()})
 			o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: StatusCompleted, Duration: result.Duration})
 			return result, nil
@@ -322,6 +341,7 @@ func (o *Orchestrator) RunTask(ctx context.Context, task *tasks.Task, workDir st
 			result.Status = StatusAbandoned
 			result.Error = fmt.Sprintf("max iterations (%d) reached: %s", o.config.MaxIterations, review.Feedback)
 			result.Duration = time.Since(start)
+			o.obs.Counter("task_abandoned", 1)
 			o.log(result, "error", "task abandoned", map[string]any{"reason": "max iterations"})
 			o.emit(Event{Type: EventTaskEnd, TaskID: task.ID, Status: StatusAbandoned, Duration: result.Duration, Error: result.Error})
 			return result, nil
@@ -439,11 +459,14 @@ func (o *Orchestrator) plan(ctx context.Context, task *tasks.Task, workDir strin
 	ctx, cancel := context.WithTimeout(ctx, o.config.AgentTimeout)
 	defer cancel()
 
+	o.obs.Counter("agent_call_total", 1)
+	agentStart := time.Now()
 	execResult, err := o.agent.Execute(ctx, agents.ExecuteOptions{
 		Prompt:  prompt,
 		WorkDir: workDir,
 		Timeout: o.config.AgentTimeout,
 	})
+	o.obs.Duration("agent_call_duration_ms", time.Since(agentStart))
 	if err != nil {
 		if execResult != nil && execResult.Output != "" {
 			o.logger.WarnCtx("agent produced partial output before error", map[string]any{
@@ -499,12 +522,15 @@ func (o *Orchestrator) implement(ctx context.Context, task *tasks.Task, plan *Pl
 		files = filtered
 	}
 
+	o.obs.Counter("agent_call_total", 1)
+	agentStart := time.Now()
 	execResult, err := o.agent.Execute(ctx, agents.ExecuteOptions{
 		Prompt:  prompt,
 		WorkDir: workDir,
 		Files:   files,
 		Timeout: o.config.AgentTimeout,
 	})
+	o.obs.Duration("agent_call_duration_ms", time.Since(agentStart))
 	if err != nil {
 		if execResult != nil && execResult.Output != "" {
 			o.logger.WarnCtx("agent produced partial output before error", map[string]any{
@@ -613,12 +639,15 @@ func (o *Orchestrator) review(ctx context.Context, task *tasks.Task, impl *Imple
 		files = filtered
 	}
 
+	o.obs.Counter("agent_call_total", 1)
+	agentStart := time.Now()
 	execResult, err := o.agent.Execute(ctx, agents.ExecuteOptions{
 		Prompt:  prompt,
 		WorkDir: workDir,
 		Files:   files,
 		Timeout: o.config.AgentTimeout,
 	})
+	o.obs.Duration("agent_call_duration_ms", time.Since(agentStart))
 	if err != nil {
 		if execResult != nil && execResult.Output != "" {
 			o.logger.WarnCtx("agent produced partial output before error", map[string]any{
