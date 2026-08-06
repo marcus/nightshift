@@ -165,6 +165,66 @@ func assessRiskLevel(hIndex float64, top1Percent float64, numContributors int) s
 	return "low"
 }
 
+// ComponentMetrics summarizes ownership concentration for a single component
+// (typically a directory). It carries the calculated metrics, the authors used
+// to derive them, and a derived KnowledgeSilo flag set when a single
+// contributor would unilaterally take the component down.
+type ComponentMetrics struct {
+	Path          string            `json:"path"`
+	Authors       []CommitAuthor    `json:"authors,omitempty"`
+	Metrics       *OwnershipMetrics `json:"metrics"`
+	KnowledgeSilo bool              `json:"knowledge_silo"`
+}
+
+// AnalyzeComponents walks each immediate subdirectory of the supplied roots
+// (defaulting to "cmd" and "internal" when roots is empty) and computes
+// bus-factor metrics scoped to that directory's git history. Components with
+// no commits are skipped. The result is sorted by descending risk so the
+// caller can present the riskiest knowledge silos first.
+func AnalyzeComponents(repoPath string, roots []string, opts ParseOptions) ([]ComponentMetrics, error) {
+	if len(roots) == 0 {
+		roots = []string{"cmd", "internal"}
+	}
+	components, err := ListComponentPaths(repoPath, roots)
+	if err != nil {
+		return nil, err
+	}
+
+	parser := NewGitParser(repoPath)
+	results := make([]ComponentMetrics, 0, len(components))
+	for _, comp := range components {
+		compOpts := opts
+		compOpts.FilePath = comp
+		authors, err := parser.ParseAuthors(compOpts)
+		if err != nil {
+			return nil, fmt.Errorf("analyzing %s: %w", comp, err)
+		}
+		if len(authors) == 0 {
+			continue
+		}
+		m := CalculateMetrics(authors)
+		results = append(results, ComponentMetrics{
+			Path:          comp,
+			Authors:       authors,
+			Metrics:       m,
+			KnowledgeSilo: m.BusFactor <= 1,
+		})
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		ri := RiskLevelScore(results[i].Metrics.RiskLevel)
+		rj := RiskLevelScore(results[j].Metrics.RiskLevel)
+		if ri != rj {
+			return ri > rj
+		}
+		if results[i].Metrics.BusFactor != results[j].Metrics.BusFactor {
+			return results[i].Metrics.BusFactor < results[j].Metrics.BusFactor
+		}
+		return results[i].Path < results[j].Path
+	})
+	return results, nil
+}
+
 // RiskLevelScore returns a numeric score (0-100) for the risk level.
 func RiskLevelScore(level string) int {
 	switch level {

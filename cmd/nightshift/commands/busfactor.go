@@ -52,8 +52,10 @@ Metrics:
 		filePath, _ := cmd.Flags().GetString("file")
 		saveReport, _ := cmd.Flags().GetBool("save")
 		dbPath, _ := cmd.Flags().GetString("db")
+		perDirectory, _ := cmd.Flags().GetBool("per-directory")
+		roots, _ := cmd.Flags().GetStringSlice("roots")
 
-		return runBusFactor(path, jsonOutput, since, until, filePath, saveReport, dbPath)
+		return runBusFactor(path, jsonOutput, since, until, filePath, saveReport, dbPath, perDirectory, roots)
 	},
 }
 
@@ -65,10 +67,12 @@ func init() {
 	busFactorCmd.Flags().StringP("file", "f", "", "Analyze specific file or pattern")
 	busFactorCmd.Flags().Bool("save", false, "Save results to database")
 	busFactorCmd.Flags().String("db", "", "Database path (uses config if not set)")
+	busFactorCmd.Flags().Bool("per-directory", false, "Include per-component bus-factor breakdown and flag knowledge silos")
+	busFactorCmd.Flags().StringSlice("roots", []string{"cmd", "internal"}, "Top-level directories whose subdirectories form components (used with --per-directory)")
 	rootCmd.AddCommand(busFactorCmd)
 }
 
-func runBusFactor(path string, jsonOutput bool, since, until, filePath string, saveReport bool, dbPath string) error {
+func runBusFactor(path string, jsonOutput bool, since, until, filePath string, saveReport bool, dbPath string, perDirectory bool, roots []string) error {
 	logger := logging.Component("busfactor")
 
 	// Resolve path
@@ -124,6 +128,14 @@ func runBusFactor(path string, jsonOutput bool, since, until, filePath string, s
 	gen := analysis.NewReportGenerator()
 	component := filepath.Base(absPath)
 	report := gen.Generate(component, authors, metrics)
+
+	if perDirectory {
+		breakdown, err := analysis.AnalyzeComponents(absPath, roots, opts)
+		if err != nil {
+			return fmt.Errorf("analyzing components: %w", err)
+		}
+		report.ComponentBreakdown = breakdown
+	}
 
 	// Output results
 	if jsonOutput {
