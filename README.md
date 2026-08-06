@@ -258,20 +258,50 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Git hooks and commit messages
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Install the local git hooks before pushing:
 
 ```bash
 make install-hooks
 ```
 
-This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
-- **gofmt** — flags any staged `.go` files that need formatting
-- **go vet** — catches common correctness issues
-- **go build** — ensures the project compiles
+This installs worktree-aware wrappers into the active Git hooks directory, including linked worktrees, and dispatches to both `scripts/pre-commit.sh` and `scripts/commit-msg.sh`.
 
-To bypass in a pinch: `git commit --no-verify`
+The `pre-commit` hook runs:
+- **gofmt** - flags any staged `.go` files that need formatting
+- **go vet** - catches common correctness issues
+- **go build** - ensures the project compiles
+
+The `commit-msg` hook validates the first non-comment line of each commit message. Use Conventional Commits:
+- `type: summary`
+- `type(scope): summary`
+- `type!: summary`
+- `type(scope)!: summary`
+
+Accepted types:
+- `build`
+- `chore`
+- `ci`
+- `docs`
+- `feat`
+- `fix`
+- `perf`
+- `refactor`
+- `style`
+- `test`
+
+Examples:
+- `feat(run): add pause command`
+- `feat!: drop legacy API`
+- `fix(config): preserve provider YAML keys`
+- `docs(readme): explain hook installation`
+
+Git-generated `Merge ...` and `Revert ...` subjects are allowed automatically.
+
+Pull request titles are validated in CI with the same rules so squash-merge commits on `main` stay consistent even when local hooks are skipped.
+
+To bypass local hooks in a pinch: `git commit --no-verify`
 
 ## Uninstalling
 

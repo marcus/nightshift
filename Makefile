@@ -3,6 +3,7 @@
 # Binary name
 BINARY=nightshift
 PKG=./cmd/nightshift
+HOOKS_DIR := $(shell git rev-parse --git-path hooks)
 
 # Build the binary
 build:
@@ -75,10 +76,16 @@ help:
 	@echo "  check         - Run tests and lint"
 	@echo "  install       - Build and install to Go bin directory"
 	@echo "  calibrate-providers - Compare local Claude/Codex session usage for calibration"
-	@echo "  install-hooks  - Install git pre-commit hook"
+	@echo "  install-hooks - Install git hooks for pre-commit and commit-msg checks"
 	@echo "  help          - Show this help"
 
-# Install git pre-commit hook
+# Install git hooks with wrappers that resolve the active worktree at runtime.
 install-hooks:
-	@ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit
-	@echo "✓ pre-commit hook installed (.git/hooks/pre-commit → scripts/pre-commit.sh)"
+	@mkdir -p "$(HOOKS_DIR)"
+	@rm -f "$(HOOKS_DIR)/pre-commit" "$(HOOKS_DIR)/commit-msg"
+	@printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' '' 'repo_root="$$(git rev-parse --show-toplevel)"' 'exec "$$repo_root/scripts/pre-commit.sh" "$$@"' > "$(HOOKS_DIR)/pre-commit"
+	@chmod +x "$(HOOKS_DIR)/pre-commit"
+	@printf '%s\n' '#!/usr/bin/env bash' 'set -euo pipefail' '' 'repo_root="$$(git rev-parse --show-toplevel)"' 'exec "$$repo_root/scripts/commit-msg.sh" "$$@"' > "$(HOOKS_DIR)/commit-msg"
+	@chmod +x "$(HOOKS_DIR)/commit-msg"
+	@echo "✓ pre-commit hook installed ($(HOOKS_DIR)/pre-commit -> worktree-aware scripts/pre-commit.sh)"
+	@echo "✓ commit-msg hook installed ($(HOOKS_DIR)/commit-msg -> worktree-aware scripts/commit-msg.sh)"
