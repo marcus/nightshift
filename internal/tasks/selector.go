@@ -1,4 +1,3 @@
-// Package tasks provides task selection and priority scoring.
 package tasks
 
 import (

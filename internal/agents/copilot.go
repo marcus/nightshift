@@ -1,4 +1,3 @@
-// copilot.go implements the Agent interface for GitHub Copilot CLI.
 package agents
 
 import (

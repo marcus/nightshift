@@ -1,5 +1,3 @@
-// Package reporting generates morning summary reports for nightshift runs.
-// Reports are generated as markdown and can be saved to disk or sent via notifications.
 package reporting
 
 import (
