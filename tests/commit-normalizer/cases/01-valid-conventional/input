@@ -1,0 +1,5 @@
+feat(parser): allow optional trailing comma
+
+Trailing commas in function arguments simplify diffs.
+
+Refs: #42

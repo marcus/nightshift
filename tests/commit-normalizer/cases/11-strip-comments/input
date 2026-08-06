@@ -1,0 +1,8 @@
+feat: support TOML config
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch feature/x
+
+Adds a parallel TOML loader alongside YAML.
