@@ -1,0 +1,6 @@
+version: "2"
+
+linters:
+  enable:
+    - gocritic
+    - godot
