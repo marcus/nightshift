@@ -143,9 +143,10 @@ func TestCategoryShort(t *testing.T) {
 
 func TestTaskInstanceFromDef(t *testing.T) {
 	def := tasks.TaskDefinition{
-		Type:        "lint-fix",
-		Name:        "Linter Fixes",
-		Description: "Fix lint errors",
+		Type:              "lint-fix",
+		Name:              "Linter Fixes",
+		Description:       "Fix lint errors",
+		AgentInstructions: "Inspect lint output and apply safe fixes",
 	}
 
 	// Without project path
@@ -156,11 +157,30 @@ func TestTaskInstanceFromDef(t *testing.T) {
 	if task.Title != "Linter Fixes" {
 		t.Errorf("Title = %q", task.Title)
 	}
+	if task.Description != def.Description {
+		t.Errorf("Description = %q, want %q", task.Description, def.Description)
+	}
+	if task.AgentInstructions != def.AgentInstructions {
+		t.Errorf("AgentInstructions = %q, want %q", task.AgentInstructions, def.AgentInstructions)
+	}
 
 	// With project path
 	task = taskInstanceFromDef(def, "/tmp/proj")
 	if task.ID != "lint-fix:/tmp/proj" {
 		t.Errorf("ID = %q, want %q", task.ID, "lint-fix:/tmp/proj")
+	}
+}
+
+func TestTaskInstanceFromDefFallsBackToDescription(t *testing.T) {
+	def := tasks.TaskDefinition{
+		Type:        "docs-backfill",
+		Name:        "Docs",
+		Description: "Generate missing documentation",
+	}
+
+	task := taskInstanceFromDef(def, "")
+	if task.AgentInstructions != def.Description {
+		t.Errorf("AgentInstructions = %q, want fallback %q", task.AgentInstructions, def.Description)
 	}
 }
 

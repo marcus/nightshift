@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -240,6 +241,91 @@ func TestTaskDefinitionEstimatedTokens(t *testing.T) {
 	min, max := def.EstimatedTokens()
 	if min != 10_000 || max != 50_000 {
 		t.Errorf("TaskDefinition.EstimatedTokens() = (%d, %d), want (10000, 50000)", min, max)
+	}
+}
+
+func TestTaskDefinitionPromptText(t *testing.T) {
+	tests := []struct {
+		name string
+		def  TaskDefinition
+		want string
+	}{
+		{
+			name: "falls back to description",
+			def: TaskDefinition{
+				Description: "summary only",
+			},
+			want: "summary only",
+		},
+		{
+			name: "uses explicit agent instructions",
+			def: TaskDefinition{
+				Description:       "short summary",
+				AgentInstructions: "detailed agent prompt",
+			},
+			want: "detailed agent prompt",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.def.PromptText(); got != tt.want {
+				t.Errorf("PromptText() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTaskPromptText(t *testing.T) {
+	tests := []struct {
+		name string
+		task Task
+		want string
+	}{
+		{
+			name: "falls back to description",
+			task: Task{
+				Description: "summary only",
+			},
+			want: "summary only",
+		},
+		{
+			name: "uses explicit agent instructions",
+			task: Task{
+				Description:       "short summary",
+				AgentInstructions: "detailed agent prompt",
+			},
+			want: "detailed agent prompt",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.task.PromptText(); got != tt.want {
+				t.Errorf("PromptText() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCommitNormalizeHasDedicatedAgentInstructions(t *testing.T) {
+	def, err := GetDefinition(TaskCommitNormalize)
+	if err != nil {
+		t.Fatalf("GetDefinition(TaskCommitNormalize) error: %v", err)
+	}
+
+	if def.Description != "Standardize commit message format" {
+		t.Errorf("Description = %q, want short catalog summary", def.Description)
+	}
+
+	for _, want := range []string{
+		"do not rewrite published history",
+		"Preserve Nightshift's required commit trailers",
+		"Inspect recent repository history",
+	} {
+		if !strings.Contains(def.PromptText(), want) {
+			t.Errorf("PromptText() missing %q\nGot:\n%s", want, def.PromptText())
+		}
 	}
 }
 
