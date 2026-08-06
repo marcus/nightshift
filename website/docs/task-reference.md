@@ -65,7 +65,7 @@ These tasks surface judgment calls, tradeoffs, and design forks for human review
 | Task | Name | Description | Cost | Risk | Cooldown |
 |------|------|-------------|------|------|----------|
 | `task-groomer` | Task Groomer | Refine and clarify task definitions | Medium | Low | 7d |
-| `guide-improver` | Guide/Skill Improver | Suggest improvements to guides and skills | Medium | Low | 7d |
+| `guide-improver` | Guide/Skill Improver | Audit guides and skills for staleness, accuracy, and spec compliance; suggest structured improvements | Medium | Low | 7d |
 | `idea-generator` | Idea Generator | Generate improvement ideas for the codebase | Medium | Low | 7d |
 | `tech-debt-classify` | Tech-Debt Classifier | Classify and prioritize technical debt | Medium | Low | 7d |
 | `why-annotator` | Why Does This Exist Annotator | Document the purpose of unclear code | Medium | Low | 7d |
