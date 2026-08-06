@@ -11,10 +11,11 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/marcus/nightshift/internal/config"
-	"github.com/marcus/nightshift/internal/reporting"
 	"github.com/muesli/termenv"
 	"github.com/spf13/cobra"
+
+	"github.com/marcus/nightshift/internal/config"
+	"github.com/marcus/nightshift/internal/reporting"
 )
 
 type reportOptions struct {

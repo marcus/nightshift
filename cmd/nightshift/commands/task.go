@@ -11,11 +11,12 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/marcus/nightshift/internal/logging"
 	"github.com/marcus/nightshift/internal/orchestrator"
 	"github.com/marcus/nightshift/internal/security"
 	"github.com/marcus/nightshift/internal/tasks"
-	"github.com/spf13/cobra"
 )
 
 var taskCmd = &cobra.Command{

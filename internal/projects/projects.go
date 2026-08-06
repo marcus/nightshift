@@ -10,9 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/marcus/nightshift/internal/config"
 	"github.com/marcus/nightshift/internal/state"
-	"github.com/spf13/viper"
 )
 
 // Project represents a resolved project with merged configuration.

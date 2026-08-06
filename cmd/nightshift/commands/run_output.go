@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/marcus/nightshift/internal/budget"
 	"github.com/marcus/nightshift/internal/orchestrator"
 	"github.com/marcus/nightshift/internal/tasks"
