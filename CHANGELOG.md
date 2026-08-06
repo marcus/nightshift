@@ -2,6 +2,23 @@
 
 All notable changes to nightshift are documented in this file.
 
+## [v0.3.4] - 2026-02-28
+
+### Features
+- **Configurable agent timeouts** — add `--timeout` to `nightshift run` and `nightshift daemon`, with daemon re-exec forwarding the flag (#27)
+- **Expanded PII scanner guidance** — add detailed instructions for detecting hardcoded PII, leaked env files, unsafe storage, and related exposure patterns in the built-in task (#34)
+
+### Fixes
+- **Timeout handling and diagnostics** — preserve partial output on timeout, terminate full process groups, and surface partial logs from failed plan/implement/review steps (#33)
+- **Copilot CLI integration** — improve binary resolution, permission gating, and CLI flag handling for Copilot runs (#39)
+- **Provider config YAML serialization** — write provider settings with the correct YAML keys during setup (#43)
+- **Configured run limits and budget fallback** — honor `schedule.max_projects` and `schedule.max_tasks`, improve budget calibration at day and week boundaries, and preserve Codex fallback permissions in headless runs (#42)
+
+### Other
+- **Task reference docs** — add a comprehensive reference page for all 59 built-in tasks and refresh related task documentation (#30)
+- **Docs cleanup** — remove auto-generated implementation docs from the repository (#40)
+- **Low-risk cleanup** — resolve Copilot helper lint warnings and replace `WriteString(fmt.Sprintf(...))` patterns with `fmt.Fprintf` in reporting and setup code (#38, #41)
+
 ## [v0.3.3] - 2026-02-19
 
 ### Features
