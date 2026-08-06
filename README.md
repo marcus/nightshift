@@ -260,7 +260,7 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ### Pre-commit hooks
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Install the git pre-commit hook to catch the fast local checks before pushing:
 
 ```bash
 make install-hooks
@@ -270,6 +270,15 @@ This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook run
 - **gofmt** — flags any staged `.go` files that need formatting
 - **go vet** — catches common correctness issues
 - **go build** — ensures the project compiles
+
+Full linting is intentionally separate so the hook stays quick:
+
+```bash
+make lint-install
+make check
+```
+
+`make lint-install` installs the repo's pinned `golangci-lint` into your Go bin directory, and `make lint`/`make check` will use that copy even if the directory is not on your `PATH`.
 
 To bypass in a pinch: `git commit --no-verify`
 

@@ -28,9 +28,9 @@ else
 fi
 
 # --- go vet ---
+# Keep the hook fast: full golangci-lint still runs via `make lint` and CI.
 printf "  %-20s" "go vet"
-VET_OUT=$(go vet ./... 2>&1)
-if [[ $? -eq 0 ]]; then
+if VET_OUT=$(go vet ./... 2>&1); then
   echo "✓"
   PASS=$((PASS+1))
 else
@@ -41,8 +41,7 @@ fi
 
 # --- go build ---
 printf "  %-20s" "go build"
-BUILD_OUT=$(go build ./... 2>&1)
-if [[ $? -eq 0 ]]; then
+if BUILD_OUT=$(go build ./... 2>&1); then
   echo "✓"
   PASS=$((PASS+1))
 else
