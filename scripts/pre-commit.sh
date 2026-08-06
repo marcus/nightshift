@@ -8,48 +8,27 @@ FAIL=0
 
 echo "🪡 pre-commit checks"
 
-# --- gofmt: only staged .go files ---
-STAGED_GO=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
+run_check() {
+  local label="$1"
+  shift
 
-if [[ -n "$STAGED_GO" ]]; then
-  printf "  %-20s" "gofmt"
-  UNFORMATTED=$(echo "$STAGED_GO" | xargs gofmt -l 2>&1)
-  if [[ -z "$UNFORMATTED" ]]; then
+  printf "  %-20s" "$label"
+  if OUTPUT=$("$@" 2>&1); then
     echo "✓"
     PASS=$((PASS+1))
-  else
-    echo "✗ FAILED — run: gofmt -w ."
-    echo "$UNFORMATTED" | sed 's/^/    /'
-    FAIL=$((FAIL+1))
+    return 0
   fi
-else
-  printf "  %-20s" "gofmt"
-  echo "– (no .go files staged)"
-fi
 
-# --- go vet ---
-printf "  %-20s" "go vet"
-VET_OUT=$(go vet ./... 2>&1)
-if [[ $? -eq 0 ]]; then
-  echo "✓"
-  PASS=$((PASS+1))
-else
   echo "✗ FAILED"
-  echo "$VET_OUT" | sed 's/^/    /'
+  if [[ -n "$OUTPUT" ]]; then
+    echo "$OUTPUT" | sed 's/^/    /'
+  fi
   FAIL=$((FAIL+1))
-fi
+}
 
-# --- go build ---
-printf "  %-20s" "go build"
-BUILD_OUT=$(go build ./... 2>&1)
-if [[ $? -eq 0 ]]; then
-  echo "✓"
-  PASS=$((PASS+1))
-else
-  echo "✗ FAILED"
-  echo "$BUILD_OUT" | sed 's/^/    /'
-  FAIL=$((FAIL+1))
-fi
+run_check "gofmt" make fmt-check
+run_check "go vet" make vet
+run_check "golangci-lint" make lint
 
 echo ""
 if [[ $FAIL -gt 0 ]]; then
