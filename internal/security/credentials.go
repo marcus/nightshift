@@ -90,11 +90,6 @@ func (m *CredentialManager) HasOpenAIKey() bool {
 	return os.Getenv(EnvOpenAIKey) != ""
 }
 
-// GetWarnings returns any warnings generated during validation.
-func (m *CredentialManager) GetWarnings() []string {
-	return m.warnings
-}
-
 // CheckConfigForCredentials scans config content for potential credential leaks.
 // Returns error if credentials appear to be stored in config.
 func (m *CredentialManager) CheckConfigForCredentials(content string) error {
@@ -127,24 +122,6 @@ func (m *CredentialManager) CheckConfigForCredentials(content string) error {
 	}
 
 	return nil
-}
-
-// EnsureNoCredentialsInFile checks a file for potential credential storage.
-func (m *CredentialManager) EnsureNoCredentialsInFile(path string) error {
-	// Skip non-config files
-	if !isConfigFile(path) {
-		return nil
-	}
-
-	content, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("reading file: %w", err)
-	}
-
-	return m.CheckConfigForCredentials(string(content))
 }
 
 // maskCredential returns a masked version of a credential for safe display.

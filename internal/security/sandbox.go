@@ -5,7 +5,6 @@ package security
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -141,46 +140,6 @@ func (s *Sandbox) Execute(ctx context.Context, name string, args ...string) (*Ex
 	}
 
 	return result, nil
-}
-
-// ExecuteWithIO runs a command with custom IO streams.
-func (s *Sandbox) ExecuteWithIO(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, name string, args ...string) error {
-	s.mu.Lock()
-	s.active = true
-	s.mu.Unlock()
-
-	defer func() {
-		s.mu.Lock()
-		s.active = false
-		s.mu.Unlock()
-	}()
-
-	// Apply timeout
-	if s.config.MaxDuration > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, s.config.MaxDuration)
-		defer cancel()
-	}
-
-	// Validate command
-	if err := s.validateCommand(name); err != nil {
-		return err
-	}
-
-	cmd := exec.CommandContext(ctx, name, args...)
-
-	if s.config.WorkDir != "" {
-		cmd.Dir = s.config.WorkDir
-	} else {
-		cmd.Dir = s.tempDir
-	}
-
-	cmd.Env = s.buildEnvironment()
-	cmd.Stdin = stdin
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-
-	return cmd.Run()
 }
 
 // ExecResult holds the result of a sandboxed execution.

@@ -195,11 +195,6 @@ func (l *Logger) WithComponent(component string) *Logger {
 	}
 }
 
-// With returns a new Logger with additional context fields.
-func (l *Logger) With() zerolog.Context {
-	return l.zl.With()
-}
-
 // Debug logs a debug message.
 func (l *Logger) Debug(msg string) {
 	l.zl.Debug().Msg(msg)
@@ -274,25 +269,6 @@ func (l *Logger) ErrorCtx(msg string, fields map[string]any) {
 		event = event.Interface(k, v)
 	}
 	event.Msg(msg)
-}
-
-// Err logs an error with the error field.
-func (l *Logger) Err(err error) *zerolog.Event {
-	return l.zl.Error().Err(err)
-}
-
-// Event returns a new log event at the specified level.
-func (l *Logger) Event(level string) *zerolog.Event {
-	switch level {
-	case "debug":
-		return l.zl.Debug()
-	case "warn":
-		return l.zl.Warn()
-	case "error":
-		return l.zl.Error()
-	default:
-		return l.zl.Info()
-	}
 }
 
 // Close closes the log file.
