@@ -5,88 +5,242 @@ title: CLI Reference
 
 # CLI Reference
 
-## Core Commands
+Run `nightshift --help` or `nightshift COMMAND --help` for the version installed on your machine.
 
-| Command | Description |
-|---------|-------------|
-| `nightshift setup` | Guided global configuration |
-| `nightshift run` | Execute scheduled tasks |
-| `nightshift preview` | Show upcoming runs |
-| `nightshift budget` | Check token budget status |
-| `nightshift task` | Browse and run tasks |
-| `nightshift doctor` | Check environment health |
-| `nightshift status` | View run history |
-| `nightshift logs` | Stream or export logs |
-| `nightshift stats` | Token usage statistics |
-| `nightshift daemon` | Background scheduler |
+## Command overview
 
-## Run Options
+| Command | Purpose |
+|---------|---------|
+| `setup` | Run the interactive global onboarding wizard |
+| `init` | Create a global or project configuration file |
+| `config` | Show, read, write, or validate configuration |
+| `run` | Plan and execute configured tasks immediately |
+| `preview` | Preview future runs without changing state |
+| `task` | List, inspect, or execute one task |
+| `budget` | Show budget status, snapshots, and calibration |
+| `daemon` | Start, stop, or inspect the persistent scheduler |
+| `install` | Install an OS-managed scheduled service |
+| `uninstall` | Remove installed launchd, systemd, and cron entries |
+| `status` | Show recent run history or today's activity |
+| `report` | Render structured run reports |
+| `logs` | Read, filter, follow, or export logs |
+| `stats` | Show aggregate run and token statistics |
+| `doctor` | Diagnose configuration, providers, scheduling, database, and budget |
+| `busfactor` | Analyze code ownership concentration |
+| `completion` | Generate shell completion scripts |
 
-`nightshift run` shows a preflight summary before executing, then prompts for confirmation in interactive terminals.
+## Configuration bootstrap
 
 ```bash
-nightshift run                          # Preflight + confirm + execute (1 project, 1 task)
-nightshift run --yes                    # Skip confirmation
-nightshift run --dry-run                # Show preflight, don't execute
-nightshift run --max-projects 3         # Process up to 3 projects
-nightshift run --max-tasks 2            # Run up to 2 tasks per project
-nightshift run --random-task            # Pick a random eligible task
-nightshift run --ignore-budget          # Bypass budget limits (use with caution)
-nightshift run --project ~/code/myapp   # Target specific project (ignores --max-projects)
-nightshift run --task lint-fix          # Run specific task (ignores --max-tasks)
+nightshift setup
+nightshift init
+nightshift init --global
+nightshift init --global --force
+
+nightshift config
+nightshift config get budget.max_percent
+nightshift config set budget.max_percent 60
+nightshift config set providers.copilot.enabled true --global
+nightshift config validate
 ```
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--dry-run` | `false` | Show preflight summary and exit without executing |
-| `--yes`, `-y` | `false` | Skip confirmation prompt |
-| `--max-projects` | `1` | Max projects to process (ignored when `--project` is set) |
-| `--max-tasks` | `1` | Max tasks per project (ignored when `--task` is set) |
-| `--random-task` | `false` | Pick a random task from eligible tasks instead of the highest-scored one |
-| `--ignore-budget` | `false` | Bypass budget checks with a warning |
-| `--project`, `-p` | | Target a specific project directory |
-| `--task`, `-t` | | Run a specific task by name |
+`init` creates `nightshift.yaml` in the current directory. `init --global` creates
+`~/.config/nightshift/config.yaml`. Without `--global`, `config set` writes to the current
+project config when it exists and otherwise writes to the global config. `init --force` skips the
+overwrite prompt.
 
-Non-interactive contexts (daemon, cron, piped output) skip the confirmation prompt automatically.
+The generated global file is an opinionated starter, not a dump of built-in defaults. In the
+current template it limits provider preference to Claude and Codex, enables their unattended
+permission-bypass options, and includes legacy task aliases. Review the file after creation and
+use `nightshift task list` for accepted task slugs.
 
-## Preview Options
+`config validate` validates each existing file and the merged configuration. It catches schema
+rules such as mutually exclusive `schedule.cron` and `schedule.interval`, budget ranges, provider
+preference names, task durations, and custom-task fields. It does not parse cron syntax,
+`schedule.interval`, or execution-window values. Use `nightshift doctor`, `nightshift preview`,
+or `nightshift daemon start --foreground` for scheduler parsing.
+
+## `nightshift run`
+
+`run` builds a preflight plan, showing the base branch, provider, budget, projects, and tasks.
+It prompts before execution in an interactive terminal. Non-interactive invocations, including
+cron and system services, skip the prompt automatically.
+
+| Flag | Default | Behavior |
+|------|---------|----------|
+| `--dry-run` | `false` | Show the preflight plan and exit without execution |
+| `--project`, `-p` | configured paths or current directory | Target one existing directory, load its `nightshift.yaml`, and ignore `--max-projects` |
+| `--task`, `-t` | automatic selection | Run one built-in task; ignores `--max-tasks`, task enablement, cooldown, estimated-cost filtering, and the processed-today skip |
+| `--max-projects` | `1` | Maximum eligible projects; a positive `schedule.max_projects` supplies the default when the flag is omitted; explicit `0` is unlimited |
+| `--max-tasks` | `1` | Maximum selected tasks per project; a positive `schedule.max_tasks` supplies the default when the flag is omitted |
+| `--random-task` | `false` | Pick exactly one random eligible task; cannot be combined with `--task` |
+| `--ignore-budget` | `false` | Permit selection even when a provider budget is exhausted |
+| `--yes`, `-y` | `false` | Skip the interactive confirmation |
+| `--branch`, `-b` | current branch of the first project | Set the base branch used for task branches |
+| `--timeout` | `30m` | Set the per-agent execution timeout |
+| `--no-color` | `false` | Disable colored output; `NO_COLOR` also works |
 
 ```bash
-nightshift preview                # Default view
-nightshift preview -n 3           # Next 3 runs
-nightshift preview --long         # Detailed view
-nightshift preview --explain      # With prompt previews
-nightshift preview --plain        # No pager
-nightshift preview --json         # JSON output
-nightshift preview --write ./dir  # Write prompts to files
+nightshift run --dry-run
+nightshift run --yes --max-projects 3 --max-tasks 2
+nightshift run -p ~/code/myapp -t docs-backfill
+nightshift run --random-task
+nightshift run --branch develop --timeout 45m
 ```
 
-## Task Commands
+## `nightshift preview`
+
+Preview requires a valid schedule. It never executes tasks or records project/task runs, although
+it opens the configured database and `--write` deliberately creates prompt files.
+
+| Flag | Default | Behavior |
+|------|---------|----------|
+| `--runs`, `-n` | `3` | Number of upcoming runs |
+| `--project`, `-p` | all | Limit output to a project path |
+| `--task`, `-t` | all | Limit output to a task type |
+| `--long` | `false` | Show full prompts instead of truncated previews |
+| `--write DIR` | unset | Write full prompts to a directory |
+| `--explain` | `false` | Include budget and task-filter reasons |
+| `--plain` | `false` | Disable the optional `gum` pager |
+| `--json` | `false` | Emit JSON, including full prompts |
 
 ```bash
-nightshift task list              # All tasks
-nightshift task list --category pr
-nightshift task list --cost low --json
-nightshift task show lint-fix
-nightshift task show lint-fix --prompt-only
-nightshift task run lint-fix --provider claude
-nightshift task run lint-fix --provider codex --dry-run
+nightshift preview --explain
+nightshift preview -n 5 --task lint-fix
+nightshift preview --json
+nightshift preview --write ./nightshift-prompts
 ```
 
-## Budget Commands
+Preview chooses the first enabled provider in the fixed order Claude, Codex, Copilot. It does not
+use `providers.preference` or test the provider executable. Its task plan contains one task per
+project per previewed run.
+
+## `nightshift task`
 
 ```bash
-nightshift budget                 # Current status
-nightshift budget --provider claude
-nightshift budget snapshot --local-only
+nightshift task list
+nightshift task list --category analysis --cost medium --json
+nightshift task show docs-backfill
+nightshift task show docs-backfill --prompt-only
+nightshift task show docs-backfill --project ~/code/myapp --json
+nightshift task run docs-backfill --provider copilot --project ~/code/myapp --dry-run
+nightshift task run docs-backfill --provider codex --branch main --timeout 45m
+```
+
+`task list` accepts categories `pr`, `analysis`, `options`, `safe`, `map`, and `emergency`.
+Its cost filter accepts `low`, `medium`, `high`, and `veryhigh`. `task run` requires one of
+`claude`, `codex`, or `copilot`; its default project is the current directory and its default
+timeout is `30m`.
+
+The `task` subcommands currently expose built-in tasks only; they do not register `tasks.custom`
+from configuration. `task run` is a direct execution path: it does not consult provider
+enablement, provider preference, budgets, task enablement, cooldowns, or run history. Even
+`--dry-run` checks that the requested provider executable is available (and, for the `gh`
+Copilot fallback, that the extension is listed).
+
+## `nightshift budget`
+
+All budget commands accept `--provider`/`-p` with `claude`, `codex`, or `copilot`.
+
+```bash
+nightshift budget
+nightshift budget --provider codex
+nightshift budget snapshot
+nightshift budget snapshot --provider claude --local-only
 nightshift budget history -n 10
-nightshift budget calibrate
+nightshift budget calibrate --provider copilot
 ```
 
-## Global Flags
+`budget history` defaults to 20 snapshots. `snapshot --local-only` records provider data without
+starting a tmux scraping session. `calibrate` reports inferred budget status; it does not consume
+an agent run. Claude and Codex support tmux percentage scraping; Copilot snapshots are local-only.
 
-| Flag | Description |
-|------|-------------|
-| `--verbose` | Verbose output |
-| `--provider` | Select provider (claude, codex) |
-| `--timeout` | Execution timeout (default 30m) |
+## Daemon and installed services
+
+The daemon is a persistent scheduler:
+
+```bash
+nightshift daemon start
+nightshift daemon start --foreground --timeout 45m
+nightshift daemon status
+nightshift daemon stop
+```
+
+It loads global plus current-directory configuration once at startup and does not reload changed
+files. At each scheduled time it walks every existing explicit `projects[].path`, skips projects
+already processed that day, and selects up to five tasks per project. The daemon does not use
+`schedule.max_projects` or `schedule.max_tasks`; those fields affect `nightshift run` only.
+
+An installed service is OS-managed and invokes `nightshift run` at scheduled times:
+
+```bash
+nightshift install
+nightshift install launchd
+nightshift install systemd
+nightshift install cron
+nightshift uninstall
+```
+
+With no argument, `install` chooses launchd on macOS, systemd on Linux when `systemctl` is
+available, and cron otherwise. `uninstall` looks for and removes all three Nightshift service
+types.
+
+For predictable installed-service timing, configure a simple five-field cron schedule before
+installation. Cron preserves that expression; launchd uses only its numeric minute and hour;
+systemd converts only its minute, hour, day-of-month, and month fields. Installed services ignore
+execution windows. Interval configuration is fully supported by `daemon start`, but the service
+generators do not translate it consistently: launchd and cron fall back to 02:00, while systemd
+performs only a simple minute-style conversion. See [Scheduling](/docs/scheduling) for lifecycle
+details.
+
+## History, reports, logs, and diagnostics
+
+```bash
+nightshift status --last 10
+nightshift status --today
+
+nightshift report
+nightshift report --report tasks --period last-7d --format markdown
+nightshift report --since 2026-07-01 --until 2026-07-08 --runs 0 --paths
+
+nightshift logs --tail 100
+nightshift logs --follow
+nightshift logs --since "2026-07-25 22:00" --level warn --component daemon
+nightshift logs --match "budget exhausted" --summary
+nightshift logs --export ./nightshift.log --raw --no-color
+
+nightshift stats --period last-30d
+nightshift stats --json
+nightshift doctor
+```
+
+Report types are `overview`, `tasks`, `projects`, `budget`, and `raw`. Report formats are
+`fancy`, `plain`, `markdown`, and `json`. `--period` accepts `last-night`, `last-run`,
+`last-24h`, `last-7d`, `today`, `yesterday`, or `all`; `--since` and `--until` accept a date,
+local date/time, or RFC3339 timestamp.
+
+`logs --level` accepts `debug`, `info`, `warn`, or `error`. Statistics periods are `all`,
+`last-7d`, `last-30d`, and `last-night`.
+
+`doctor` parses the scheduler and checks enabled Claude/Codex executables, provider data paths,
+database state, budget readiness, snapshots, tmux, daemon state, and the detected service files.
+It does not test provider authentication, and it does not check whether a Copilot executable or
+the retired `gh copilot` extension is installed.
+
+## Bus factor analysis
+
+```bash
+nightshift busfactor .
+nightshift busfactor --path ~/code/myapp --since 2026-01-01 --json
+nightshift busfactor . --file "internal/*.go" --save
+nightshift busfactor . --db ~/.local/share/nightshift/nightshift.db
+```
+
+The optional positional path and `--path`/`-p` select the repository. Date boundaries accept
+`YYYY-MM-DD` or RFC3339.
+
+## Global flags
+
+`--verbose` is the only Nightshift-wide behavior flag. Cobra also provides `--help`, and the root
+command provides `--version`. Provider, timeout, JSON, and formatting flags belong only to the
+commands that list them.
