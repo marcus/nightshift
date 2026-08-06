@@ -146,8 +146,8 @@ Other useful flags:
 - `--category` — filter tasks by category (pr, analysis, options, safe, map, emergency)
 - `--cost` — filter by cost tier (low, medium, high, veryhigh)
 - `--prompt-only` — output just the raw prompt text for piping
-- `--provider` — required for `task run`, choose claude or codex
-- `--dry-run` — preview the prompt without executing
+- `--provider` — required for `task run`, choose claude, codex, or copilot
+- `--dry-run` — preview the prompt and generated plan text without executing the provider
 - `--timeout` — execution timeout (default 30m)
 
 ## Authentication (Subscriptions)
@@ -177,15 +177,22 @@ Supports signing in with ChatGPT or an API key.
 ### GitHub Copilot
 
 ```bash
-# Install Copilot CLI
+# Option 1: standalone Copilot CLI
 npm install -g @github/copilot
-# or
-curl -fsSL https://gh.io/copilot-install | bash
+
+# Option 2: GitHub CLI + Copilot extension
+gh extension install github/gh-copilot
 ```
 
-Requires GitHub Copilot subscription. See [docs/COPILOT_INTEGRATION.md](docs/COPILOT_INTEGRATION.md) for details.
+Nightshift auto-detects GitHub Copilot from either a standalone `copilot`
+binary or `gh` with the `gh-copilot` extension installed.
 
 If you prefer API-based usage, you can authenticate Claude and Codex CLIs with API keys instead.
+
+Use `nightshift doctor` after setup to verify that Nightshift can find the
+provider CLIs, config files, and local usage data. Use `nightshift task run
+<task> --provider <name> --dry-run` to preview the prompt Nightshift would
+send. Dry-run is a prompt/preflight check, not a provider-auth smoke test.
 
 ## Configuration
 
@@ -200,7 +207,12 @@ Nightshift uses YAML config files to define:
 
 Run `nightshift setup` to create/update the global config at `~/.config/nightshift/config.yaml`.
 
-See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) or [SPEC.md](docs/SPEC.md) for detailed options.
+You can also bootstrap config files directly with `nightshift init` in a repo
+or `nightshift init --global` for a global config, then inspect or adjust values
+with `nightshift config`, `nightshift config get`, `nightshift config set`, and
+`nightshift config validate`.
+
+See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) for detailed options.
 
 Minimal example:
 
@@ -220,6 +232,7 @@ providers:
   preference:
     - claude
     - codex
+    - copilot
   claude:
     enabled: true
     data_path: "~/.claude"
@@ -228,6 +241,10 @@ providers:
     enabled: true
     data_path: "~/.codex"
     dangerously_bypass_approvals_and_sandbox: true
+  copilot:
+    enabled: true
+    data_path: "~/.copilot"
+    dangerously_skip_permissions: true
 
 projects:
   - path: ~/code/sidecar

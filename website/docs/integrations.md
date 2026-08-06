@@ -5,52 +5,76 @@ title: Integrations
 
 # Integrations
 
-Nightshift integrates with your existing development workflow.
+Nightshift plugs into the tools you already use: local coding-agent CLIs,
+repository instruction files, and optional task sources.
 
-## Claude Code
+## Provider CLIs
 
-Nightshift uses the Claude Code CLI to execute tasks. Authenticate via subscription or API key:
+Nightshift executes tasks through one of three local provider CLIs:
 
-```bash
-claude
-/login
+- Claude Code via `claude`
+- Codex via `codex`
+- GitHub Copilot via standalone `copilot`, or `gh` with `gh-copilot`
+
+Set the preferred order in config:
+
+```yaml
+providers:
+  preference:
+    - claude
+    - codex
+    - copilot
 ```
 
-## Codex
+Use `nightshift doctor` to verify Nightshift can discover those CLIs and their
+usage data paths.
 
-Nightshift supports OpenAI's Codex CLI as an alternative provider:
+## Git Workflow
 
-```bash
-codex --login
-```
+Nightshift works in normal Git repositories and produces branches or PR-ready
+changes instead of writing directly to your primary branch.
 
-## GitHub
+## td Task Sourcing
 
-All output is PR-based. Nightshift creates branches and pull requests for its findings.
-
-## td (Task Management)
-
-Nightshift can source tasks from [td](https://td.haplab.com) — task management for AI-assisted development. Tasks tagged with `nightshift` in td will be picked up automatically.
+Nightshift can source work from [td](https://td.haplab.com):
 
 ```yaml
 integrations:
   task_sources:
     - td:
         enabled: true
-        teach_agent: true   # Include td usage + core workflow in prompts
+        teach_agent: true
 ```
 
-## CLAUDE.md / AGENTS.md
+When `teach_agent` is enabled, td workflow instructions are included in the
+generated agent prompt.
 
-Nightshift reads project-level instruction files to understand context when executing tasks. Place a `CLAUDE.md` or `AGENTS.md` in your repo root to give Nightshift project-specific guidance. Tasks mentioned in these files get a priority bonus (+2).
+## Instruction Files
 
-## GitHub Issues
+Nightshift reads project instruction files and folds them into agent context.
+Supported filenames:
 
-Source tasks from GitHub issues labeled with `nightshift`:
+- `CLAUDE.md`, `claude.md`, `.claude.md`
+- `AGENTS.md`, `agents.md`, `.agents.md`
+
+Enable or disable those readers in config:
 
 ```yaml
 integrations:
-  github_issues:
-    enabled: true
-    label: "nightshift"
+  claude_md: true
+  agents_md: true
+```
+
+Tasks mentioned in those files receive a priority bonus during task selection.
+
+## Other Task Sources
+
+Nightshift also supports GitHub issue and file-based task sources through the
+same `integrations.task_sources` list:
+
+```yaml
+integrations:
+  task_sources:
+    - github_issues: true
+    - file: TODO.md
 ```

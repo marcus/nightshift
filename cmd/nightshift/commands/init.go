@@ -146,6 +146,7 @@ providers:
   preference:
     - claude
     - codex
+    - copilot
   claude:
     enabled: true
     data_path: "~/.claude"       # Path to Claude Code data directory
@@ -154,6 +155,10 @@ providers:
     enabled: true
     data_path: "~/.codex"        # Path to Codex data directory
     dangerously_bypass_approvals_and_sandbox: true
+  copilot:
+    enabled: true
+    data_path: "~/.copilot"      # Path to GitHub Copilot data directory
+    dangerously_skip_permissions: true
 
 # Projects to manage
 # Add your project paths here
@@ -161,8 +166,8 @@ projects:
   # - path: ~/code/myproject
   #   priority: 1                # Higher = more important
   #   tasks:                     # Override enabled tasks
-  #     - lint
-  #     - docs
+  #     - lint-fix
+  #     - docs-backfill
   # - path: ~/code/library
   #   priority: 2
   #   config: .nightshift.yaml   # Per-project override file
@@ -170,15 +175,15 @@ projects:
 # Task configuration
 tasks:
   enabled:
-    - lint                       # Linter fixes
-    - docs                       # Documentation backfill
-    - security                   # Security scanning
-    - test-gaps                  # Test coverage gaps
+    - lint-fix                   # Linter fixes
+    - docs-backfill              # Documentation backfill
+    - security-footgun           # Security anti-pattern scan
+    - test-gap                   # Test coverage gaps
     - dead-code                  # Dead code removal
   priorities:
-    lint: 1
-    security: 2
-    docs: 3
+    lint-fix: 1
+    security-footgun: 2
+    docs-backfill: 3
   disabled: []                   # Explicitly disabled tasks
   # custom:                        # User-defined custom tasks
   #   - type: my-review
@@ -226,14 +231,14 @@ func generateProjectConfig() string {
 # Task configuration for this project
 tasks:
   enabled:
-    - lint                       # Linter fixes
-    - docs                       # Documentation backfill
-    - security                   # Security scanning
-    - test-gaps                  # Test coverage gaps
+    - lint-fix                   # Linter fixes
+    - docs-backfill              # Documentation backfill
+    - security-footgun           # Security anti-pattern scan
+    - test-gap                   # Test coverage gaps
   priorities:
-    lint: 1
-    security: 2
-    docs: 3
+    lint-fix: 1
+    security-footgun: 2
+    docs-backfill: 3
   disabled: []                   # Explicitly disabled tasks
   # custom:                        # User-defined custom tasks
   #   - type: my-review
