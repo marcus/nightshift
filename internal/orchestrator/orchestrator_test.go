@@ -468,6 +468,80 @@ func TestBuildPrompts(t *testing.T) {
 	}
 }
 
+func TestBuildPlanPrompt_CommitNormalizeIncludesTaskSpecificGuidance(t *testing.T) {
+	o := New()
+	task := &tasks.Task{
+		ID:          "commit-normalize:/repo",
+		Title:       "Commit Message Normalizer",
+		Description: "Standardize commit message format safely",
+		Type:        tasks.TaskCommitNormalize,
+	}
+
+	prompt := o.buildPlanPrompt(task)
+	for _, want := range []string{
+		"Treat commit-normalize as a low-risk, prospective cleanup",
+		"prefer the repository's existing commit style",
+		"use a concise conventional format",
+		"Preserve required trailers",
+		"avoid plans that rewrite published or shared history",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("plan prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+}
+
+func TestBuildImplementPrompt_CommitNormalizeIncludesTaskSpecificGuidance(t *testing.T) {
+	o := New()
+	task := &tasks.Task{
+		ID:          "commit-normalize:/repo",
+		Title:       "Commit Message Normalizer",
+		Description: "Standardize commit message format safely",
+		Type:        tasks.TaskCommitNormalize,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"Inspect recent commits", "Update prompt guidance"},
+		Description: "Keep the task prospective and non-destructive.",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+	for _, want := range []string{
+		"Prefer the repository's established commit message style when present",
+		"otherwise use a clear conventional format",
+		"Preserve required trailers",
+		"Keep commit messages concise",
+		"do not rewrite published history",
+		"Do not rebase, force-push, or otherwise rewrite shared branch history.",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("implement prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+}
+
+func TestBuildPrompts_GenericTaskDoesNotIncludeCommitNormalizeGuidance(t *testing.T) {
+	o := New()
+	task := &tasks.Task{
+		ID:          "lint-fix:/repo",
+		Title:       "Lint Fixes",
+		Description: "Automatically fix linting errors and style issues",
+		Type:        tasks.TaskLintFix,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"Run linter"},
+		Description: "Generic prompt path.",
+	}
+
+	planPrompt := o.buildPlanPrompt(task)
+	implPrompt := o.buildImplementPrompt(task, plan, 1)
+
+	for _, got := range []string{planPrompt, implPrompt} {
+		if strings.Contains(got, "Do not rebase, force-push, or otherwise rewrite shared branch history.") {
+			t.Errorf("generic task prompt unexpectedly included commit-normalize guidance\nGot:\n%s", got)
+		}
+	}
+}
+
 func TestExtractPRURL(t *testing.T) {
 	tests := []struct {
 		name  string

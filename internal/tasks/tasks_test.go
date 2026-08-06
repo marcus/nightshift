@@ -489,3 +489,26 @@ func TestSpecificDefaultIntervalOverrides(t *testing.T) {
 		}
 	}
 }
+
+func TestCommitNormalizeDefinition(t *testing.T) {
+	def, err := GetDefinition(TaskCommitNormalize)
+	if err != nil {
+		t.Fatalf("GetDefinition(%q) error: %v", TaskCommitNormalize, err)
+	}
+
+	if def.Category != CategoryPR {
+		t.Errorf("Category = %d, want %d", def.Category, CategoryPR)
+	}
+	if def.CostTier != CostLow {
+		t.Errorf("CostTier = %d, want %d", def.CostTier, CostLow)
+	}
+	if def.RiskLevel != RiskLow {
+		t.Errorf("RiskLevel = %d, want %d", def.RiskLevel, RiskLow)
+	}
+	if def.DefaultInterval != 24*time.Hour {
+		t.Errorf("DefaultInterval = %v, want %v", def.DefaultInterval, 24*time.Hour)
+	}
+	if def.Description != "Standardize commit message conventions for new work without rewriting shared history" {
+		t.Errorf("Description = %q", def.Description)
+	}
+}
