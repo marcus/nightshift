@@ -258,20 +258,60 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Git hooks
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Install local git hooks to catch build issues and invalid commit subjects before pushing:
 
 ```bash
 make install-hooks
 ```
 
-This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
-- **gofmt** — flags any staged `.go` files that need formatting
-- **go vet** — catches common correctness issues
-- **go build** — ensures the project compiles
+This symlinks:
+- `scripts/pre-commit.sh` into `.git/hooks/pre-commit`
+- `scripts/commit-msg.sh` into `.git/hooks/commit-msg`
 
-To bypass in a pinch: `git commit --no-verify`
+The hooks run:
+- **pre-commit** — `gofmt`, `go vet`, and `go build`
+- **commit-msg** — validates the first line of each new commit message
+
+### Commit message format
+
+Nightshift standardizes future commit subjects only. Existing history stays as-is.
+
+Required format:
+
+```text
+type(scope?): summary
+```
+
+Allowed types:
+- `build`
+- `chore`
+- `ci`
+- `docs`
+- `feat`
+- `fix`
+- `perf`
+- `refactor`
+- `revert`
+- `style`
+- `test`
+
+Valid examples:
+- `feat(cli): add commit message validator`
+- `fix: handle pull request commit ranges in CI`
+- `docs(readme): document local hook installation`
+
+These exception subjects remain valid:
+- `Merge pull request #17 from owner/branch`
+- `Revert "feat(cli): add commit message validator"`
+- `Bump version to v0.3.4`
+- `Release v0.3.4: changelog and binaries`
+
+If the `commit-msg` hook fails:
+- Amend the subject with `git commit --amend -m "fix(cli): normalize commit message validation"`
+- Re-run the validator with `scripts/commit-msg.sh .git/COMMIT_EDITMSG`
+- Bypass the hooks in a pinch with `git commit --no-verify`
 
 ## Uninstalling
 
