@@ -1,5 +1,3 @@
-// Package providers defines interfaces and implementations for AI coding agents.
-// Supports multiple backends: Claude Code, Codex CLI, etc.
 package providers
 
 import "context"

@@ -1,5 +1,3 @@
-// Package stats computes aggregate statistics from nightshift run data.
-// It reads from existing report JSONs, run_history, snapshots, and projects tables.
 package stats
 
 import (
