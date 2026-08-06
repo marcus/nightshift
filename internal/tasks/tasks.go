@@ -338,10 +338,15 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 24 * time.Hour,
 	},
 	TaskChangelogSynth: {
-		Type:            TaskChangelogSynth,
-		Category:        CategoryPR,
-		Name:            "Changelog Synthesizer",
-		Description:     "Generate changelog from commits",
+		Type:     TaskChangelogSynth,
+		Category: CategoryPR,
+		Name:     "Changelog Synthesizer",
+		Description: `Inspect the current branch commit history against main and draft a deterministic Markdown changelog for the repository.
+Use git merge-base main HEAD as the comparison point, then review the commits from oldest to newest with merge commits excluded so the output stays stable.
+Group entries by user-visible change type, using sections such as Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other.
+Write concise bullets that reference the commit subject and any important scope or file details, but do not invent changes that are not supported by the commits.
+Preserve existing changelog history: do not rewrite or reorder prior sections, and if a changelog file already exists, only prepend or update the newest section.
+Emit Markdown only, ready to commit, with clear headings and no extra analysis.`,
 		CostTier:        CostLow,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 168 * time.Hour,

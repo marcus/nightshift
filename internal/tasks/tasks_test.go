@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -276,6 +277,31 @@ func TestRegistryCompleteness(t *testing.T) {
 	for _, tt := range taskTypes {
 		if _, err := GetDefinition(tt); err != nil {
 			t.Errorf("Task type %q not in registry: %v", tt, err)
+		}
+	}
+}
+
+func TestChangelogSynthDefinition(t *testing.T) {
+	def, err := GetDefinition(TaskChangelogSynth)
+	if err != nil {
+		t.Fatalf("GetDefinition(TaskChangelogSynth) error: %v", err)
+	}
+	if def.Name != "Changelog Synthesizer" {
+		t.Fatalf("TaskChangelogSynth name = %q, want %q", def.Name, "Changelog Synthesizer")
+	}
+
+	required := []string{
+		"Inspect the current branch commit history against main",
+		"git merge-base main HEAD",
+		"oldest to newest",
+		"merge commits excluded",
+		"Added, Changed, Fixed, Docs, Refactor, Tests, Chore, and Other",
+		"Preserve existing changelog history",
+		"Emit Markdown only",
+	}
+	for _, want := range required {
+		if !strings.Contains(def.Description, want) {
+			t.Errorf("TaskChangelogSynth description missing %q", want)
 		}
 	}
 }
