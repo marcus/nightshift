@@ -1,3 +1,5 @@
+// time_parse.go provides flexible time and clock parsing for CLI flags.
+
 package commands
 
 import (

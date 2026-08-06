@@ -1,3 +1,5 @@
+// scraper.go scrapes Claude and Codex CLI usage data via tmux sessions.
+
 package tmux
 
 import (

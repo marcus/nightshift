@@ -1,3 +1,5 @@
+// busfactor.go implements the busfactor command for code ownership analysis.
+
 package commands
 
 import (

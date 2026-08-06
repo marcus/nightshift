@@ -1,3 +1,5 @@
+// import.go migrates legacy state.json data into SQLite.
+
 package db
 
 import (

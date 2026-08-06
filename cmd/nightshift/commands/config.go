@@ -1,3 +1,5 @@
+// config.go implements the config command for viewing and modifying configuration.
+
 package commands
 
 import (

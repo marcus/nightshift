@@ -1,3 +1,5 @@
+// init.go implements the init command for creating configuration files.
+
 package commands
 
 import (

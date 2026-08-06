@@ -1,3 +1,5 @@
+// agentsmd.go reads agents.md files for agent behavior configuration.
+
 package integrations
 
 import (

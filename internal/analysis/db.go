@@ -1,3 +1,5 @@
+// db.go persists and queries bus-factor analysis results in SQLite.
+
 package analysis
 
 import (

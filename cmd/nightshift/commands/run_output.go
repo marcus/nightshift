@@ -1,3 +1,5 @@
+// run_output.go renders colored run progress and preflight summaries.
+
 package commands
 
 import (

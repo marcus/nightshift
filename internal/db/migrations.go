@@ -1,3 +1,5 @@
+// migrations.go defines and applies database schema migrations.
+
 package db
 
 import (

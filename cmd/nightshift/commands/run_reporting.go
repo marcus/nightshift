@@ -1,3 +1,5 @@
+// run_reporting.go collects run results and generates post-run reports.
+
 package commands
 
 import (

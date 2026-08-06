@@ -1,3 +1,5 @@
+// snapshot.go implements budget snapshot, history, and calibrate subcommands.
+
 package commands
 
 import (

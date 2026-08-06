@@ -1,3 +1,5 @@
+// daemon.go implements the daemon command for managing the background scheduler.
+
 package commands
 
 import (

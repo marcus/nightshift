@@ -1,3 +1,5 @@
+// Command provider-calibration compares token usage between Codex and Claude
+// sessions to derive budget multipliers for cross-provider cost normalization.
 package main
 
 import (

@@ -1,3 +1,5 @@
+// claudemd.go reads claude.md files for project context.
+
 package integrations
 
 import (

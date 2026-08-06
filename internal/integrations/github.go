@@ -1,3 +1,5 @@
+// github.go integrates with GitHub issues via the gh CLI.
+
 package integrations
 
 import (

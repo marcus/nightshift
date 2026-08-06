@@ -1,3 +1,5 @@
+// status.go implements the status command for showing run history.
+
 package commands
 
 import (

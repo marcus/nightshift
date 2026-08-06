@@ -1,3 +1,5 @@
+// budget.go implements the budget command for displaying provider budget status.
+
 package commands
 
 import (

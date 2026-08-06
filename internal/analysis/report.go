@@ -1,3 +1,5 @@
+// report.go generates formatted bus-factor analysis reports.
+
 package analysis
 
 import (
