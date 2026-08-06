@@ -195,7 +195,10 @@ func (c *Collector) TakeSnapshot(ctx context.Context, provider string) (Snapshot
 		return Snapshot{}, fmt.Errorf("insert snapshot: %w", err)
 	}
 
-	id, _ := result.LastInsertId()
+	id, err := result.LastInsertId()
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("get snapshot id: %w", err)
+	}
 
 	return Snapshot{
 		ID:               id,

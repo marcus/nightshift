@@ -375,7 +375,8 @@ func (g *Generator) sendSlack(summary *Summary, webhookURL string) error {
 		return fmt.Errorf("marshaling slack payload: %w", err)
 	}
 
-	resp, err := http.Post(webhookURL, "application/json", bytes.NewReader(jsonPayload))
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Post(webhookURL, "application/json", bytes.NewReader(jsonPayload))
 	if err != nil {
 		return fmt.Errorf("posting to slack: %w", err)
 	}

@@ -215,7 +215,10 @@ func ValidateProjectPath(path string) error {
 		return fmt.Errorf("resolving path: %w", err)
 	}
 
-	home, _ := os.UserHomeDir()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("cannot determine home directory: %w", err)
+	}
 
 	blocked := []string{
 		"/",
@@ -223,9 +226,7 @@ func ValidateProjectPath(path string) error {
 		"/var",
 		"/etc",
 		"/usr",
-	}
-	if home != "" {
-		blocked = append(blocked, home)
+		home,
 	}
 
 	for _, b := range blocked {
