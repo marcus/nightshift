@@ -258,18 +258,46 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Commit messages
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Nightshift uses [Conventional Commits](https://www.conventionalcommits.org/)
+for every commit message, so history stays readable and tooling can derive
+changelogs automatically. The format is:
+
+```
+<type>(<scope>): <subject>
+
+<body>
+```
+
+- **type** — one of `feat`, `fix`, `docs`, `style`, `refactor`, `test`,
+  `chore`, `perf`, `build`, `ci`.
+- **scope** — optional, e.g. `fix(api): ...`.
+- **subject** — lowercase, imperative mood, no trailing period, max 72 chars.
+- **body** — optional, wrapped at 72 columns, separated from the subject by a
+  blank line.
+
+See [`docs/commit-messages.md`](docs/commit-messages.md) for full details,
+including the `nightshift commit normalize` command.
+
+### Git hooks
+
+Install the git hooks to catch formatting/vet issues and to enforce the
+Conventional Commits format before pushing:
 
 ```bash
 make install-hooks
 ```
 
-This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
-- **gofmt** — flags any staged `.go` files that need formatting
-- **go vet** — catches common correctness issues
-- **go build** — ensures the project compiles
+`make install-hooks` symlinks two scripts into `.git/hooks/`:
+
+- **pre-commit** (`scripts/pre-commit.sh`) runs:
+  - **gofmt** — flags any staged `.go` files that need formatting
+  - **go vet** — catches common correctness issues
+  - **go build** — ensures the project compiles
+- **commit-msg** (`scripts/commit-msg.sh`) normalizes the commit message into
+  canonical Conventional Commits form and rejects messages that cannot be
+  normalized (missing/unknown type, capitalized or overlong subject).
 
 To bypass in a pinch: `git commit --no-verify`
 

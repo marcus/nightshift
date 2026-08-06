@@ -54,3 +54,7 @@ go test ./...
 - **Style**: Standard Go (gofmt, govet). No magic, explicit is better.
 - **Errors**: Wrap with context, don't swallow.
 - **Tests**: Table-driven, in `_test.go` files alongside code.
+- **Commits**: Conventional Commits (`<type>(<scope>): <subject>`). Allowed
+  types: `feat fix docs style refactor test chore perf build ci`. Lowercase,
+  imperative subject, max 72 chars. Install the commit-msg hook with
+  `make install-hooks`; see `docs/commit-messages.md` for details.
