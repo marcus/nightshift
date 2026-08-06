@@ -85,7 +85,7 @@ View past budget snapshots:
 
 ```bash
 nightshift budget history -n 10
-nightshift budget snapshot --local-only
+nightshift budget snapshot
 ```
 
 ## Morning Summary

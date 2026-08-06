@@ -33,6 +33,8 @@ Manual install:
 go install github.com/marcus/nightshift/cmd/nightshift@latest
 ```
 
+Nightshift can also generate shell completions for bash, zsh, fish, and PowerShell with `nightshift completion <shell>`. The [installation guide](https://nightshift.haplab.com/docs/installation) shows the persistent setup path for each shell.
+
 ## Getting Started
 
 Full guide: [Quick Start docs](https://nightshift.haplab.com/docs/quick-start)
@@ -77,7 +79,7 @@ nightshift doctor
 
 # Budget status and calibration
 nightshift budget --provider claude
-nightshift budget snapshot --local-only
+nightshift budget snapshot
 nightshift budget history -n 10
 nightshift budget calibrate
 
@@ -139,6 +141,19 @@ nightshift run --ignore-budget
 # Target a specific project and task directly
 nightshift run -p ./my-project -t lint-fix
 ```
+
+## Morning After
+
+When the overnight run finishes, these are the fastest commands to check what happened:
+
+```bash
+nightshift status --today        # Quick activity summary
+nightshift report                # Polished recap of the last night
+nightshift report --report tasks # Task-focused follow-up
+nightshift logs --summary        # Fast log overview
+```
+
+Use `nightshift logs --follow` when you want to watch a fresh run in real time, and see the [CLI Reference docs](https://nightshift.haplab.com/docs/cli-reference) for the full reporting and diagnostics flag set.
 
 Other useful flags:
 - `nightshift status --today` to see today's activity summary
