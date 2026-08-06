@@ -531,10 +531,81 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 72 * time.Hour,
 	},
 	TaskPrivacyPolicy: {
-		Type:            TaskPrivacyPolicy,
-		Category:        CategoryAnalysis,
-		Name:            "Privacy Policy Consistency Checker",
-		Description:     "Check code against privacy policy claims",
+		Type:     TaskPrivacyPolicy,
+		Category: CategoryAnalysis,
+		Name:     "Privacy Policy Consistency Checker",
+		Description: `Cross-reference a project's privacy policy against its actual code behavior. ` +
+			`This task identifies inconsistencies between what a privacy policy claims and what the code actually does.` +
+			"\n\n" +
+			`STEP 1 — LOCATE THE PRIVACY POLICY` +
+			"\n" +
+			`Search the repository for privacy policy documents: PRIVACY.md, privacy-policy.md, ` +
+			`PRIVACY_POLICY.md, privacy.txt, docs/privacy*, website/*/privacy*. Also check README.md ` +
+			`for a privacy section. If no privacy policy is found, report a single finding of category ` +
+			`missing-policy with severity high and stop.` +
+			"\n\n" +
+			`STEP 2 — PARSE POLICY CLAIMS` +
+			"\n" +
+			`Extract each concrete claim from the privacy policy into a checklist. Claims typically cover: ` +
+			`what data is collected, where it is stored, what is transmitted externally, how credentials ` +
+			`are handled, data retention periods, third-party services, telemetry/analytics presence or ` +
+			`absence, and how to delete data.` +
+			"\n\n" +
+			`STEP 3 — INVENTORY ACTUAL CODE BEHAVIOR` +
+			"\n" +
+			`Scan the codebase for all data-handling code paths:` +
+			"\n" +
+			`- Local storage: database writes, file writes, log output, cache directories` +
+			"\n" +
+			`- External transmission: HTTP clients, webhook calls, SMTP/email sending, ` +
+			`CLI subprocess invocations that send data to external services, API calls` +
+			"\n" +
+			`- Credential handling: env var reads, config file parsing, secret storage, token management` +
+			"\n" +
+			`- Data retention: cleanup routines, TTL logic, log rotation, pruning jobs` +
+			"\n" +
+			`- Telemetry: analytics SDKs, usage tracking, crash reporters, phone-home calls` +
+			"\n" +
+			`- Third-party integrations: external service clients, SDK imports, webhook consumers` +
+			"\n\n" +
+			`STEP 4 — CROSS-REFERENCE AND REPORT` +
+			"\n" +
+			`Compare each policy claim against the code inventory. Flag every inconsistency.` +
+			"\n\n" +
+			`OUTPUT FORMAT — For each finding, report:` +
+			"\n" +
+			`- file: path relative to repo root (or "policy" if the issue is in the policy document)` +
+			"\n" +
+			`- line: line number(s) in code, or section heading in policy` +
+			"\n" +
+			`- category: one of [data-collection-undisclosed, data-transmission-undisclosed, ` +
+			`retention-mismatch, credential-handling-mismatch, third-party-undisclosed, ` +
+			`deletion-incomplete, telemetry-mismatch, missing-policy]` +
+			"\n" +
+			`- severity: critical / high / medium / low` +
+			"\n" +
+			`- claim: what the policy says (quote or paraphrase)` +
+			"\n" +
+			`- actual: what the code actually does` +
+			"\n" +
+			`- recommendation: specific fix (update policy, update code, or both)` +
+			"\n\n" +
+			`SEVERITY GUIDE:` +
+			"\n" +
+			`- critical: code sends data externally that the policy says is never sent, or policy ` +
+			`claims no telemetry but code includes analytics/tracking` +
+			"\n" +
+			`- high: missing policy entirely, undisclosed third-party data sharing, or credential ` +
+			`handling weaker than claimed` +
+			"\n" +
+			`- medium: retention periods differ from documented values, deletion instructions ` +
+			`incomplete, or storage locations not mentioned in policy` +
+			"\n" +
+			`- low: minor wording inaccuracies, optional features not clearly marked as optional, ` +
+			`or documented paths that differ from defaults` +
+			"\n\n" +
+			`Summarize total findings by category and severity at the end. If no inconsistencies ` +
+			`are found, confirm that the policy accurately reflects the code.`,
 		CostTier:        CostMedium,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 72 * time.Hour,
