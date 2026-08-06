@@ -7,6 +7,50 @@ on:
     branches: [main]
 
 jobs:
+  commit-messages:
+    name: Commit Messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+            merge_base="$(git merge-base "$base" "$head")"
+            range="$merge_base..$head"
+          else
+            before="${{ github.event.before }}"
+            if [[ "$before" == "0000000000000000000000000000000000000000" ]]; then
+              range="${{ github.sha }}^!"
+            else
+              range="$before..${{ github.sha }}"
+            fi
+          fi
+
+          commits="$(git rev-list --no-merges "$range")"
+          if [[ -z "$commits" ]]; then
+            echo "No non-merge commits to validate."
+            exit 0
+          fi
+
+          tmp="$(mktemp)"
+          trap 'rm -f "$tmp"' EXIT
+
+          while IFS= read -r commit; do
+            [[ -n "$commit" ]] || continue
+            git show -s --format=%B "$commit" > "$tmp"
+            echo "check $commit"
+            scripts/commit-msg.sh "$tmp"
+          done <<< "$commits"
+
   test:
     name: Test
     runs-on: ubuntu-latest
