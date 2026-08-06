@@ -55,7 +55,7 @@ logging:
 
 ```bash
 nightshift --help
-nightshift <command> --help
+nightshift COMMAND --help
 ```
 
 Report issues: https://github.com/marcus/nightshift/issues

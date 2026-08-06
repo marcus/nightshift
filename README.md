@@ -14,6 +14,7 @@ Everything lands as a branch or PR. It never writes directly to your primary bra
 
 - **Budget-aware**: Uses remaining daily allotment, never exceeds configurable max (default 75%)
 - **Multi-project**: Point it at your repos, it already knows what to look for
+- **Multi-provider**: Runs with Claude Code, Codex, or GitHub Copilot
 - **Zero risk**: Everything is a PR — merge what surprises you, close the rest
 - **Great DX**: Thoughtful CLI defaults with clear output and reports
 
@@ -32,6 +33,12 @@ Manual install:
 ```bash
 go install github.com/marcus/nightshift/cmd/nightshift@latest
 ```
+
+Nightshift needs at least one provider CLI available in `PATH`:
+
+- Claude Code via `claude`
+- Codex via `codex`
+- GitHub Copilot via standalone `copilot` or `gh copilot`
 
 ## Getting Started
 
@@ -56,6 +63,14 @@ Or kick off a run immediately:
 nightshift run
 ```
 
+If you prefer starter config files instead of the wizard:
+
+```bash
+nightshift init --global
+nightshift init
+nightshift config validate
+```
+
 ## Common CLI Usage
 
 Full reference: [CLI Reference docs](https://nightshift.haplab.com/docs/cli-reference)
@@ -69,14 +84,20 @@ nightshift preview --plain
 nightshift preview --json
 nightshift preview --write ./nightshift-prompts
 
-# Guided global setup
+# Guided setup and config inspection
 nightshift setup
+nightshift init --global
+nightshift config
+nightshift config get providers.preference
+nightshift config set budget.max_percent 60 --global
+nightshift config validate
 
 # Check environment and config health
 nightshift doctor
 
 # Budget status and calibration
 nightshift budget --provider claude
+nightshift budget --provider copilot
 nightshift budget snapshot --local-only
 nightshift budget history -n 10
 nightshift budget calibrate
@@ -94,17 +115,31 @@ nightshift task show lint-fix --prompt-only
 # Run a task immediately
 nightshift task run lint-fix --provider claude
 nightshift task run skill-groom --provider codex --dry-run
-nightshift task run lint-fix --provider codex --dry-run
+nightshift task run docs-backfill --provider copilot --dry-run
+
+# Inspect logs, reports, and stats
+nightshift logs --tail 100
+nightshift logs --follow --component daemon
+nightshift report --report overview --period last-night
+nightshift report --report tasks --period last-7d --format markdown
+nightshift stats --period last-7d
+
+# Analyze repository ownership concentration
+nightshift busfactor .
+
+# Background execution
+nightshift install
+nightshift daemon start --foreground
+nightshift daemon status
+nightshift daemon stop
+nightshift uninstall
 ```
 
 If `gum` is available, preview output is shown through the gum pager. Use `--plain` to disable.
 
 ### `nightshift run`
 
-Before executing, `nightshift run` displays a **preflight summary** showing the
-selected provider, budget status, projects, and planned tasks. In interactive
-terminals you are prompted for confirmation; in non-TTY environments (cron,
-daemon, CI) confirmation is auto-skipped.
+Before executing, `nightshift run` displays a **preflight summary** showing the selected provider, budget status, projects, and planned tasks. In interactive terminals you are prompted for confirmation; in non-TTY environments (cron, daemon, CI) confirmation is auto-skipped.
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -116,6 +151,8 @@ daemon, CI) confirmation is auto-skipped.
 | `--random-task` | `false` | Pick a random task from eligible tasks instead of the highest-scored one |
 | `--ignore-budget` | `false` | Bypass budget checks (use with caution) |
 | `--yes`, `-y` | `false` | Skip the confirmation prompt |
+| `--branch`, `-b` | current branch | Base branch for new feature branches |
+| `--timeout` | `30m` | Per-agent execution timeout |
 
 ```bash
 # Interactive run with preflight summary + confirmation prompt
@@ -138,6 +175,9 @@ nightshift run --ignore-budget
 
 # Target a specific project and task directly
 nightshift run -p ./my-project -t lint-fix
+
+# Use a different base branch for generated work
+nightshift run --branch develop
 ```
 
 Other useful flags:
@@ -146,7 +186,7 @@ Other useful flags:
 - `--category` — filter tasks by category (pr, analysis, options, safe, map, emergency)
 - `--cost` — filter by cost tier (low, medium, high, veryhigh)
 - `--prompt-only` — output just the raw prompt text for piping
-- `--provider` — required for `task run`, choose claude or codex
+- `--provider` — required for `task run`, choose claude, codex, or copilot
 - `--dry-run` — preview the prompt without executing
 - `--timeout` — execution timeout (default 30m)
 
@@ -154,14 +194,13 @@ Other useful flags:
 
 Nightshift supports three AI providers:
 - **Claude Code** - Anthropic's Claude via local CLI
-- **Codex** - OpenAI's GPT via local CLI  
-- **GitHub Copilot** - GitHub's Copilot via GitHub CLI
+- **Codex** - OpenAI's GPT via local CLI
+- **GitHub Copilot** - Copilot CLI via standalone `copilot` or `gh copilot`
 
 ### Claude Code
 
 ```bash
-claude
-/login
+claude auth login
 ```
 
 Supports Claude.ai subscriptions or Anthropic Console credentials.
@@ -169,21 +208,34 @@ Supports Claude.ai subscriptions or Anthropic Console credentials.
 ### Codex
 
 ```bash
-codex --login
+codex login
 ```
 
-Supports signing in with ChatGPT or an API key.
+Supports interactive sign-in or API-key login:
+
+```bash
+printenv OPENAI_API_KEY | codex login --with-api-key
+```
 
 ### GitHub Copilot
 
 ```bash
-# Install Copilot CLI
-npm install -g @github/copilot
-# or
-curl -fsSL https://gh.io/copilot-install | bash
+gh auth login
+gh extension install github/gh-copilot
+gh copilot --help
 ```
 
-Requires GitHub Copilot subscription. See [docs/COPILOT_INTEGRATION.md](docs/COPILOT_INTEGRATION.md) for details.
+Nightshift prefers a standalone `copilot` binary when one is present in `PATH`. If not, it falls back to `gh copilot`, which Nightshift detects through `gh extension list`.
+
+To verify provider CLI access without executing a task:
+
+```bash
+nightshift task run lint-fix --provider claude --dry-run
+nightshift task run lint-fix --provider codex --dry-run
+nightshift task run lint-fix --provider copilot --dry-run
+```
+
+Then run `nightshift doctor` to inspect config, data paths, usage, and snapshots for the providers you have enabled in config.
 
 If you prefer API-based usage, you can authenticate Claude and Codex CLIs with API keys instead.
 
@@ -198,9 +250,29 @@ Nightshift uses YAML config files to define:
 - Task priorities
 - Schedule preferences
 
-Run `nightshift setup` to create/update the global config at `~/.config/nightshift/config.yaml`.
+Create or update config with either:
 
-See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) or [SPEC.md](docs/SPEC.md) for detailed options.
+```bash
+nightshift setup
+nightshift init --global
+nightshift init
+```
+
+Runtime layering is:
+
+1. Built-in defaults
+2. Global config: `~/.config/nightshift/config.yaml`
+3. Project config: `nightshift.yaml`
+4. Environment overrides such as `NIGHTSHIFT_BUDGET_MAX_PERCENT`
+
+Inspect and edit config from the CLI:
+
+```bash
+nightshift config
+nightshift config get budget.max_percent
+nightshift config set providers.copilot.enabled true --global
+nightshift config validate
+```
 
 Minimal example:
 
@@ -220,18 +292,31 @@ providers:
   preference:
     - claude
     - codex
+    - copilot
   claude:
     enabled: true
     data_path: "~/.claude"
-    dangerously_skip_permissions: true
+    dangerously_skip_permissions: false
   codex:
     enabled: true
     data_path: "~/.codex"
-    dangerously_bypass_approvals_and_sandbox: true
+    dangerously_bypass_approvals_and_sandbox: false
+  copilot:
+    enabled: false
+    data_path: "~/.copilot"
+    dangerously_skip_permissions: false
 
 projects:
   - path: ~/code/sidecar
   - path: ~/code/td
+
+integrations:
+  claude_md: true
+  agents_md: true
+  task_sources:
+    - td:
+        enabled: true
+        teach_agent: true
 ```
 
 Task selection:

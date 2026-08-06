@@ -7,7 +7,7 @@ title: Task Reference
 
 Nightshift includes **59 built-in tasks** organized into 6 categories. Each task has a cost tier, risk level, and default cooldown interval.
 
-Use `nightshift task list` to browse tasks, or `nightshift task show <name>` to see details for a specific task.
+Use `nightshift task list` to browse tasks, or `nightshift task show TASK_TYPE` to see details for a specific task.
 
 ## PR Tasks — "It's done — here's the PR"
 
