@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -276,6 +277,28 @@ func TestRegistryCompleteness(t *testing.T) {
 	for _, tt := range taskTypes {
 		if _, err := GetDefinition(tt); err != nil {
 			t.Errorf("Task type %q not in registry: %v", tt, err)
+		}
+	}
+}
+
+func TestReleaseNotesDefinitionIncludesDraftingGuidance(t *testing.T) {
+	def, err := GetDefinition(TaskReleaseNotes)
+	if err != nil {
+		t.Fatalf("GetDefinition(TaskReleaseNotes) error: %v", err)
+	}
+
+	if def.Name != "Release Note Drafter" {
+		t.Fatalf("TaskReleaseNotes name = %q, want %q", def.Name, "Release Note Drafter")
+	}
+
+	for _, want := range []string{
+		"Inspect the latest tag and CHANGELOG.md first",
+		"Group the draft into clear user-facing sections",
+		"Call out breaking changes, migrations, config updates",
+		"state your assumptions",
+	} {
+		if !strings.Contains(def.Description, want) {
+			t.Errorf("TaskReleaseNotes description missing %q", want)
 		}
 	}
 }

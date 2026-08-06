@@ -468,6 +468,35 @@ func TestBuildPrompts(t *testing.T) {
 	}
 }
 
+func TestBuildPlanPrompt_ReleaseNotesIncludesDetailedInstructions(t *testing.T) {
+	o := New()
+
+	def, err := tasks.GetDefinition(tasks.TaskReleaseNotes)
+	if err != nil {
+		t.Fatalf("GetDefinition(TaskReleaseNotes) error: %v", err)
+	}
+
+	task := &tasks.Task{
+		ID:          "release-notes:/repo",
+		Title:       def.Name,
+		Description: def.Description,
+		Type:        tasks.TaskReleaseNotes,
+	}
+
+	prompt := o.buildPlanPrompt(task)
+
+	for _, want := range []string{
+		"Inspect the latest tag and CHANGELOG.md first",
+		"Group the draft into clear user-facing sections",
+		"Call out breaking changes, migrations, config updates",
+		"state your assumptions",
+	} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("plan prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+}
+
 func TestExtractPRURL(t *testing.T) {
 	tests := []struct {
 		name  string
