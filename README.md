@@ -21,6 +21,13 @@ Everything lands as a branch or PR. It never writes directly to your primary bra
 
 Full guide: [Installation docs](https://nightshift.haplab.com/docs/installation)
 
+Prerequisites:
+
+- macOS or Linux on Intel or ARM
+- Git and at least one local Git repository for Nightshift to inspect
+- At least one supported agent CLI (Claude Code, Codex, or GitHub Copilot), installed and authenticated
+- Go 1.24 or later only when installing from source
+
 ```bash
 brew install marcus/tap/nightshift
 ```
