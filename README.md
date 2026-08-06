@@ -258,18 +258,40 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Commit messages
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Use this format for new local commits:
+
+```text
+type(scope): summary
+```
+
+If a scope does not add clarity, `type: summary` is also valid. Allowed types: `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `chore`, `ci`, `perf`.
+
+Examples:
+- `feat(tasks): add commit message validator`
+- `fix(#19): tighten config validation`
+- `docs: document git hooks`
+- `build(release): bump version to v0.3.5`
+- `chore(release): prepare v0.3.5`
+
+Merge, revert, `fixup!`, and `squash!` commits are exempt. This standard applies to future commits only; existing history stays as-is.
+
+### Git hooks
+
+Install the git hooks to catch formatting, vet, build, and commit-message issues before pushing:
 
 ```bash
 make install-hooks
 ```
 
-This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
+This installs `pre-commit` and `commit-msg` into Git's active hooks directory as small wrapper scripts. That works with the default `.git/hooks`, custom `core.hooksPath`, and linked worktrees because each hook resolves the current checkout at runtime.
+
+The hooks run:
 - **gofmt** — flags any staged `.go` files that need formatting
 - **go vet** — catches common correctness issues
 - **go build** — ensures the project compiles
+- **commit-msg** — validates the first line of the commit message
 
 To bypass in a pinch: `git commit --no-verify`
 
