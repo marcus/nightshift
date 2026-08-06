@@ -72,6 +72,11 @@ nightshift preview --write ./nightshift-prompts
 # Guided global setup
 nightshift setup
 
+# Inspect and validate config
+nightshift config
+nightshift config get budget.max_percent
+nightshift config validate
+
 # Check environment and config health
 nightshift doctor
 
@@ -94,7 +99,12 @@ nightshift task show lint-fix --prompt-only
 # Run a task immediately
 nightshift task run lint-fix --provider claude
 nightshift task run skill-groom --provider codex --dry-run
-nightshift task run lint-fix --provider codex --dry-run
+nightshift task run docs-backfill --provider copilot --dry-run
+
+# Review results after a run
+nightshift report
+nightshift logs --summary
+nightshift stats --period last-7d
 ```
 
 If `gum` is available, preview output is shown through the gum pager. Use `--plain` to disable.
@@ -115,6 +125,9 @@ daemon, CI) confirmation is auto-skipped.
 | `--max-tasks` | `1` | Max tasks per project (ignored when `--task` is set) |
 | `--random-task` | `false` | Pick a random task from eligible tasks instead of the highest-scored one |
 | `--ignore-budget` | `false` | Bypass budget checks (use with caution) |
+| `--branch`, `-b` | _(current branch)_ | Base branch for new feature branches |
+| `--timeout` | `30m` | Per-agent execution timeout |
+| `--no-color` | `false` | Disable colored output |
 | `--yes`, `-y` | `false` | Skip the confirmation prompt |
 
 ```bash
@@ -136,6 +149,9 @@ nightshift run --random-task
 # Bypass budget limits (shows warning)
 nightshift run --ignore-budget
 
+# Override the base branch and execution timeout
+nightshift run --branch develop --timeout 45m
+
 # Target a specific project and task directly
 nightshift run -p ./my-project -t lint-fix
 ```
@@ -146,8 +162,9 @@ Other useful flags:
 - `--category` — filter tasks by category (pr, analysis, options, safe, map, emergency)
 - `--cost` — filter by cost tier (low, medium, high, veryhigh)
 - `--prompt-only` — output just the raw prompt text for piping
-- `--provider` — required for `task run`, choose claude or codex
+- `--provider` — required for `task run`, choose claude, codex, or copilot
 - `--dry-run` — preview the prompt without executing
+- `--branch` — use a specific base branch for generated work
 - `--timeout` — execution timeout (default 30m)
 
 ## Authentication (Subscriptions)
@@ -155,7 +172,7 @@ Other useful flags:
 Nightshift supports three AI providers:
 - **Claude Code** - Anthropic's Claude via local CLI
 - **Codex** - OpenAI's GPT via local CLI  
-- **GitHub Copilot** - GitHub's Copilot via GitHub CLI
+- **GitHub Copilot** - GitHub's Copilot via `gh copilot` or the standalone `copilot` binary
 
 ### Claude Code
 
@@ -177,13 +194,16 @@ Supports signing in with ChatGPT or an API key.
 ### GitHub Copilot
 
 ```bash
-# Install Copilot CLI
+# Authenticate GitHub CLI and install the Copilot extension
+gh auth login
+gh extension install github/gh-copilot
+
+# or install the standalone Copilot CLI
 npm install -g @github/copilot
-# or
-curl -fsSL https://gh.io/copilot-install | bash
+copilot --version
 ```
 
-Requires GitHub Copilot subscription. See [docs/COPILOT_INTEGRATION.md](docs/COPILOT_INTEGRATION.md) for details.
+Requires GitHub Copilot access. Full setup details: [Integrations docs](https://nightshift.haplab.com/docs/integrations).
 
 If you prefer API-based usage, you can authenticate Claude and Codex CLIs with API keys instead.
 
@@ -198,15 +218,29 @@ Nightshift uses YAML config files to define:
 - Task priorities
 - Schedule preferences
 
-Run `nightshift setup` to create/update the global config at `~/.config/nightshift/config.yaml`.
+Nightshift merges a global config at `~/.config/nightshift/config.yaml` with an optional project-local `nightshift.yaml`.
 
-See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) or [SPEC.md](docs/SPEC.md) for detailed options.
+Use:
+
+```bash
+nightshift setup                 # guided global config
+nightshift init                  # create ./nightshift.yaml
+nightshift init --global         # create ~/.config/nightshift/config.yaml
+nightshift config                # show merged config + source paths
+nightshift config get budget.max_percent
+nightshift config set logging.level debug --global
+nightshift config validate
+```
+
+See the [full configuration docs](https://nightshift.haplab.com/docs/configuration) for detailed options.
 
 Minimal example:
 
 ```yaml
 schedule:
   cron: "0 2 * * *"
+  max_projects: 3
+  max_tasks: 2
 
 budget:
   mode: daily
@@ -220,14 +254,16 @@ providers:
   preference:
     - claude
     - codex
+    - copilot
   claude:
     enabled: true
     data_path: "~/.claude"
-    dangerously_skip_permissions: true
   codex:
     enabled: true
     data_path: "~/.codex"
-    dangerously_bypass_approvals_and_sandbox: true
+  copilot:
+    enabled: false
+    data_path: "~/.copilot"
 
 projects:
   - path: ~/code/sidecar
