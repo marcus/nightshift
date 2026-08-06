@@ -258,18 +258,36 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Git hooks
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Install the local git hooks before pushing:
 
 ```bash
 make install-hooks
 ```
 
-This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
+This symlinks:
+- `scripts/pre-commit.sh` into `.git/hooks/pre-commit`
+- `scripts/commit-msg.sh` into `.git/hooks/commit-msg`
+
+The pre-commit hook runs:
 - **gofmt** — flags any staged `.go` files that need formatting
 - **go vet** — catches common correctness issues
 - **go build** — ensures the project compiles
+
+The commit-message hook expects a normalized subject line:
+- `type: summary`
+- `type(scope): summary`
+
+Examples:
+- `fix: restore commit message hook`
+- `feat(tasks): add branch metadata`
+- `docs: describe local git hooks`
+
+Allowed exceptions:
+- Git-generated subjects such as `Merge ...` and `Revert ...`
+- Autosquash subjects such as `fixup! ...` and `squash! ...`
+- Nightshift trailers such as `Nightshift-Task: ...` and `Nightshift-Ref: ...`
 
 To bypass in a pinch: `git commit --no-verify`
 
