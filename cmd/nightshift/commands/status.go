@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -152,7 +153,7 @@ func formatTokens(tokens int) string {
 	if tokens >= 1000 {
 		return fmt.Sprintf("%.1fK", float64(tokens)/1000)
 	}
-	return fmt.Sprintf("%d", tokens)
+	return strconv.Itoa(tokens)
 }
 
 func formatDuration(d time.Duration) string {

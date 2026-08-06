@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -423,7 +424,7 @@ func renderReportFancy(runs []reportRun, rng reportRange, opts reportOptions) er
 			if err != nil {
 				return err
 			}
-			b.WriteString(string(payload))
+			b.Write(payload)
 			b.WriteString("\n")
 		}
 	default:
@@ -1082,7 +1083,7 @@ func formatTokensCompact(tokens int) string {
 	case tokens >= 1_000:
 		return fmt.Sprintf("%.1fk", float64(tokens)/1_000)
 	default:
-		return fmt.Sprintf("%d", tokens)
+		return strconv.Itoa(tokens)
 	}
 }
 

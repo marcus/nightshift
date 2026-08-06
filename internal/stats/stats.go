@@ -188,7 +188,7 @@ func (s *Stats) loadReports() []*reporting.RunResults {
 		return nil
 	}
 
-	var results []*reporting.RunResults
+	results := make([]*reporting.RunResults, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue

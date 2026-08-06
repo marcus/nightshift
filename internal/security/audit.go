@@ -290,7 +290,7 @@ func (l *AuditLogger) GetLogFiles() ([]string, error) {
 		return nil, fmt.Errorf("reading audit log dir: %w", err)
 	}
 
-	var files []string
+	files := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".jsonl" {
 			files = append(files, filepath.Join(l.logDir, entry.Name()))
@@ -307,8 +307,8 @@ func ReadEvents(path string) ([]AuditEvent, error) {
 		return nil, fmt.Errorf("reading audit log: %w", err)
 	}
 
-	var events []AuditEvent
 	lines := splitLines(data)
+	events := make([]AuditEvent, 0, len(lines))
 
 	for _, line := range lines {
 		if len(line) == 0 {

@@ -50,7 +50,10 @@ func (m *mockAgent) Execute(ctx context.Context, opts agents.ExecuteOptions) (*a
 
 // Helper to create JSON response.
 func jsonResponse(v any) agents.ExecuteResult {
-	data, _ := json.Marshal(v)
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic("jsonResponse: " + err.Error())
+	}
 	return agents.ExecuteResult{
 		Output:   string(data),
 		JSON:     data,
@@ -538,7 +541,10 @@ func TestRunTaskExtractsPRURL(t *testing.T) {
 		FilesModified: []string{"file1.go"},
 		Summary:       "opened PR",
 	}
-	implJSON, _ := json.Marshal(implData)
+	implJSON, err := json.Marshal(implData)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
 	implResp := agents.ExecuteResult{
 		Output:   "Created https://github.com/owner/repo/pull/42 for review",
 		JSON:     implJSON,

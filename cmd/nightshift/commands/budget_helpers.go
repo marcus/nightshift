@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -13,15 +14,15 @@ func resolveProviderList(cfg *config.Config, filter string) ([]string, error) {
 		switch filter {
 		case "claude":
 			if !cfg.Providers.Claude.Enabled {
-				return nil, fmt.Errorf("claude provider not enabled")
+				return nil, errors.New("claude provider not enabled")
 			}
 		case "codex":
 			if !cfg.Providers.Codex.Enabled {
-				return nil, fmt.Errorf("codex provider not enabled")
+				return nil, errors.New("codex provider not enabled")
 			}
 		case "copilot":
 			if !cfg.Providers.Copilot.Enabled {
-				return nil, fmt.Errorf("copilot provider not enabled")
+				return nil, errors.New("copilot provider not enabled")
 			}
 		default:
 			return nil, fmt.Errorf("unknown provider: %s (valid: claude, codex, copilot)", filter)

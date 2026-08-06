@@ -63,7 +63,10 @@ func TestHandleProjectsInput_RejectsFilePath(t *testing.T) {
 	m.projectInput.SetValue(filePath)
 
 	model, _ := m.handleProjectsInput(tea.KeyMsg{Type: tea.KeyEnter})
-	got := model.(*setupModel)
+	got, ok := model.(*setupModel)
+	if !ok {
+		t.Fatal("expected *setupModel type")
+	}
 	if got.projectErr != "path must be a directory" {
 		t.Fatalf("projectErr = %q, want %q", got.projectErr, "path must be a directory")
 	}
@@ -80,7 +83,10 @@ func TestHandleTaskInput_RequiresSelection(t *testing.T) {
 	}
 
 	model, cmd := m.handleTaskInput(tea.KeyMsg{Type: tea.KeyEnter})
-	got := model.(*setupModel)
+	got, ok := model.(*setupModel)
+	if !ok {
+		t.Fatal("expected *setupModel type")
+	}
 	if cmd != nil {
 		t.Fatal("expected no transition cmd when no tasks selected")
 	}

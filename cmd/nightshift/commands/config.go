@@ -158,7 +158,7 @@ func runConfigSet(key, value string, useGlobal bool) error {
 
 	// Ensure directory exists
 	configDir := filepath.Dir(configPath)
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		return fmt.Errorf("creating config directory: %w", err)
 	}
 
@@ -351,7 +351,7 @@ func printStruct(v reflect.Value, indent int) {
 	t := v.Type()
 	prefix := strings.Repeat("  ", indent)
 
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		field := t.Field(i)
 		value := v.Field(i)
 
@@ -414,7 +414,7 @@ func isZero(v reflect.Value) bool {
 		return v.Len() == 0
 	case reflect.Struct:
 		// Check if all fields are zero
-		for i := 0; i < v.NumField(); i++ {
+		for i := range v.NumField() {
 			if !isZero(v.Field(i)) {
 				return false
 			}
