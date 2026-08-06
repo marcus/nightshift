@@ -369,13 +369,8 @@ func runScheduledTasks(ctx context.Context, cfg *config.Config, database *db.DB,
 			projectTaskTypes = append(projectTaskTypes, string(scoredTask.Definition.Type))
 
 			// Create task instance
-			taskInstance := &tasks.Task{
-				ID:          fmt.Sprintf("%s:%s", scoredTask.Definition.Type, projectPath),
-				Title:       scoredTask.Definition.Name,
-				Description: scoredTask.Definition.Description,
-				Priority:    int(scoredTask.Score),
-				Type:        scoredTask.Definition.Type,
-			}
+			taskInstance := taskInstanceFromDef(scoredTask.Definition, projectPath)
+			taskInstance.Priority = int(scoredTask.Score)
 
 			// Mark as assigned
 			st.MarkAssigned(taskInstance.ID, projectPath, string(scoredTask.Definition.Type))

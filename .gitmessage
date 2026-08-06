@@ -1,0 +1,16 @@
+# Commit format:
+#   <type>(<optional-scope>): <imperative summary>
+#
+# Examples:
+#   fix(tasks): standardize commit prompt handling
+#   docs: add commit message guide
+#
+# Allowed types:
+#   build, chore, ci, docs, feat, fix, perf, refactor, release, revert, style, test
+#
+# Keep the subject under 72 characters and do not end it with a period.
+# Add a body only when it helps explain why or captures tradeoffs.
+#
+# When Nightshift creates the change, include both trailers:
+# Nightshift-Task: <task-id>
+# Nightshift-Ref: https://github.com/marcus/nightshift

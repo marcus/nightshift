@@ -359,13 +359,8 @@ func buildPreviewResult(cfg *config.Config, database *db.DB, projects []string, 
 			}
 			projectResult.Tasks = make([]previewTask, 0, len(selected))
 			for idx, scored := range selected {
-				taskInstance := &tasks.Task{
-					ID:          fmt.Sprintf("%s:%s", scored.Definition.Type, project),
-					Title:       scored.Definition.Name,
-					Description: scored.Definition.Description,
-					Priority:    int(scored.Score),
-					Type:        scored.Definition.Type,
-				}
+				taskInstance := taskInstanceFromDef(scored.Definition, project)
+				taskInstance.Priority = int(scored.Score)
 				prompt := orch.PlanPrompt(taskInstance)
 				minTokens, maxTokens := scored.Definition.EstimatedTokens()
 

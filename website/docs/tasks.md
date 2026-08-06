@@ -56,6 +56,12 @@ nightshift task run lint-fix --provider claude --dry-run
 nightshift task run lint-fix --provider claude
 ```
 
+## Built-in Task Prompts
+
+Built-in task descriptions stay short in `nightshift task list`, previews, and JSON output. When a task needs extra guardrails, Nightshift uses richer agent instructions behind the scenes for `task show --prompt-only`, `task run`, and orchestrated runs.
+
+`commit-normalize` is the reference example: it remains a concise PR task in the catalog, but the agent prompt tells Nightshift to inspect existing repo conventions, standardize future commit behavior with minimal docs or enforcement changes, preserve Nightshift trailers, and avoid rewriting published history.
+
 ## Skill Grooming Task
 
 Nightshift includes a built-in `skill-groom` task for keeping project-local skills aligned with the current codebase.
