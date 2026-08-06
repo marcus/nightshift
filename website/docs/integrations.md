@@ -28,6 +28,10 @@ codex --login
 
 All output is PR-based. Nightshift creates branches and pull requests for its findings.
 
+## GitHub Copilot
+
+Nightshift can execute tasks through GitHub Copilot CLI via the standalone `copilot` binary or the `gh copilot` extension. See `docs/COPILOT_INTEGRATION.md` for installation, authentication, request tracking, and permission flag details.
+
 ## td (Task Management)
 
 Nightshift can source tasks from [td](https://td.haplab.com) — task management for AI-assisted development. Tasks tagged with `nightshift` in td will be picked up automatically.
