@@ -11,6 +11,11 @@ import (
 	"github.com/marcus/nightshift/internal/config"
 )
 
+var (
+	agentsMDHeaderRE = regexp.MustCompile(`^#+\s*(.+)`)
+	agentsMDBulletRE = regexp.MustCompile(`^[-*]\s+(.+)`)
+)
+
 // AgentsMDReader reads agents.md files for agent behavior configuration.
 type AgentsMDReader struct {
 	enabled bool
@@ -106,8 +111,8 @@ func parseAgentsMD(content string) agentsMDParsed {
 		"constraint": "safety",
 	}
 
-	headerRE := regexp.MustCompile(`^#+\s*(.+)`)
-	bulletRE := regexp.MustCompile(`^[-*]\s+(.+)`)
+	headerRE := agentsMDHeaderRE
+	bulletRE := agentsMDBulletRE
 
 	for scanner.Scan() {
 		line := scanner.Text()

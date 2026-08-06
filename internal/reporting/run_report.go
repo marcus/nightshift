@@ -21,7 +21,10 @@ func RenderRunReport(results *RunResults, logPath string) (string, error) {
 		return "", fmt.Errorf("results cannot be nil")
 	}
 
-	var completed, failed, skipped []TaskResult
+	n := len(results.Tasks)
+	completed := make([]TaskResult, 0, n)
+	failed := make([]TaskResult, 0, n)
+	skipped := make([]TaskResult, 0, n)
 	for _, task := range results.Tasks {
 		switch task.Status {
 		case "completed":

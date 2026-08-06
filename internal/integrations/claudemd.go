@@ -11,6 +11,11 @@ import (
 	"github.com/marcus/nightshift/internal/config"
 )
 
+var (
+	claudeMDHeaderRE = regexp.MustCompile(`^#+\s*(.+)`)
+	claudeMDBulletRE = regexp.MustCompile(`^[-*]\s+(.+)`)
+)
+
 // ClaudeMDReader reads claude.md files for project context.
 type ClaudeMDReader struct {
 	enabled bool
@@ -95,9 +100,9 @@ func parseClaudeMD(content string) claudeMDParsed {
 		"safety":      HintConstraint,
 	}
 
-	// Patterns for extracting hints
-	headerRE := regexp.MustCompile(`^#+\s*(.+)`)
-	bulletRE := regexp.MustCompile(`^[-*]\s+(.+)`)
+	// Patterns for extracting hints (compiled at package level)
+	headerRE := claudeMDHeaderRE
+	bulletRE := claudeMDBulletRE
 
 	for scanner.Scan() {
 		line := scanner.Text()

@@ -102,7 +102,7 @@ func (a *Analyzer) getHourlyAverages(provider string, lookbackDays int) ([]hourl
 	}
 	defer func() { _ = rows.Close() }()
 
-	values := make([]hourlyAverage, 0)
+	values := make([]hourlyAverage, 0, 24)
 	for rows.Next() {
 		var avg hourlyAverage
 		if err := rows.Scan(&avg.hour, &avg.avg); err != nil {
