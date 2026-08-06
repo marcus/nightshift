@@ -32,6 +32,8 @@ func ScrapeClaudeUsage(ctx context.Context) (UsageResult, error) {
 		return UsageResult{}, ErrTmuxNotFound
 	}
 
+	// 45s overall timeout: must cover CLI startup (~10-20s), the /usage command
+	// (~5-10s), plus margin for trust prompts and slow CI machines.
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 
@@ -79,7 +81,12 @@ func ScrapeClaudeUsage(ctx context.Context) (UsageResult, error) {
 		return UsageResult{}, err
 	}
 
-	// Wait for usage output
+	// 15s timeout: /usage output appears within a few seconds once the CLI is
+	// ready; 15s gives generous margin without inflating the overall 45s budget.
+	// 300ms poll interval: fast enough to detect output promptly without
+	// hammering tmux capture-pane in a tight loop.
+	// -S -200: capture last 200 lines of scrollback — usage output can appear
+	// well above the visible viewport when the TUI has pushed content up.
 	output, err := session.WaitForPattern(ctx, claudeWeekRegex, 15*time.Second, 300*time.Millisecond, "-S", "-200")
 	if err != nil {
 		return UsageResult{}, err
@@ -109,6 +116,7 @@ func ScrapeCodexUsage(ctx context.Context) (UsageResult, error) {
 		return UsageResult{}, ErrTmuxNotFound
 	}
 
+	// 45s overall timeout — same rationale as Claude: startup + command + margin.
 	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 
@@ -167,7 +175,7 @@ func ScrapeCodexUsage(ctx context.Context) (UsageResult, error) {
 		return UsageResult{}, err
 	}
 
-	// Wait for status output
+	// Same timing/capture rationale as the Claude scraper above.
 	output, err := session.WaitForPattern(ctx, codexWeekRegex, 15*time.Second, 300*time.Millisecond, "-S", "-200")
 	if err != nil {
 		return UsageResult{}, err
@@ -259,11 +267,16 @@ func waitForSubstantialContent(ctx context.Context, session *Session, timeout ti
 			return lastOutput, fmt.Errorf("timeout waiting for CLI (%d non-empty lines seen)",
 				countNonEmptyLines(StripANSI(lastOutput)))
 		case <-ticker.C:
+			// -S -50: only need recent 50 lines to detect startup; the full
+			// 200-line capture is reserved for the actual usage/status output.
 			output, err := session.CapturePane(ctx, "-S", "-50")
 			if err != nil {
 				continue
 			}
 			lastOutput = output
+			// >5 non-empty lines distinguishes a rendered TUI from a bare shell
+			// prompt (typically 1-2 lines). Threshold is intentionally low to
+			// avoid false negatives on minimal TUI layouts.
 			if countNonEmptyLines(StripANSI(output)) > 5 {
 				return output, nil
 			}
@@ -334,10 +347,11 @@ func parseCodexResetTimes(output string) (sessionReset, weeklyReset string) {
 		weeklyReset = m[1]
 	}
 
-	// Fallback: if primary weekly regex didn't match, find the last "(resets HH:MM on D Mon)"
-	// in the output. The weekly line is always shown last in Codex /status.
-	// Only use the fallback when we find a match distinct from the session reset
-	// (avoids misidentifying the 5h line as weekly when it's the only line).
+	// Fallback: Codex /status format has changed across versions. When the
+	// structured "Weekly limit" line isn't found, fall back to grabbing the
+	// last "(resets HH:MM on D Mon)" in the output — the weekly line is
+	// always printed last. We only accept a match distinct from the session
+	// reset to avoid misidentifying the 5h line as weekly.
 	if weeklyReset == "" {
 		fallbackRe := regexp.MustCompile(`\(resets\s+(\d{1,2}:\d{2}\s+on\s+\d{1,2}\s+\w+)\)`)
 		matches := fallbackRe.FindAllStringSubmatch(output, -1)

@@ -831,9 +831,10 @@ func ExtractPRURL(text string) string {
 }
 
 // inferReviewPassed attempts to detect pass/fail from unstructured text.
+// This is a best-effort fallback for when the review agent returns prose
+// instead of the requested JSON. We count keyword hits rather than relying
+// on a single phrase because agent output format is unpredictable.
 func (o *Orchestrator) inferReviewPassed(output string) bool {
-	// Simple heuristic: look for positive indicators
-	// This is a fallback when JSON parsing fails
 	passIndicators := []string{
 		"passed", "approved", "looks good", "lgtm", "ship it",
 		"no issues", "complete", "correct", "successful",
@@ -870,7 +871,6 @@ func containsIgnoreCase(s, substr string) bool {
 		return false
 	}
 
-	// Convert to lowercase for comparison
 	sLower := toLowerASCII(s)
 	substrLower := toLowerASCII(substr)
 
@@ -882,6 +882,10 @@ func containsIgnoreCase(s, substr string) bool {
 	return false
 }
 
+// toLowerASCII lowercases ASCII letters without allocating through
+// strings.ToLower's full Unicode machinery. The review-keyword matching
+// in inferReviewPassed only uses ASCII terms, so Unicode case-folding is
+// unnecessary overhead on potentially large agent output.
 func toLowerASCII(s string) string {
 	b := make([]byte, len(s))
 	for i := 0; i < len(s); i++ {
