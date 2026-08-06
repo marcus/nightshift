@@ -40,6 +40,11 @@ var migrations = []Migration{
 		Description: "add branch column to run_history",
 		SQL:         migration005SQL,
 	},
+	{
+		Version:     6,
+		Description: "add knowledge_silo_results table for silo analysis",
+		SQL:         migration006SQL,
+	},
 }
 
 const migration002SQL = `
@@ -119,6 +124,19 @@ CREATE INDEX idx_run_history_time ON run_history(start_time DESC);
 
 const migration005SQL = `
 ALTER TABLE run_history ADD COLUMN branch TEXT NOT NULL DEFAULT '';
+`
+
+const migration006SQL = `
+CREATE TABLE IF NOT EXISTS knowledge_silo_results (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp   DATETIME NOT NULL,
+    repo_path   TEXT NOT NULL,
+    depth       INTEGER NOT NULL,
+    results     TEXT NOT NULL,
+    summary     TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_silo_repo_time ON knowledge_silo_results(repo_path, timestamp DESC);
 `
 
 // Migrate runs all pending migrations inside transactions.
