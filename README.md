@@ -258,20 +258,51 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Git hooks
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Install the optional local hooks to catch code and commit-message issues before pushing:
 
 ```bash
 make install-hooks
 ```
 
-This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
+This installs symlinks for `scripts/pre-commit.sh` and `scripts/commit-msg.sh` in
+`.git/hooks`. The pre-commit hook runs:
+
 - **gofmt** — flags any staged `.go` files that need formatting
 - **go vet** — catches common correctness issues
 - **go build** — ensures the project compiles
 
-To bypass in a pinch: `git commit --no-verify`
+The commit-msg hook requires a Conventional Commit-style first meaningful line:
+
+```text
+type: summary
+type(scope): summary
+```
+
+Use one of these lowercase types: `feat`, `fix`, `docs`, `style`, `refactor`,
+`perf`, `test`, `build`, `ci`, or `chore`. Scopes are optional and use lowercase
+letters, digits, `.`, `_`, `/`, or `-`. Add `!` before the colon for a breaking
+change:
+
+```text
+feat: add task filtering
+fix(scheduler): handle empty queues
+refactor(config)!: remove legacy keys
+```
+
+Blank lines and Git comment lines before the subject are ignored. Git-generated
+merge and revert subjects, plus `fixup!` and `squash!` subjects, are exempt. The
+hook only validates the subject, so commit bodies and required trailers remain
+unchanged:
+
+```text
+Nightshift-Task: task-id
+Nightshift-Ref: https://github.com/marcus/nightshift
+```
+
+Run the hook tests with `make test-commit-msg`. To bypass either hook in a pinch,
+use `git commit --no-verify`.
 
 ## Uninstalling
 
