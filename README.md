@@ -106,16 +106,16 @@ selected provider, budget status, projects, and planned tasks. In interactive
 terminals you are prompted for confirmation; in non-TTY environments (cron,
 daemon, CI) confirmation is auto-skipped.
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--dry-run` | `false` | Show preflight summary and exit without executing |
-| `--project`, `-p` | _(all configured)_ | Target a single project directory |
-| `--task`, `-t` | _(auto-select)_ | Run a specific task by name |
-| `--max-projects` | `1` | Max projects to process (ignored when `--project` is set) |
-| `--max-tasks` | `1` | Max tasks per project (ignored when `--task` is set) |
-| `--random-task` | `false` | Pick a random task from eligible tasks instead of the highest-scored one |
-| `--ignore-budget` | `false` | Bypass budget checks (use with caution) |
-| `--yes`, `-y` | `false` | Skip the confirmation prompt |
+| Flag              | Default            | Description                                                              |
+| ----------------- | ------------------ | ------------------------------------------------------------------------ |
+| `--dry-run`       | `false`            | Show preflight summary and exit without executing                        |
+| `--project`, `-p` | _(all configured)_ | Target a single project directory                                        |
+| `--task`, `-t`    | _(auto-select)_    | Run a specific task by name                                              |
+| `--max-projects`  | `1`                | Max projects to process (ignored when `--project` is set)                |
+| `--max-tasks`     | `1`                | Max tasks per project (ignored when `--task` is set)                     |
+| `--random-task`   | `false`            | Pick a random task from eligible tasks instead of the highest-scored one |
+| `--ignore-budget` | `false`            | Bypass budget checks (use with caution)                                  |
+| `--yes`, `-y`     | `false`            | Skip the confirmation prompt                                             |
 
 ```bash
 # Interactive run with preflight summary + confirmation prompt
@@ -141,6 +141,7 @@ nightshift run -p ./my-project -t lint-fix
 ```
 
 Other useful flags:
+
 - `nightshift status --today` to see today's activity summary
 - `nightshift daemon start --foreground` for debug
 - `--category` — filter tasks by category (pr, analysis, options, safe, map, emergency)
@@ -153,8 +154,9 @@ Other useful flags:
 ## Authentication (Subscriptions)
 
 Nightshift supports three AI providers:
+
 - **Claude Code** - Anthropic's Claude via local CLI
-- **Codex** - OpenAI's GPT via local CLI  
+- **Codex** - OpenAI's GPT via local CLI
 - **GitHub Copilot** - GitHub's Copilot via GitHub CLI
 
 ### Claude Code
@@ -258,18 +260,21 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
-### Pre-commit hooks
+### Git hooks
 
-Install the git pre-commit hook to catch formatting and vet issues before pushing:
+Install the git hooks to catch formatting and vet issues and enforce Conventional Commits before pushing:
 
 ```bash
 make install-hooks
 ```
 
 This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook runs:
+
 - **gofmt** — flags any staged `.go` files that need formatting
 - **go vet** — catches common correctness issues
 - **go build** — ensures the project compiles
+
+`make install-hooks` also installs a **commit-msg** hook (`scripts/commit-msg.sh` → `.git/hooks/commit-msg`) that enforces and rewrites commit messages into [Conventional Commits](docs/commit-messages.md) format via `nightshift commit normalize`. Every commit message is normalized automatically; see [docs/commit-messages.md](docs/commit-messages.md) for the supported types and rules.
 
 To bypass in a pinch: `git commit --no-verify`
 
