@@ -22,20 +22,29 @@ import (
 
 // Constants for orchestration.
 const (
+	// DefaultMaxIterations is the default number of implement-review iterations.
 	DefaultMaxIterations = 3
-	DefaultAgentTimeout  = 30 * time.Minute
+	// DefaultAgentTimeout is the default wall-clock timeout for a single agent run.
+	DefaultAgentTimeout = 30 * time.Minute
 )
 
 // TaskStatus represents the outcome of task execution.
 type TaskStatus string
 
 const (
-	StatusPending   TaskStatus = "pending"
-	StatusPlanning  TaskStatus = "planning"
+	// StatusPending indicates a task has not yet started executing.
+	StatusPending TaskStatus = "pending"
+	// StatusPlanning indicates a task is in the planning phase.
+	StatusPlanning TaskStatus = "planning"
+	// StatusExecuting indicates a task is in the implementation phase.
 	StatusExecuting TaskStatus = "executing"
+	// StatusReviewing indicates a task is in the review phase.
 	StatusReviewing TaskStatus = "reviewing"
+	// StatusCompleted indicates a task finished successfully.
 	StatusCompleted TaskStatus = "completed"
-	StatusFailed    TaskStatus = "failed"
+	// StatusFailed indicates a task failed during execution.
+	StatusFailed TaskStatus = "failed"
+	// StatusAbandoned indicates a task was abandoned before completion.
 	StatusAbandoned TaskStatus = "abandoned"
 )
 

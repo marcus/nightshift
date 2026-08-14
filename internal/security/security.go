@@ -241,11 +241,17 @@ func ValidateProjectPath(path string) error {
 type OperationType string
 
 const (
+	// OpAgentInvoke is an agent invocation operation.
 	OpAgentInvoke OperationType = "agent_invoke"
-	OpFileRead    OperationType = "file_read"
-	OpFileWrite   OperationType = "file_write"
-	OpGitCommit   OperationType = "git_commit"
-	OpGitPush     OperationType = "git_push"
+	// OpFileRead is a file read operation.
+	OpFileRead OperationType = "file_read"
+	// OpFileWrite is a file write operation.
+	OpFileWrite OperationType = "file_write"
+	// OpGitCommit is a git commit operation.
+	OpGitCommit OperationType = "git_commit"
+	// OpGitPush is a git push operation.
+	OpGitPush OperationType = "git_push"
+	// OpNetworkCall is a network call operation.
 	OpNetworkCall OperationType = "network_call"
 )
 

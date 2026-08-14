@@ -13,8 +13,11 @@ import (
 type Preset string
 
 const (
-	PresetBalanced   Preset = "balanced"
-	PresetSafe       Preset = "safe"
+	// PresetBalanced selects a moderate mix of tasks between safe and aggressive.
+	PresetBalanced Preset = "balanced"
+	// PresetSafe selects only low-risk, low-cost tasks.
+	PresetSafe Preset = "safe"
+	// PresetAggressive selects a wide range of tasks including higher-risk PR work.
 	PresetAggressive Preset = "aggressive"
 )
 

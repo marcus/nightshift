@@ -9,10 +9,11 @@ import (
 	"strings"
 )
 
-// Standard credential environment variables.
 const (
+	// EnvAnthropicKey is the environment variable holding the Anthropic API key.
 	EnvAnthropicKey = "ANTHROPIC_API_KEY"
-	EnvOpenAIKey    = "OPENAI_API_KEY"
+	// EnvOpenAIKey is the environment variable holding the OpenAI API key.
+	EnvOpenAIKey = "OPENAI_API_KEY"
 )
 
 // CredentialStatus represents the validation status of a credential.
@@ -192,10 +193,12 @@ func (e *CredentialError) Error() string {
 	return fmt.Sprintf("credential error (%s): %s", e.Credential, e.Message)
 }
 
-// Common credential errors.
 var (
-	ErrNoCredentials     = errors.New("no credentials available")
+	// ErrNoCredentials is returned when no credentials are available.
+	ErrNoCredentials = errors.New("no credentials available")
+	// ErrCredentialExpired is returned when a credential may be expired.
 	ErrCredentialExpired = errors.New("credential may be expired")
+	// ErrInvalidCredential is returned when a credential has an invalid format.
 	ErrInvalidCredential = errors.New("credential format invalid")
 )
 

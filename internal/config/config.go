@@ -142,21 +142,33 @@ type ReportingConfig struct {
 	SlackWebhook   *string `mapstructure:"slack_webhook"` // Optional Slack webhook
 }
 
-// Default values for configuration.
 const (
-	DefaultBudgetMode        = "daily"
-	DefaultMaxPercent        = 75
-	DefaultReservePercent    = 5
-	DefaultWeeklyTokens      = 700000
-	DefaultBillingMode       = "subscription"
-	DefaultSnapshotInterval  = "30m"
+	// DefaultBudgetMode is the default budget accounting mode.
+	DefaultBudgetMode = "daily"
+	// DefaultMaxPercent is the default maximum percentage of budget spent per run.
+	DefaultMaxPercent = 75
+	// DefaultReservePercent is the default percentage of budget held in reserve.
+	DefaultReservePercent = 5
+	// DefaultWeeklyTokens is the fallback weekly token budget.
+	DefaultWeeklyTokens = 700000
+	// DefaultBillingMode is the default provider billing mode.
+	DefaultBillingMode = "subscription"
+	// DefaultSnapshotInterval is the default interval between usage snapshots.
+	DefaultSnapshotInterval = "30m"
+	// DefaultSnapshotRetention is the default number of days snapshots are retained.
 	DefaultSnapshotRetention = 90
-	DefaultWeekStartDay      = "monday"
-	DefaultLogLevel          = "info"
-	DefaultLogFormat         = "json"
-	DefaultClaudeDataPath    = "~/.claude"
-	DefaultCodexDataPath     = "~/.codex"
-	DefaultCopilotDataPath   = "~/.copilot"
+	// DefaultWeekStartDay is the default day a budget week starts on.
+	DefaultWeekStartDay = "monday"
+	// DefaultLogLevel is the default log severity level.
+	DefaultLogLevel = "info"
+	// DefaultLogFormat is the default log output format.
+	DefaultLogFormat = "json"
+	// DefaultClaudeDataPath is the default Claude provider data directory.
+	DefaultClaudeDataPath = "~/.claude"
+	// DefaultCodexDataPath is the default Codex provider data directory.
+	DefaultCodexDataPath = "~/.codex"
+	// DefaultCopilotDataPath is the default Copilot provider data directory.
+	DefaultCopilotDataPath = "~/.copilot"
 )
 
 // DefaultLogPath returns the default log path.
@@ -314,27 +326,44 @@ func expandPath(path string) string {
 	return path
 }
 
-// Validation errors
 var (
-	ErrCronAndInterval          = errors.New("cron and interval are mutually exclusive")
-	ErrInvalidBudgetMode        = errors.New("budget mode must be 'daily' or 'weekly'")
-	ErrInvalidBillingMode       = errors.New("billing mode must be 'subscription' or 'api'")
-	ErrInvalidWeekStartDay      = errors.New("week_start_day must be 'monday' or 'sunday'")
-	ErrInvalidMaxPercent        = errors.New("max_percent must be between 1 and 100")
-	ErrInvalidReservePercent    = errors.New("reserve_percent must be between 0 and 100")
+	// ErrCronAndInterval is returned when both cron and interval are configured.
+	ErrCronAndInterval = errors.New("cron and interval are mutually exclusive")
+	// ErrInvalidBudgetMode is returned when the budget mode is unrecognized.
+	ErrInvalidBudgetMode = errors.New("budget mode must be 'daily' or 'weekly'")
+	// ErrInvalidBillingMode is returned when the billing mode is unrecognized.
+	ErrInvalidBillingMode = errors.New("billing mode must be 'subscription' or 'api'")
+	// ErrInvalidWeekStartDay is returned when the week start day is unrecognized.
+	ErrInvalidWeekStartDay = errors.New("week_start_day must be 'monday' or 'sunday'")
+	// ErrInvalidMaxPercent is returned when max_percent is out of range.
+	ErrInvalidMaxPercent = errors.New("max_percent must be between 1 and 100")
+	// ErrInvalidReservePercent is returned when reserve_percent is out of range.
+	ErrInvalidReservePercent = errors.New("reserve_percent must be between 0 and 100")
+	// ErrInvalidSnapshotRetention is returned when snapshot retention is negative.
 	ErrInvalidSnapshotRetention = errors.New("snapshot_retention_days must be >= 0")
-	ErrInvalidLogLevel          = errors.New("log level must be debug, info, warn, or error")
-	ErrInvalidLogFormat         = errors.New("log format must be json or text")
-	ErrNoSchedule               = errors.New("either cron or interval must be specified")
+	// ErrInvalidLogLevel is returned when the log level is unrecognized.
+	ErrInvalidLogLevel = errors.New("log level must be debug, info, warn, or error")
+	// ErrInvalidLogFormat is returned when the log format is unrecognized.
+	ErrInvalidLogFormat = errors.New("log format must be json or text")
+	// ErrNoSchedule is returned when neither cron nor interval is configured.
+	ErrNoSchedule = errors.New("either cron or interval must be specified")
 
-	ErrCustomTaskMissingType        = errors.New("custom task: type is required")
-	ErrCustomTaskMissingName        = errors.New("custom task: name is required")
+	// ErrCustomTaskMissingType is returned when a custom task lacks a type.
+	ErrCustomTaskMissingType = errors.New("custom task: type is required")
+	// ErrCustomTaskMissingName is returned when a custom task lacks a name.
+	ErrCustomTaskMissingName = errors.New("custom task: name is required")
+	// ErrCustomTaskMissingDescription is returned when a custom task lacks a description.
 	ErrCustomTaskMissingDescription = errors.New("custom task: description is required")
-	ErrCustomTaskInvalidType        = errors.New("custom task: type must match [a-z0-9-]+")
-	ErrCustomTaskInvalidCategory    = errors.New("custom task: invalid category")
-	ErrCustomTaskInvalidCostTier    = errors.New("custom task: invalid cost_tier")
-	ErrCustomTaskInvalidRiskLevel   = errors.New("custom task: invalid risk_level")
-	ErrCustomTaskDuplicateType      = errors.New("custom task: duplicate type")
+	// ErrCustomTaskInvalidType is returned when a custom task type is malformed.
+	ErrCustomTaskInvalidType = errors.New("custom task: type must match [a-z0-9-]+")
+	// ErrCustomTaskInvalidCategory is returned when a custom task category is unrecognized.
+	ErrCustomTaskInvalidCategory = errors.New("custom task: invalid category")
+	// ErrCustomTaskInvalidCostTier is returned when a custom task cost tier is unrecognized.
+	ErrCustomTaskInvalidCostTier = errors.New("custom task: invalid cost_tier")
+	// ErrCustomTaskInvalidRiskLevel is returned when a custom task risk level is unrecognized.
+	ErrCustomTaskInvalidRiskLevel = errors.New("custom task: invalid risk_level")
+	// ErrCustomTaskDuplicateType is returned when a custom task type is already registered.
+	ErrCustomTaskDuplicateType = errors.New("custom task: duplicate type")
 )
 
 var customTaskTypeRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
