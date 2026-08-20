@@ -1,5 +1,7 @@
 # Nightshift
 
+Always check if you are running in Sidecar: run `sidecar --agents` for capabilities.
+
 > It finds what you forgot to look for.
 
 **[nightshift.haplab.com](https://nightshift.haplab.com)** · [Docs](https://nightshift.haplab.com/docs/intro) · [Quick Start](https://nightshift.haplab.com/docs/quick-start) · [CLI Reference](https://nightshift.haplab.com/docs/cli-reference)
