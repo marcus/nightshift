@@ -4,11 +4,12 @@
 //
 // The supported format follows the Conventional Commits 1.0.0 specification:
 //
-//	<type>(<scope>): <subject>
+//	<type>(<scope>)!: <subject>
 //
 //	<body>
 //
-// The normalizer is intentionally strict but constructive: rather than silently
+// where the scope and the "!" breaking-change marker are optional. The
+// normalizer is intentionally strict but constructive: rather than silently
 // accepting malformed input it fixes the trivially fixable (whitespace, type
 // and subject casing, trailing punctuation, body wrapping) and rejects anything
 // that needs a human decision (missing type, unknown type, missing subject,
@@ -18,6 +19,7 @@ package commits
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -80,15 +82,18 @@ func Normalize(msg string) (string, error) {
 	header := lines[0]
 	body := lines[1:]
 
-	typ, scope, subject, err := parseHeader(header)
+	typ, scope, breaking, subject, err := parseHeader(header)
 	if err != nil {
 		return "", err
 	}
 
 	subject = cleanSubject(subject)
+	if utf8.RuneCountInString(subject) > MaxSubjectLength {
+		return "", ErrSubjectTooLong
+	}
 
 	var b strings.Builder
-	b.WriteString(formatHeader(typ, scope, subject))
+	b.WriteString(formatHeader(typ, scope, breaking, subject))
 
 	wrapped := wrapBody(body, BodyWrapWidth)
 	if wrapped != "" {
@@ -145,21 +150,30 @@ func stripComments(msg string) []string {
 }
 
 // parseHeader splits the first line into its Conventional Commit components and
-// validates them. The returned type is lower-cased to match the allowed set.
-func parseHeader(header string) (typ, scope, subject string, err error) {
+// validates them. The returned type is lower-cased to match the allowed set,
+// and breaking reports whether the optional "!" breaking-change marker was
+// present after the type or scope. The subject length is not checked here; the
+// caller checks it after cleaning, because cleaning can shorten the subject.
+func parseHeader(header string) (typ, scope string, breaking bool, subject string, err error) {
 	header = strings.TrimSpace(header)
 	colon := strings.Index(header, ":")
 	if colon <= 0 {
-		return "", "", "", ErrMissingType
+		return "", "", false, "", ErrMissingType
 	}
 	prefix := header[:colon]
 	subject = strings.TrimSpace(header[colon+1:])
 
-	// Split an optional "(scope)" from the type.
+	// Strip an optional breaking-change "!" after the type or scope.
 	prefix = strings.TrimSpace(prefix)
+	if strings.HasSuffix(prefix, "!") {
+		breaking = true
+		prefix = strings.TrimSuffix(prefix, "!")
+	}
+
+	// Split an optional "(scope)" from the type.
 	if strings.HasPrefix(prefix, "(") {
 		// A leading "(" with no type is not a valid conventional header.
-		return "", "", "", ErrMissingType
+		return "", "", false, "", ErrMissingType
 	}
 	if open := strings.Index(prefix, "("); open > 0 && strings.HasSuffix(prefix, ")") {
 		typ = prefix[:open]
@@ -171,18 +185,15 @@ func parseHeader(header string) (typ, scope, subject string, err error) {
 	scope = strings.TrimSpace(scope)
 
 	if typ == "" {
-		return "", "", "", ErrMissingType
+		return "", "", false, "", ErrMissingType
 	}
 	if !isAllowedType(typ) {
-		return "", "", "", fmt.Errorf("%w: %q", ErrUnknownType, typ)
+		return "", "", false, "", fmt.Errorf("%w: %q", ErrUnknownType, typ)
 	}
 	if strings.TrimSpace(subject) == "" {
-		return "", "", "", ErrMissingSubject
+		return "", "", false, "", ErrMissingSubject
 	}
-	if utf8.RuneCountInString(subject) > MaxSubjectLength {
-		return "", "", "", ErrSubjectTooLong
-	}
-	return typ, scope, subject, nil
+	return typ, scope, breaking, subject, nil
 }
 
 // cleanSubject normalizes the subject text: surrounding whitespace and a
@@ -193,17 +204,24 @@ func cleanSubject(subject string) string {
 	return lowerFirst(s)
 }
 
-// formatHeader reassembles a canonical header line from its components.
-func formatHeader(typ, scope, subject string) string {
-	if scope != "" {
-		return typ + "(" + scope + "): " + subject
+// formatHeader reassembles a canonical header line from its components,
+// preserving an optional "!" breaking-change marker after the type/scope.
+func formatHeader(typ, scope string, breaking bool, subject string) string {
+	marker := ""
+	if breaking {
+		marker = "!"
 	}
-	return typ + ": " + subject
+	if scope != "" {
+		return typ + "(" + scope + ")" + marker + ": " + subject
+	}
+	return typ + marker + ": " + subject
 }
 
 // wrapBody collapses runs of blank lines, preserves non-blank paragraphs, and
 // hard-wraps each paragraph line to width. Paragraph breaks (a single blank
-// line) are preserved.
+// line) are preserved. A trailing block of trailer/footer lines (e.g.
+// "Reviewed-by: x" or "BREAKING CHANGE: ...") is kept verbatim, one entry per
+// line, because re-wrapping would corrupt it.
 func wrapBody(body []string, width int) string {
 	var paragraphs [][]string
 	var cur []string
@@ -226,13 +244,43 @@ func wrapBody(body []string, width int) string {
 		if i > 0 {
 			b.WriteString("\n\n")
 		}
+		// In the final paragraph a trailing run of trailer lines is kept
+		// verbatim (git recognizes trailers there even without a preceding
+		// blank line); only the prose above it is wrapped.
+		if i == len(paragraphs)-1 {
+			if n := trailerSuffixLen(p); n > 0 {
+				head, tail := p[:len(p)-n], p[len(p)-n:]
+				if len(head) > 0 {
+					b.WriteString(wrapParagraph(strings.Join(head, " "), width))
+					b.WriteString("\n")
+				}
+				b.WriteString(strings.Join(tail, "\n"))
+				continue
+			}
+		}
 		b.WriteString(wrapParagraph(strings.Join(p, " "), width))
 	}
 	return b.String()
 }
 
+// trailerLineRe matches a git trailer or Conventional Commits footer entry,
+// e.g. "Reviewed-by: lasse", "Nightshift-Task: x", or "BREAKING CHANGE: y".
+var trailerLineRe = regexp.MustCompile(`^[A-Za-z0-9-]+( [A-Za-z0-9-]+)?: \S`)
+
+// trailerSuffixLen returns the length of the trailing run of trailer/footer
+// lines in lines, or 0 when the last line is not a trailer.
+func trailerSuffixLen(lines []string) int {
+	n := 0
+	for i := len(lines) - 1; i >= 0 && trailerLineRe.MatchString(lines[i]); i-- {
+		n++
+	}
+	return n
+}
+
 // wrapParagraph hard-wraps a single-line paragraph at width, breaking on word
-// boundaries. A word longer than width is left intact rather than split.
+// boundaries. Width is measured in runes, not bytes, so multi-byte characters
+// count as a single column. A word longer than width is left intact rather
+// than split.
 func wrapParagraph(text string, width int) string {
 	words := strings.Fields(text)
 	if len(words) == 0 {
@@ -243,17 +291,17 @@ func wrapParagraph(text string, width int) string {
 	for i, w := range words {
 		if i == 0 {
 			b.WriteString(w)
-			lineLen = len(w)
+			lineLen = utf8.RuneCountInString(w)
 			continue
 		}
-		if lineLen+1+len(w) <= width {
+		if lineLen+1+utf8.RuneCountInString(w) <= width {
 			b.WriteByte(' ')
 			b.WriteString(w)
-			lineLen += 1 + len(w)
+			lineLen += 1 + utf8.RuneCountInString(w)
 		} else {
 			b.WriteByte('\n')
 			b.WriteString(w)
-			lineLen = len(w)
+			lineLen = utf8.RuneCountInString(w)
 		}
 	}
 	return b.String()

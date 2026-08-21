@@ -7,7 +7,7 @@ derive changelogs automatically.
 ## Format
 
 ```
-<type>(<scope>): <subject>
+<type>(<scope>)!: <subject>
 
 <body>
 ```
@@ -15,9 +15,17 @@ derive changelogs automatically.
 - **type** — one of `feat`, `fix`, `docs`, `style`, `refactor`, `test`,
   `chore`, `perf`, `build`, `ci`, `revert`.
 - **scope** — optional, e.g. `fix(api): ...`.
+- **`!`** — optional breaking-change marker after the type or scope, e.g.
+  `feat!:` or `feat(api)!:`. It is preserved as-is. (A `BREAKING CHANGE:`
+  footer is also valid; body text is passed through unchanged apart from
+  wrapping.)
 - **subject** — lowercase, imperative mood, no trailing period, max 72 chars.
-- **body** — optional, wrapped at 72 columns, separated from the subject by a
-  blank line.
+  The 72-char limit is checked after normalization, so a subject that only
+  fits once its trailing period is trimmed is accepted.
+- **body** — optional, wrapped at 72 columns (counted in characters, not
+  bytes), separated from the subject by a blank line. A final paragraph made
+  up entirely of trailer/footer lines (e.g. `Reviewed-by: ...`,
+  `BREAKING CHANGE: ...`) is preserved verbatim rather than re-wrapped.
 
 ## The `commit normalize` command
 

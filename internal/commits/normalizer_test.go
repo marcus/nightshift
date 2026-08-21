@@ -44,6 +44,43 @@ func TestNormalize(t *testing.T) {
 			want: "revert: feat: add login screen",
 		},
 		{
+			name: "breaking-change marker is preserved",
+			in:   "feat!: drop support for v1",
+			want: "feat!: drop support for v1",
+		},
+		{
+			name: "breaking-change marker with scope is preserved",
+			in:   "FEAT(API)!: Drop support for v1",
+			want: "feat(API)!: drop support for v1",
+		},
+		{
+			name: "subject shrinking to the limit after trimming the trailing period is accepted",
+			in:   "feat: " + strings.Repeat("a", MaxSubjectLength) + ".",
+			want: "feat: " + strings.Repeat("a", MaxSubjectLength),
+		},
+		{
+			name: "trailer block in the last paragraph is preserved verbatim",
+			in: "chore: release v1.2.3\n\nbody text that is long enough to be wrapped when the normalizer reflows this paragraph onto multiple lines at the configured width\n" +
+				"Nightshift-Task: release\nNightshift-Ref: https://github.com/marcus/nightshift",
+			want: "chore: release v1.2.3\n\n" +
+				"body text that is long enough to be wrapped when the normalizer reflows\n" +
+				"this paragraph onto multiple lines at the configured width\n" +
+				"Nightshift-Task: release\nNightshift-Ref: https://github.com/marcus/nightshift",
+		},
+		{
+			name: "breaking change footer is preserved verbatim",
+			in:   "feat!: drop the legacy API\n\nBREAKING CHANGE: removes /v1 endpoints entirely, use /v2 instead",
+			want: "feat!: drop the legacy API\n\nBREAKING CHANGE: removes /v1 endpoints entirely, use /v2 instead",
+		},
+		{
+			name: "body wrapping counts runes not bytes",
+			// Three 10-rune words of 3-byte CJK characters: 32 runes but 92
+			// bytes. At rune width they fit on one line; byte counting would
+			// split them.
+			in:   "docs: wrapping\n\n" + strings.Repeat("日", 10) + " " + strings.Repeat("日", 10) + " " + strings.Repeat("日", 10),
+			want: "docs: wrapping\n\n" + strings.Repeat("日", 10) + " " + strings.Repeat("日", 10) + " " + strings.Repeat("日", 10),
+		},
+		{
 			name: "preserves body and wraps long lines",
 			in:   "feat: add thing\n\nthis is a body paragraph that is intentionally far longer than the configured wrap width so it must be hard wrapped onto multiple lines by the normalizer function",
 			want: "feat: add thing\n\n" +
