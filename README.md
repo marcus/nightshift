@@ -273,6 +273,18 @@ This symlinks `scripts/pre-commit.sh` into `.git/hooks/pre-commit`. The hook run
 
 To bypass in a pinch: `git commit --no-verify`
 
+### Commit messages
+
+Commit messages follow the [Conventional Commits](docs/commit-messages.md) format.
+Install the commit-msg hook to normalize and validate them automatically:
+
+```bash
+ln -s ../../scripts/commit-msg.sh .git/hooks/commit-msg
+```
+
+See [docs/commit-messages.md](docs/commit-messages.md) for the format rules, examples,
+and the `nightshift commit normalize` command.
+
 ## Uninstalling
 
 ```bash

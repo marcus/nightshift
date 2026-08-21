@@ -13,7 +13,7 @@ derive changelogs automatically.
 ```
 
 - **type** — one of `feat`, `fix`, `docs`, `style`, `refactor`, `test`,
-  `chore`, `perf`, `build`, `ci`.
+  `chore`, `perf`, `build`, `ci`, `revert`.
 - **scope** — optional, e.g. `fix(api): ...`.
 - **subject** — lowercase, imperative mood, no trailing period, max 72 chars.
 - **body** — optional, wrapped at 72 columns, separated from the subject by a
@@ -29,8 +29,15 @@ nightshift commit normalize --file .git/COMMIT_EDITMSG
 git log -1 --pretty=%B | nightshift commit normalize
 ```
 
-Add `--check` to validate only. The command exits non-zero when a message
-cannot be normalized (missing/unknown type, capitalized or overlong subject).
+Trivially fixable issues (whitespace, uppercase type or subject, trailing
+period, body wrapping) are fixed automatically; messages that need a human
+decision (missing/unknown type, missing or overlong subject) are rejected.
+With `--file` the normalized message is written back to the file, otherwise it
+is printed to stdout.
+
+Add `--check` to validate only. A diff-style report is printed and the command
+exits non-zero when the message is not in canonical form or cannot be
+normalized.
 
 ## commit-msg hook
 

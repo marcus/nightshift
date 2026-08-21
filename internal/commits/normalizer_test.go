@@ -34,6 +34,16 @@ func TestNormalize(t *testing.T) {
 			want: "feat(ui): render button",
 		},
 		{
+			name: "lowercases a capitalized subject",
+			in:   "feat: Add login screen",
+			want: "feat: add login screen",
+		},
+		{
+			name: "revert type is allowed",
+			in:   "revert: feat: add login screen",
+			want: "revert: feat: add login screen",
+		},
+		{
 			name: "preserves body and wraps long lines",
 			in:   "feat: add thing\n\nthis is a body paragraph that is intentionally far longer than the configured wrap width so it must be hard wrapped onto multiple lines by the normalizer function",
 			want: "feat: add thing\n\n" +
@@ -60,11 +70,6 @@ func TestNormalize(t *testing.T) {
 			name:    "missing subject rejected",
 			in:      "feat:",
 			wantErr: ErrMissingSubject,
-		},
-		{
-			name:    "capitalized subject rejected",
-			in:      "feat: Add login screen",
-			wantErr: ErrSubjectLowercase,
 		},
 		{
 			name:    "overlong subject rejected",
@@ -100,6 +105,63 @@ func TestNormalize(t *testing.T) {
 	}
 }
 
+func TestValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      string
+		wantErr error
+	}{
+		{
+			name: "canonical message passes",
+			in:   "fix(api): handle nil response\n\nbody wrapped at seventy-two columns by hand\n",
+		},
+		{
+			name: "comment lines ignored",
+			in:   "feat: add login\n# git template comment\n",
+		},
+		{
+			name:    "uppercase type fails",
+			in:      "FEAT: add login",
+			wantErr: ErrNotCanonical,
+		},
+		{
+			name:    "capitalized subject fails",
+			in:      "feat: Add login",
+			wantErr: ErrNotCanonical,
+		},
+		{
+			name:    "unwrapped body fails",
+			in:      "feat: add login\n\nthis body paragraph is intentionally far longer than the configured wrap width so it must be hard wrapped by the normalizer",
+			wantErr: ErrNotCanonical,
+		},
+		{
+			name:    "unknown type fails",
+			in:      "wip: halfway done",
+			wantErr: ErrUnknownType,
+		},
+		{
+			name:    "empty message fails",
+			in:      "\n\n# only comments\n",
+			wantErr: ErrEmptyMessage,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := Validate(tc.in)
+			if tc.wantErr == nil {
+				if err != nil {
+					t.Fatalf("Validate(%q): unexpected error: %v", tc.in, err)
+				}
+				return
+			}
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("Validate(%q): expected error to wrap %v, got %v", tc.in, tc.wantErr, err)
+			}
+		})
+	}
+}
+
 func TestNormalizeIdempotent(t *testing.T) {
 	cases := []string{
 		"feat: add login screen",
@@ -122,7 +184,7 @@ func TestNormalizeIdempotent(t *testing.T) {
 }
 
 func TestAllowedTypes(t *testing.T) {
-	for _, typ := range []string{"feat", "fix", "docs", "style", "refactor", "test", "chore", "perf", "build", "ci"} {
+	for _, typ := range []string{"feat", "fix", "docs", "style", "refactor", "test", "chore", "perf", "build", "ci", "revert"} {
 		if !isAllowedType(typ) {
 			t.Errorf("expected %q to be an allowed type", typ)
 		}

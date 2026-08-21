@@ -10,14 +10,16 @@
 //
 // The normalizer is intentionally strict but constructive: rather than silently
 // accepting malformed input it fixes the trivially fixable (whitespace, type
-// casing, trailing punctuation, body wrapping) and rejects anything that needs
-// a human decision (missing type, unknown type, missing subject).
+// and subject casing, trailing punctuation, body wrapping) and rejects anything
+// that needs a human decision (missing type, unknown type, missing subject,
+// overlong subject).
 package commits
 
 import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -39,6 +41,7 @@ var allowedTypes = map[string]struct{}{
 	"perf":     {},
 	"build":    {},
 	"ci":       {},
+	"revert":   {},
 }
 
 // Errors returned by the normalizer. They are wrapped so callers can match on
@@ -57,9 +60,9 @@ var (
 	ErrMissingSubject = errors.New("commit subject is missing")
 	// ErrSubjectTooLong is returned when the subject exceeds MaxSubjectLength.
 	ErrSubjectTooLong = fmt.Errorf("commit subject exceeds %d characters", MaxSubjectLength)
-	// ErrSubjectLowercase is returned when the subject starts with an uppercase
-	// letter (the rule is "do not capitalize the subject").
-	ErrSubjectLowercase = errors.New("commit subject must not be capitalized")
+	// ErrNotCanonical is returned by Validate when the message differs from
+	// its canonical normalized form.
+	ErrNotCanonical = errors.New("commit message is not in canonical form")
 )
 
 // Normalize parses, validates, and rewrites a raw commit message so that it
@@ -94,6 +97,28 @@ func Normalize(msg string) (string, error) {
 	}
 
 	return b.String(), nil
+}
+
+// Validate reports whether msg already conforms to the canonical Conventional
+// Commits form. It returns nil when no normalization is needed, and a non-nil
+// error — either an error from Normalize or ErrNotCanonical — when the message
+// would change under normalization.
+func Validate(msg string) error {
+	normalized, err := Normalize(msg)
+	if err != nil {
+		return err
+	}
+	if strings.Join(StripComments(msg), "\n") != normalized {
+		return ErrNotCanonical
+	}
+	return nil
+}
+
+// StripComments removes git's commented-out template lines, trims trailing
+// whitespace from every line, and drops leading/trailing blank lines. It
+// returns the user-authored text of the message.
+func StripComments(msg string) []string {
+	return stripComments(msg)
 }
 
 // stripComments removes git's commented-out lines (those beginning with "#"),
@@ -157,19 +182,15 @@ func parseHeader(header string) (typ, scope, subject string, err error) {
 	if utf8.RuneCountInString(subject) > MaxSubjectLength {
 		return "", "", "", ErrSubjectTooLong
 	}
-	if startsUpper(subject) {
-		return "", "", "", ErrSubjectLowercase
-	}
 	return typ, scope, subject, nil
 }
 
-// cleanSubject normalizes the subject text: lowercases a leading uppercase
-// letter is *not* done here (capitalization is a hard error, not a fix), but
-// surrounding whitespace and a trailing period are removed.
+// cleanSubject normalizes the subject text: surrounding whitespace and a
+// trailing period are removed and a leading uppercase letter is lowercased.
 func cleanSubject(subject string) string {
 	s := strings.TrimSpace(subject)
 	s = strings.TrimRight(s, ".")
-	return s
+	return lowerFirst(s)
 }
 
 // formatHeader reassembles a canonical header line from its components.
@@ -245,11 +266,11 @@ func isAllowedType(typ string) bool {
 	return ok
 }
 
-// startsUpper reports whether the first rune of s is an ASCII uppercase letter.
-func startsUpper(s string) bool {
+// lowerFirst lowercases the first rune of s, leaving the rest untouched.
+func lowerFirst(s string) string {
 	if s == "" {
-		return false
+		return s
 	}
-	r, _ := utf8.DecodeRuneInString(s)
-	return r >= 'A' && r <= 'Z'
+	r, size := utf8.DecodeRuneInString(s)
+	return string(unicode.ToLower(r)) + s[size:]
 }

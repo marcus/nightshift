@@ -3,8 +3,8 @@
 #
 # Enforces Conventional Commits on every commit message and rewrites the
 # message file into canonical form before the commit is created. Messages that
-# cannot be normalized (missing/unknown type, capitalized or overlong subject)
-# are rejected with a non-zero exit so the commit is aborted.
+# cannot be normalized (missing/unknown type, missing or overlong subject) are
+# rejected with a non-zero exit so the commit is aborted.
 #
 # Install:
 #   make install-hooks
@@ -27,20 +27,16 @@ if [[ -z "$NIGHTSHIFT" ]]; then
   NIGHTSHIFT="go run github.com/marcus/nightshift/cmd/nightshift"
 fi
 
-NORMALIZED="$($NIGHTSHIFT commit normalize --file "$MSG_FILE" 2>/tmp/nightshift-commit-msg.err)"
-STATUS=$?
-
-if [[ $STATUS -ne 0 ]]; then
+NORMALIZED_ERR=/tmp/nightshift-commit-msg.err
+if ! "$NIGHTSHIFT" commit normalize --file "$MSG_FILE" 2>"$NORMALIZED_ERR"; then
   echo "🪡 commit-msg: message does not follow Conventional Commits" >&2
-  sed 's/^/    /' /tmp/nightshift-commit-msg.err >&2 || true
+  sed 's/^/    /' "$NORMALIZED_ERR" >&2 || true
   echo "" >&2
   echo "    Expected format: <type>(<scope>): <subject>" >&2
-  echo "    Types: feat fix docs style refactor test chore perf build ci" >&2
+  echo "    Types: feat fix docs style refactor test chore perf build ci revert" >&2
   echo "    (rewrite your message, or bypass with: git commit --no-verify)" >&2
   exit 1
 fi
 
-# Rewrite the message file into canonical form.
-printf '%s\n' "$NORMALIZED" > "$MSG_FILE"
 echo "🪡 commit-msg: normalized"
 exit 0
