@@ -258,6 +258,8 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 ## Development
 
+New to the codebase? Start with the [architecture overview](docs/architecture.md) — a map of the Go packages and how a run flows through them.
+
 ### Pre-commit hooks
 
 Install the git pre-commit hook to catch formatting and vet issues before pushing:

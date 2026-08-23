@@ -1,3 +1,11 @@
+// Package main implements the provider-calibration utility, a standalone
+// diagnostic tool that analyzes local Claude and Codex session data to
+// summarize per-provider token usage distributions (primary vs. alternate
+// tokens, turns per session) and derive cross-provider budget ratios.
+//
+// The emitted statistics inform the budget calibration heuristics used by
+// the nightshift daemon. See docs/guides/provider-calibration.md for usage
+// details and interpretation of the output.
 package main
 
 import (
