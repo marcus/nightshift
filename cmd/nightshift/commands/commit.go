@@ -37,7 +37,10 @@ Use --check to only validate without rewriting; the exit code is non-zero
 when the message does not conform.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		check, _ := cmd.Flags().GetBool("check")
+		// --check only affects validation: Normalize already returns an
+		// error for non-conforming messages, so both paths print the
+		// same normalized output.
+		_, _ = cmd.Flags().GetBool("check")
 		file, _ := cmd.Flags().GetString("file")
 
 		raw, err := readCommitMessage(args, file)
@@ -51,11 +54,9 @@ when the message does not conform.`,
 			return err
 		}
 
-		if check {
-			fmt.Fprintln(os.Stdout, normalized)
-			return nil
+		if _, err := fmt.Fprintln(os.Stdout, normalized); err != nil {
+			return fmt.Errorf("write output: %w", err)
 		}
-		fmt.Fprintln(os.Stdout, normalized)
 		return nil
 	},
 }
