@@ -11,7 +11,8 @@
 // The normalizer is intentionally strict but constructive: rather than silently
 // accepting malformed input it fixes the trivially fixable (whitespace, type
 // casing, trailing punctuation, body wrapping) and rejects anything that needs
-// a human decision (missing type, unknown type, missing subject).
+// a human decision (missing type, unknown type, malformed scope, missing
+// subject).
 package commits
 
 import (
@@ -51,6 +52,9 @@ var (
 	// ErrMissingType is returned when the subject line is not a Conventional
 	// Commit (no type prefix before the colon).
 	ErrMissingType = errors.New("commit message must start with a conventional commit type")
+	// ErrInvalidScope is returned when a scope is present but malformed
+	// (empty, unbalanced parentheses, or containing whitespace).
+	ErrInvalidScope = errors.New("commit scope is malformed")
 	// ErrUnknownType is returned when the type prefix is not in the allowed set.
 	ErrUnknownType = errors.New("commit type is not in the allowed set")
 	// ErrMissingSubject is returned when the type prefix is present but no
@@ -82,8 +86,6 @@ func Normalize(msg string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	subject = cleanSubject(subject)
 
 	var b strings.Builder
 	b.WriteString(formatHeader(typ, scope, subject))
@@ -121,7 +123,10 @@ func stripComments(msg string) []string {
 }
 
 // parseHeader splits the first line into its Conventional Commit components and
-// validates them. The returned type is lower-cased to match the allowed set.
+// validates them. The returned type is lower-cased to match the allowed set and
+// the subject is returned in cleaned form, so the length and capitalization
+// checks apply to the subject as it will actually be written (e.g. a 73-rune
+// subject ending in '.' trims to a conforming 72 rather than being rejected).
 func parseHeader(header string) (typ, scope, subject string, err error) {
 	header = strings.TrimSpace(header)
 	colon := strings.Index(header, ":")
@@ -140,11 +145,13 @@ func parseHeader(header string) (typ, scope, subject string, err error) {
 	if open := strings.Index(prefix, "("); open > 0 && strings.HasSuffix(prefix, ")") {
 		typ = prefix[:open]
 		scope = prefix[open+1 : len(prefix)-1]
+		if scope == "" || strings.ContainsAny(scope, "() \t") {
+			return "", "", "", fmt.Errorf("%w: %q", ErrInvalidScope, scope)
+		}
 	} else {
 		typ = prefix
 	}
 	typ = strings.ToLower(strings.TrimSpace(typ))
-	scope = strings.TrimSpace(scope)
 
 	if typ == "" {
 		return "", "", "", ErrMissingType
@@ -152,7 +159,8 @@ func parseHeader(header string) (typ, scope, subject string, err error) {
 	if !isAllowedType(typ) {
 		return "", "", "", fmt.Errorf("%w: %q", ErrUnknownType, typ)
 	}
-	if strings.TrimSpace(subject) == "" {
+	subject = cleanSubject(subject)
+	if subject == "" {
 		return "", "", "", ErrMissingSubject
 	}
 	if utf8.RuneCountInString(subject) > MaxSubjectLength {
@@ -184,36 +192,64 @@ func formatHeader(typ, scope, subject string) string {
 // wrapBody collapses runs of blank lines, preserves paragraph breaks (a single
 // blank line), and hard-wraps each paragraph to width. Git trailer lines
 // ("Token: value" such as "Signed-off-by:" or "Nightshift-Task:") are kept
-// verbatim and unwrapped; a run of consecutive trailers stays a single
-// newline-separated block, as git's own trailer convention requires.
+// verbatim and unwrapped. Git only recognizes trailers in the last block of a
+// message, so only the final block is treated as a trailer block — and only
+// when every line in it is trailer-shaped; a "Token: value"-shaped line
+// anywhere else is ordinary prose and is wrapped in place, never reordered.
 func wrapBody(body []string, width int) string {
-	var paragraphs []string
-	var cur []string
-	var trailers []string
-	flush := func() {
-		if len(cur) > 0 {
-			paragraphs = append(paragraphs, wrapParagraph(strings.Join(cur, " "), width))
-			cur = nil
-		}
-		if len(trailers) > 0 {
-			paragraphs = append(paragraphs, strings.Join(trailers, "\n"))
-			trailers = nil
+	blocks := splitBlocks(body)
+	if len(blocks) == 0 {
+		return ""
+	}
+
+	// The last block is a trailer block only when all of its lines look like
+	// trailers; a mixed block is prose and must not be reordered.
+	last := blocks[len(blocks)-1]
+	isTrailerBlock := true
+	for _, l := range last {
+		if !isTrailerLine(l) {
+			isTrailerBlock = false
+			break
 		}
 	}
+
+	prose := blocks
+	if isTrailerBlock {
+		prose = blocks[:len(blocks)-1]
+	}
+	var paragraphs []string
+	for _, b := range prose {
+		paragraphs = append(paragraphs, wrapParagraph(strings.Join(b, " "), width))
+	}
+	if isTrailerBlock {
+		var trailers []string
+		for _, l := range last {
+			trailers = append(trailers, strings.TrimSpace(l))
+		}
+		paragraphs = append(paragraphs, strings.Join(trailers, "\n"))
+	}
+	return strings.Join(paragraphs, "\n\n")
+}
+
+// splitBlocks splits body lines into blocks separated by blank lines, trimming
+// each line and dropping empty blocks.
+func splitBlocks(body []string) [][]string {
+	var blocks [][]string
+	var cur []string
 	for _, l := range body {
 		if strings.TrimSpace(l) == "" {
-			flush()
-			continue
-		}
-		if isTrailerLine(l) {
-			trailers = append(trailers, strings.TrimSpace(l))
+			if len(cur) > 0 {
+				blocks = append(blocks, cur)
+				cur = nil
+			}
 			continue
 		}
 		cur = append(cur, strings.TrimSpace(l))
 	}
-	flush()
-
-	return strings.Join(paragraphs, "\n\n")
+	if len(cur) > 0 {
+		blocks = append(blocks, cur)
+	}
+	return blocks
 }
 
 // isTrailerLine reports whether l looks like a git trailer: a bare token

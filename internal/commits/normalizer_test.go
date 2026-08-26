@@ -57,6 +57,27 @@ func TestNormalize(t *testing.T) {
 				"Nightshift-Task: commit-normalize",
 		},
 		{
+			name: "trailer-shaped line mid-body stays prose in place",
+			in:   "fix(api): retry on 429\n\nbefore the note this paragraph has some words\nNote: this line looks like a trailer but is mid-body prose\nand the paragraph continues after it unchanged in order",
+			want: "fix(api): retry on 429\n\n" +
+				"before the note this paragraph has some words Note: this line looks like\n" +
+				"a trailer but is mid-body prose and the paragraph continues after it\n" +
+				"unchanged in order",
+		},
+		{
+			name: "trailer-shaped block followed by prose is wrapped as prose",
+			in:   "chore: tidy\n\nSigned-off-by: Jane <jane@example.com>\n\none closing paragraph of prose",
+			want: "chore: tidy\n\n" +
+				"Signed-off-by: Jane <jane@example.com>" +
+				"\n\n" +
+				"one closing paragraph of prose",
+		},
+		{
+			name: "trailing period trimmed before subject length is checked",
+			in:   "feat: " + strings.Repeat("a", MaxSubjectLength) + ".",
+			want: "feat: " + strings.Repeat("a", MaxSubjectLength),
+		},
+		{
 			name: "strips git comment lines",
 			in:   "chore: tidy\n# please enter the commit message\n\nbody here",
 			want: "chore: tidy\n\nbody here",
@@ -85,6 +106,16 @@ func TestNormalize(t *testing.T) {
 			name:    "overlong subject rejected",
 			in:      "feat: " + strings.Repeat("a", MaxSubjectLength+1),
 			wantErr: ErrSubjectTooLong,
+		},
+		{
+			name:    "malformed scope with unbalanced parens rejected",
+			in:      "feat(a)b): add thing",
+			wantErr: ErrInvalidScope,
+		},
+		{
+			name:    "empty scope rejected",
+			in:      "feat(): add thing",
+			wantErr: ErrInvalidScope,
 		},
 		{
 			name:    "empty message rejected",
@@ -121,6 +152,8 @@ func TestNormalizeIdempotent(t *testing.T) {
 		"fix(api): handle nil response\n\nLong body that explains the fix in more detail than the subject alone can manage so that we exercise the wrapping path too and then some more words here.",
 		"docs: update README\n\nfirst paragraph\n\nsecond paragraph stays separate",
 		"chore: tidy\n\nsome prose that wraps because it is long enough to need it across columns\n\nSigned-off-by: Jane <jane@example.com>",
+		"fix: keep prose order\n\na paragraph mentioning Note: inline that is long enough that the wrapping code has to run over it and fold it across several lines",
+		"chore: trailers last\n\nprose paragraph\n\nSigned-off-by: Jane <jane@example.com>\nReviewed-by: Bob <bob@example.com>",
 	}
 	for _, in := range cases {
 		once, err := Normalize(in)
