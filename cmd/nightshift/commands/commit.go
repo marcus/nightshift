@@ -52,11 +52,11 @@ when the message does not conform.`,
 		}
 
 		if check {
-			fmt.Fprintln(os.Stdout, normalized)
-			return nil
+			_, err = fmt.Fprintln(os.Stdout, normalized)
+			return err
 		}
-		fmt.Fprintln(os.Stdout, normalized)
-		return nil
+		_, err = fmt.Fprintln(os.Stdout, normalized)
+		return err
 	},
 }
 
