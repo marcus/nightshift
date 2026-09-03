@@ -1,3 +1,7 @@
+// Command provider-calibration is a standalone diagnostic tool that reads
+// local Claude and Codex session artifacts and reports per-session token
+// metrics, so provider token behavior can be compared on the same machine.
+// See docs/guides/provider-calibration.md for usage.
 package main
 
 import (
