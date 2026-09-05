@@ -17,6 +17,7 @@ package commits
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -180,9 +181,18 @@ func formatHeader(typ, scope, subject string) string {
 	return typ + ": " + subject
 }
 
-// wrapBody collapses runs of blank lines, preserves non-blank paragraphs, and
-// hard-wraps each paragraph line to width. Paragraph breaks (a single blank
-// line) are preserved.
+// trailerLineRe matches a single git trailer line such as
+// "Signed-off-by: Jane <jane@example.com>" or "Refs: #42".
+var trailerLineRe = regexp.MustCompile(`^[A-Za-z0-9-]+:(?: .*)?$`)
+
+// orderedListRe matches an ordered list item such as "1. " or "42) ".
+var orderedListRe = regexp.MustCompile(`^\d+[.)] `)
+
+// wrapBody collapses runs of blank lines, preserves paragraph breaks, and
+// hard-wraps prose paragraphs to width. Intentional line structure is left
+// verbatim: a trailing git trailer block (Signed-off-by, Co-authored-by, ...)
+// is never joined or wrapped, and structured lines inside a paragraph (list
+// items, block quotes, indented or fenced code) each keep their own line.
 func wrapBody(body []string, width int) string {
 	var paragraphs [][]string
 	var cur []string
@@ -194,7 +204,7 @@ func wrapBody(body []string, width int) string {
 			}
 			continue
 		}
-		cur = append(cur, strings.TrimSpace(l))
+		cur = append(cur, l)
 	}
 	if len(cur) > 0 {
 		paragraphs = append(paragraphs, cur)
@@ -205,9 +215,106 @@ func wrapBody(body []string, width int) string {
 		if i > 0 {
 			b.WriteString("\n\n")
 		}
-		b.WriteString(wrapParagraph(strings.Join(p, " "), width))
+		if i == len(paragraphs)-1 && isTrailerBlock(p) {
+			writeVerbatim(&b, p)
+			continue
+		}
+		writeParagraph(&b, p, width)
 	}
 	return b.String()
+}
+
+// isTrailerBlock reports whether the paragraph is a git trailer block: at
+// least one line is a "Token: value" trailer and every other line is either a
+// trailer or an indented continuation of the preceding one.
+func isTrailerBlock(p []string) bool {
+	trailers := 0
+	for _, l := range p {
+		trimmed := strings.TrimSpace(l)
+		if trailerLineRe.MatchString(trimmed) {
+			trailers++
+			continue
+		}
+		// A line with leading whitespace continues the previous trailer;
+		// anything else means this paragraph is prose.
+		if l == trimmed {
+			return false
+		}
+	}
+	return trailers > 0
+}
+
+// writeVerbatim emits lines unchanged (bar trailing whitespace) without
+// joining or wrapping. It is used for trailer blocks.
+func writeVerbatim(b *strings.Builder, lines []string) {
+	for i, l := range lines {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(strings.TrimRight(l, " \t"))
+	}
+}
+
+// writeParagraph emits a paragraph, joining and wrapping runs of consecutive
+// prose lines while keeping structured lines verbatim on their own line.
+func writeParagraph(b *strings.Builder, p []string, width int) {
+	var prose []string
+	wrote := false
+	inFence := false
+	newline := func() {
+		if wrote {
+			b.WriteByte('\n')
+		}
+	}
+	flush := func() {
+		if len(prose) == 0 {
+			return
+		}
+		newline()
+		b.WriteString(wrapParagraph(strings.Join(prose, " "), width))
+		wrote = true
+		prose = nil
+	}
+	for _, l := range p {
+		trimmed := strings.TrimSpace(l)
+		if inFence {
+			newline()
+			b.WriteString(strings.TrimRight(l, " \t"))
+			wrote = true
+			if strings.HasPrefix(trimmed, "```") {
+				inFence = false
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "```") || isStructuredLine(l, trimmed) {
+			flush()
+			newline()
+			b.WriteString(strings.TrimRight(l, " \t"))
+			wrote = true
+			inFence = strings.HasPrefix(trimmed, "```")
+			continue
+		}
+		prose = append(prose, trimmed)
+	}
+	flush()
+}
+
+// isStructuredLine reports whether a body line carries deliberate formatting —
+// a list item, a block quote, or an indented (code or continuation) line — and
+// must therefore not be merged into the surrounding prose.
+func isStructuredLine(raw, trimmed string) bool {
+	if raw != trimmed {
+		return true
+	}
+	for _, marker := range []string{"- ", "* ", "+ "} {
+		if strings.HasPrefix(trimmed, marker) {
+			return true
+		}
+	}
+	if orderedListRe.MatchString(trimmed) {
+		return true
+	}
+	return strings.HasPrefix(trimmed, ">")
 }
 
 // wrapParagraph hard-wraps a single-line paragraph at width, breaking on word

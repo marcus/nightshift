@@ -77,6 +77,74 @@ func TestNormalize(t *testing.T) {
 			wantErr: ErrSubjectTooLong,
 		},
 		{
+			name: "preserves git trailers on separate lines",
+			in: "fix(core): stop crash on empty input\n\n" +
+				"the parser assumed at least one record and panicked otherwise.\n\n" +
+				"Signed-off-by: Jane Dev <jane@example.com>\n" +
+				"Co-authored-by: Some One <someone@example.com>",
+			want: "fix(core): stop crash on empty input\n\n" +
+				"the parser assumed at least one record and panicked otherwise.\n\n" +
+				"Signed-off-by: Jane Dev <jane@example.com>\n" +
+				"Co-authored-by: Some One <someone@example.com>",
+		},
+		{
+			name: "does not wrap overlong trailer values",
+			in: "chore: sync deps\n\n" +
+				"bump everything to latest.\n\n" +
+				"Co-authored-by: A Very Long Display Name That Clearly Exceeds Seventy-Two Columns <someone@example.com>",
+			want: "chore: sync deps\n\n" +
+				"bump everything to latest.\n\n" +
+				"Co-authored-by: A Very Long Display Name That Clearly Exceeds Seventy-Two Columns <someone@example.com>",
+		},
+		{
+			name: "keeps trailer continuation lines indented",
+			in: "feat: add export\n\n" +
+				"exports data.\n\n" +
+				"Refs: #42\n  additional context on multiple lines\n  continues here",
+			want: "feat: add export\n\n" +
+				"exports data.\n\n" +
+				"Refs: #42\n  additional context on multiple lines\n  continues here",
+		},
+		{
+			name: "keeps list items on their own lines",
+			in: "feat: add flags\n\n" +
+				"two new flags were added:\n" +
+				"- --verbose prints more detail\n" +
+				"- --quiet prints less detail and this item is long enough that joining would wrap it differently than kept as a list line",
+			want: "feat: add flags\n\n" +
+				"two new flags were added:\n" +
+				"- --verbose prints more detail\n" +
+				"- --quiet prints less detail and this item is long enough that joining would wrap it differently than kept as a list line",
+		},
+		{
+			name: "keeps indented code block verbatim",
+			in: "fix(parser): handle tabs\n\n" +
+				"before:\n" +
+				"    if err != nil {\n" +
+				"        return err\n" +
+				"    }\n" +
+				"after, the check happens earlier so the branch above is unreachable now",
+			want: "fix(parser): handle tabs\n\n" +
+				"before:\n" +
+				"    if err != nil {\n" +
+				"        return err\n" +
+				"    }\n" +
+				"after, the check happens earlier so the branch above is unreachable now",
+		},
+		{
+			name: "wraps prose on both sides of a list without merging them",
+			in: "docs: describe flags\n\n" +
+				"this is a long prose introduction that would normally be wrapped because it goes past the wrap width by a fair margin indeed\n" +
+				"- a list item\n" +
+				"this is a long prose closing that would also be wrapped because it goes past the wrap width by a fair margin",
+			want: "docs: describe flags\n\n" +
+				"this is a long prose introduction that would normally be wrapped because\n" +
+				"it goes past the wrap width by a fair margin indeed\n" +
+				"- a list item\n" +
+				"this is a long prose closing that would also be wrapped because it goes\n" +
+				"past the wrap width by a fair margin",
+		},
+		{
 			name:    "empty message rejected",
 			in:      "\n\n# only comments\n  \n",
 			wantErr: ErrEmptyMessage,
@@ -110,6 +178,7 @@ func TestNormalizeIdempotent(t *testing.T) {
 		"feat: add login screen",
 		"fix(api): handle nil response\n\nLong body that explains the fix in more detail than the subject alone can manage so that we exercise the wrapping path too and then some more words here.",
 		"docs: update README\n\nfirst paragraph\n\nsecond paragraph stays separate",
+		"fix(core): stop crash\n\nexplanation text.\n\nSigned-off-by: Jane Dev <jane@example.com>\nCo-authored-by: Some One <someone@example.com>",
 	}
 	for _, in := range cases {
 		once, err := Normalize(in)
