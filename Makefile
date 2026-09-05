@@ -78,7 +78,9 @@ help:
 	@echo "  install-hooks  - Install git pre-commit hook"
 	@echo "  help          - Show this help"
 
-# Install git pre-commit hook
+# Install git hooks (pre-commit and commit-msg)
 install-hooks:
 	@ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit
 	@echo "✓ pre-commit hook installed (.git/hooks/pre-commit → scripts/pre-commit.sh)"
+	@ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg
+	@echo "✓ commit-msg hook installed (.git/hooks/commit-msg → scripts/commit-msg.sh)"
