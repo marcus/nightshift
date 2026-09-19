@@ -1,3 +1,6 @@
+// Package main is the provider-calibration tool: it reads Claude and Codex
+// session artifacts from local data directories and compares their token
+// usage to help calibrate nightshift's budget assumptions.
 package main
 
 import (

@@ -2,7 +2,7 @@
 
 ## Built-in Tasks
 
-Nightshift ships with 50+ built-in task types organized into six categories. To add a new built-in task, modify the task registry in `internal/tasks/tasks.go`.
+Nightshift ships with 59 built-in task types organized into six categories. To add a new built-in task, modify the task registry in `internal/tasks/tasks.go`.
 
 ### Step 1: Define the Task Type Constant
 
