@@ -256,6 +256,17 @@ Each task has a default cooldown interval to prevent the same task from running 
 
 `skill-groom` is enabled by default. Add it to `tasks.disabled` if you want to opt out. It updates project-local skills under `.claude/skills` and `.codex/skills` using `README.md` as project context and starts Agent Skills docs lookup from `https://agentskills.io/llms.txt`.
 
+## Guides
+
+Deeper guides live in [`docs/guides/`](docs/guides/):
+
+- [Adding Tasks](docs/guides/adding-tasks.md) — how to add a new built-in or custom task
+- [Run Lifecycle](docs/guides/run-lifecycle.md) — what happens from a scheduled trigger to a finished run
+- [Codex Budget Tracking](docs/guides/codex-budget-tracking.md) — how nightshift tracks and budgets Codex CLI usage
+- [Provider Calibration](docs/guides/provider-calibration.md) — comparing Claude and Codex token behavior on your machine
+- [Agent tmux Integration](docs/guides/agent-tmux-integration.md) — driving the CLIs via tmux
+- [Website](docs/guides/website.md) — building and deploying this site
+
 ## Development
 
 ### Pre-commit hooks
