@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/marcus/nightshift/internal/commits"
 	"github.com/spf13/cobra"
@@ -33,9 +35,11 @@ when no argument and no --file are given.
   nightshift commit normalize --file .git/COMMIT_EDITMSG
   git log -1 --pretty=%B | nightshift commit normalize
 
-Use --check to only validate without rewriting; the exit code is non-zero
-when the message does not conform.`,
-	Args: cobra.MaximumNArgs(1),
+Use --check to only validate without rewriting: nothing is printed and the
+exit code is non-zero when the message is invalid or not already in canonical
+form.`,
+	Args:         cobra.MaximumNArgs(1),
+	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		check, _ := cmd.Flags().GetBool("check")
 		file, _ := cmd.Flags().GetString("file")
@@ -47,13 +51,12 @@ when the message does not conform.`,
 
 		normalized, err := commits.Normalize(raw)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
 			return err
 		}
 
 		if check {
-			if _, err := fmt.Fprintln(os.Stdout, normalized); err != nil {
-				return err
+			if !isCanonical(raw, normalized) {
+				return errors.New("message is not in canonical Conventional Commits form (run without --check to print the normalized message)")
 			}
 			return nil
 		}
@@ -89,4 +92,10 @@ func readCommitMessage(args []string, file string) (string, error) {
 		return "", fmt.Errorf("read stdin: %w", err)
 	}
 	return string(b), nil
+}
+
+// isCanonical reports whether raw is already in normalized form, ignoring a
+// single trailing newline.
+func isCanonical(raw, normalized string) bool {
+	return strings.TrimSuffix(raw, "\n") == normalized
 }

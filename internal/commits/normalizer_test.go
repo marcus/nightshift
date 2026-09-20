@@ -47,6 +47,27 @@ func TestNormalize(t *testing.T) {
 			want: "chore: tidy\n\nbody here",
 		},
 		{
+			name: "breaking-change marker without scope preserved",
+			in:   "feat!: drop the legacy config loader",
+			want: "feat!: drop the legacy config loader",
+		},
+		{
+			name: "breaking-change marker with scope preserved",
+			in:   "FEAT(API)!: drop the legacy config loader.",
+			want: "feat(api)!: drop the legacy config loader",
+		},
+		{
+			name: "bullet-list body items stay on their own lines",
+			in:   "feat: add export\n\nadds csv export:\n\n- item one\n- item two with a description that is long enough to need wrapping onto a second line by the wrapper\n* item three\n\ntrailing paragraph",
+			want: "feat: add export\n\n" +
+				"adds csv export:\n\n" +
+				"- item one\n" +
+				"- item two with a description that is long enough to need wrapping onto\n" +
+				"a second line by the wrapper\n" +
+				"* item three\n\n" +
+				"trailing paragraph",
+		},
+		{
 			name:    "missing type rejected",
 			in:      "just a plain message",
 			wantErr: ErrMissingType,
@@ -105,6 +126,7 @@ func TestNormalizeIdempotent(t *testing.T) {
 		"feat: add login screen",
 		"fix(api): handle nil response\n\nLong body that explains the fix in more detail than the subject alone can manage so that we exercise the wrapping path too and then some more words here.",
 		"docs: update README\n\nfirst paragraph\n\nsecond paragraph stays separate",
+		"feat(api)!: rework the public API\n\nrationale:\n\n- first reason\n- second reason that is long enough to require wrapping when the normalizer processes this list item",
 	}
 	for _, in := range cases {
 		once, err := Normalize(in)

@@ -15,9 +15,12 @@ derive changelogs automatically.
 - **type** — one of `feat`, `fix`, `docs`, `style`, `refactor`, `test`,
   `chore`, `perf`, `build`, `ci`.
 - **scope** — optional, e.g. `fix(api): ...`.
+- **breaking change** — append `!` after the type or scope, e.g. `feat(api)!:` —
+  a breaking change must also be called out in the body.
 - **subject** — lowercase, imperative mood, no trailing period, max 72 chars.
 - **body** — optional, wrapped at 72 columns, separated from the subject by a
-  blank line.
+  blank line. Paragraph breaks are preserved and bullet-list items (`- ` /
+  `* `) stay on their own lines.
 
 ## The `commit normalize` command
 
@@ -29,8 +32,9 @@ nightshift commit normalize --file .git/COMMIT_EDITMSG
 git log -1 --pretty=%B | nightshift commit normalize
 ```
 
-Add `--check` to validate only. The command exits non-zero when a message
-cannot be normalized (missing/unknown type, capitalized or overlong subject).
+Add `--check` to validate only: nothing is printed, and the command exits
+non-zero when a message cannot be normalized (missing/unknown type, capitalized
+or overlong subject) or is not already in canonical form.
 
 ## commit-msg hook
 

@@ -21,20 +21,31 @@ fi
 MSG_FILE="$1"
 
 # Resolve the nightshift binary: prefer the one on $PATH, fall back to
-# building the current source tree.
+# building the current source tree. Kept as an array so the multi-word
+# "go run ..." fallback expands correctly.
 NIGHTSHIFT="$(command -v nightshift || true)"
-if [[ -z "$NIGHTSHIFT" ]]; then
-  NIGHTSHIFT="go run github.com/marcus/nightshift/cmd/nightshift"
+if [[ -n "$NIGHTSHIFT" ]]; then
+  NIGHTSHIFT_CMD=("$NIGHTSHIFT")
+else
+  NIGHTSHIFT_CMD=(go run github.com/marcus/nightshift/cmd/nightshift)
 fi
 
-NORMALIZED="$($NIGHTSHIFT commit normalize --file "$MSG_FILE" 2>/tmp/nightshift-commit-msg.err)"
+ERR_FILE="$(mktemp "${TMPDIR:-/tmp}/nightshift-commit-msg.XXXXXX")"
+trap 'rm -f "$ERR_FILE"' EXIT
+
+# Disable errexit around the assignment: its exit status is the command
+# substitution's status, and under `set -e` a failing assignment would abort
+# the script before the error guidance below could run.
+set +e
+NORMALIZED="$("${NIGHTSHIFT_CMD[@]}" commit normalize --file "$MSG_FILE" 2>"$ERR_FILE")"
 STATUS=$?
+set -e
 
 if [[ $STATUS -ne 0 ]]; then
   echo "🪡 commit-msg: message does not follow Conventional Commits" >&2
-  sed 's/^/    /' /tmp/nightshift-commit-msg.err >&2 || true
+  sed 's/^/    /' "$ERR_FILE" >&2 || true
   echo "" >&2
-  echo "    Expected format: <type>(<scope>): <subject>" >&2
+  echo "    Expected format: <type>(<scope>)!: <subject>  (scope and ! optional)" >&2
   echo "    Types: feat fix docs style refactor test chore perf build ci" >&2
   echo "    (rewrite your message, or bypass with: git commit --no-verify)" >&2
   exit 1

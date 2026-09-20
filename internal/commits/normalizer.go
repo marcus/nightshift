@@ -4,11 +4,12 @@
 //
 // The supported format follows the Conventional Commits 1.0.0 specification:
 //
-//	<type>(<scope>): <subject>
+//	<type>(<scope>)!: <subject>
 //
 //	<body>
 //
-// The normalizer is intentionally strict but constructive: rather than silently
+// where the scope and the "!" breaking-change marker are optional. The
+// normalizer is intentionally strict but constructive: rather than silently
 // accepting malformed input it fixes the trivially fixable (whitespace, type
 // casing, trailing punctuation, body wrapping) and rejects anything that needs
 // a human decision (missing type, unknown type, missing subject).
@@ -77,7 +78,7 @@ func Normalize(msg string) (string, error) {
 	header := lines[0]
 	body := lines[1:]
 
-	typ, scope, subject, err := parseHeader(header)
+	typ, scope, subject, breaking, err := parseHeader(header)
 	if err != nil {
 		return "", err
 	}
@@ -85,7 +86,7 @@ func Normalize(msg string) (string, error) {
 	subject = cleanSubject(subject)
 
 	var b strings.Builder
-	b.WriteString(formatHeader(typ, scope, subject))
+	b.WriteString(formatHeader(typ, scope, subject, breaking))
 
 	wrapped := wrapBody(body, BodyWrapWidth)
 	if wrapped != "" {
@@ -120,12 +121,14 @@ func stripComments(msg string) []string {
 }
 
 // parseHeader splits the first line into its Conventional Commit components and
-// validates them. The returned type is lower-cased to match the allowed set.
-func parseHeader(header string) (typ, scope, subject string, err error) {
+// validates them. The returned type is lower-cased to match the allowed set. A
+// trailing "!" on the type (after the optional scope) marks a breaking change
+// per Conventional Commits 1.0.0 and is preserved.
+func parseHeader(header string) (typ, scope, subject string, breaking bool, err error) {
 	header = strings.TrimSpace(header)
 	colon := strings.Index(header, ":")
 	if colon <= 0 {
-		return "", "", "", ErrMissingType
+		return "", "", "", false, ErrMissingType
 	}
 	prefix := header[:colon]
 	subject = strings.TrimSpace(header[colon+1:])
@@ -134,7 +137,11 @@ func parseHeader(header string) (typ, scope, subject string, err error) {
 	prefix = strings.TrimSpace(prefix)
 	if strings.HasPrefix(prefix, "(") {
 		// A leading "(" with no type is not a valid conventional header.
-		return "", "", "", ErrMissingType
+		return "", "", "", false, ErrMissingType
+	}
+	breaking = strings.HasSuffix(prefix, "!")
+	if breaking {
+		prefix = strings.TrimSuffix(prefix, "!")
 	}
 	if open := strings.Index(prefix, "("); open > 0 && strings.HasSuffix(prefix, ")") {
 		typ = prefix[:open]
@@ -143,24 +150,24 @@ func parseHeader(header string) (typ, scope, subject string, err error) {
 		typ = prefix
 	}
 	typ = strings.ToLower(strings.TrimSpace(typ))
-	scope = strings.TrimSpace(scope)
+	scope = strings.ToLower(strings.TrimSpace(scope))
 
 	if typ == "" {
-		return "", "", "", ErrMissingType
+		return "", "", "", false, ErrMissingType
 	}
 	if !isAllowedType(typ) {
-		return "", "", "", fmt.Errorf("%w: %q", ErrUnknownType, typ)
+		return "", "", "", false, fmt.Errorf("%w: %q", ErrUnknownType, typ)
 	}
 	if strings.TrimSpace(subject) == "" {
-		return "", "", "", ErrMissingSubject
+		return "", "", "", false, ErrMissingSubject
 	}
 	if utf8.RuneCountInString(subject) > MaxSubjectLength {
-		return "", "", "", ErrSubjectTooLong
+		return "", "", "", false, ErrSubjectTooLong
 	}
 	if startsUpper(subject) {
-		return "", "", "", ErrSubjectLowercase
+		return "", "", "", false, ErrSubjectLowercase
 	}
-	return typ, scope, subject, nil
+	return typ, scope, subject, breaking, nil
 }
 
 // cleanSubject normalizes the subject text: lowercases a leading uppercase
@@ -172,42 +179,73 @@ func cleanSubject(subject string) string {
 	return s
 }
 
-// formatHeader reassembles a canonical header line from its components.
-func formatHeader(typ, scope, subject string) string {
-	if scope != "" {
-		return typ + "(" + scope + "): " + subject
+// formatHeader reassembles a canonical header line from its components,
+// keeping a "!" breaking-change marker after the type or scope.
+func formatHeader(typ, scope, subject string, breaking bool) string {
+	bang := ""
+	if breaking {
+		bang = "!"
 	}
-	return typ + ": " + subject
+	if scope != "" {
+		return typ + "(" + scope + ")" + bang + ": " + subject
+	}
+	return typ + bang + ": " + subject
 }
 
-// wrapBody collapses runs of blank lines, preserves non-blank paragraphs, and
-// hard-wraps each paragraph line to width. Paragraph breaks (a single blank
-// line) are preserved.
+// wrapBody collapses runs of blank lines, preserves paragraph breaks, keeps
+// bullet-list items on their own lines, and hard-wraps each paragraph to width.
+// Paragraph and list blocks are separated by a single blank line; consecutive
+// bullet items stay on adjacent lines so lists remain lists instead of being
+// merged into prose.
 func wrapBody(body []string, width int) string {
-	var paragraphs [][]string
-	var cur []string
-	for _, l := range body {
-		if strings.TrimSpace(l) == "" {
-			if len(cur) > 0 {
-				paragraphs = append(paragraphs, cur)
-				cur = nil
-			}
-			continue
+	var blocks []string
+	var para []string
+	var list []string
+
+	flushPara := func() {
+		if len(para) > 0 {
+			blocks = append(blocks, wrapParagraph(strings.Join(para, " "), width))
+			para = nil
 		}
-		cur = append(cur, strings.TrimSpace(l))
 	}
-	if len(cur) > 0 {
-		paragraphs = append(paragraphs, cur)
+	flushList := func() {
+		if len(list) > 0 {
+			blocks = append(blocks, strings.Join(list, "\n"))
+			list = nil
+		}
 	}
 
-	var b strings.Builder
-	for i, p := range paragraphs {
-		if i > 0 {
-			b.WriteString("\n\n")
+	for _, l := range body {
+		l = strings.TrimSpace(l)
+		if l == "" {
+			flushPara()
+			flushList()
+			continue
 		}
-		b.WriteString(wrapParagraph(strings.Join(p, " "), width))
+		if isBulletItem(l) {
+			flushPara()
+			list = append(list, wrapParagraph(l, width))
+			continue
+		}
+		if len(list) > 0 {
+			// Continuation of the preceding bullet item (e.g. the second
+			// line of a wrapped item) — keep it inside the list block so
+			// normalization stays idempotent.
+			list = append(list, wrapParagraph(l, width))
+			continue
+		}
+		para = append(para, l)
 	}
-	return b.String()
+	flushPara()
+	flushList()
+
+	return strings.Join(blocks, "\n\n")
+}
+
+// isBulletItem reports whether a body line is a bullet-list item, i.e. it
+// starts with "- " or "* ".
+func isBulletItem(l string) bool {
+	return strings.HasPrefix(l, "- ") || strings.HasPrefix(l, "* ")
 }
 
 // wrapParagraph hard-wraps a single-line paragraph at width, breaking on word
