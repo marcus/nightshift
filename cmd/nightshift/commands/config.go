@@ -21,7 +21,7 @@ var configCmd = &cobra.Command{
 
 Shows current configuration merged from global and project configs.
 Use subcommands to get/set specific values or validate the config.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		return runConfigShow()
 	},
 }
@@ -36,7 +36,7 @@ Examples:
   nightshift config get providers.claude.enabled
   nightshift config get logging.level`,
 	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		return runConfigGet(args[0])
 	},
 }
@@ -66,7 +66,7 @@ var configValidateCmd = &cobra.Command{
 	Long: `Validate the current configuration.
 
 Checks both global and project configs for errors.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		return runConfigValidate()
 	},
 }

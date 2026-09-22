@@ -75,10 +75,10 @@ func TestImportLegacyStateSuccess(t *testing.T) {
 		t.Fatalf("expected migrated file: %v", err)
 	}
 
-	assertRowCount(t, database, "projects", 1)
-	assertRowCount(t, database, "task_history", 1)
-	assertRowCount(t, database, "assigned_tasks", 1)
-	assertRowCount(t, database, "run_history", 1)
+	assertOneRow(t, database, "projects")
+	assertOneRow(t, database, "task_history")
+	assertOneRow(t, database, "assigned_tasks")
+	assertOneRow(t, database, "run_history")
 }
 
 func TestImportLegacyStateSkipsWhenDataExists(t *testing.T) {
@@ -115,7 +115,7 @@ func TestImportLegacyStateSkipsWhenDataExists(t *testing.T) {
 		t.Fatalf("expected no migrated file, got err=%v", err)
 	}
 
-	assertRowCount(t, database, "projects", 1)
+	assertOneRow(t, database, "projects")
 }
 
 func TestImportLegacyStateParseFailureKeepsFile(t *testing.T) {
@@ -146,7 +146,7 @@ func TestImportLegacyStateParseFailureKeepsFile(t *testing.T) {
 	}
 }
 
-func assertRowCount(t *testing.T, database *DB, table string, expected int) {
+func assertOneRow(t *testing.T, database *DB, table string) {
 	t.Helper()
 
 	row := database.SQL().QueryRow(`SELECT COUNT(*) FROM ` + table)
@@ -154,7 +154,7 @@ func assertRowCount(t *testing.T, database *DB, table string, expected int) {
 	if err := row.Scan(&count); err != nil {
 		t.Fatalf("count rows in %s: %v", table, err)
 	}
-	if count != expected {
-		t.Fatalf("expected %d rows in %s, got %d", expected, table, count)
+	if count != 1 {
+		t.Fatalf("expected 1 row in %s, got %d", table, count)
 	}
 }

@@ -396,7 +396,7 @@ func TestCodexAgent_ContextCancellation(t *testing.T) {
 	}
 }
 
-func TestCodexAgent_ImplementsAgentInterface(t *testing.T) {
+func TestCodexAgent_ImplementsAgentInterface(_ *testing.T) {
 	// Verify CodexAgent implements the Agent interface
 	var _ Agent = (*CodexAgent)(nil)
 }

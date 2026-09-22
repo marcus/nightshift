@@ -130,11 +130,12 @@ func (c *Calibrator) Calibrate(provider string) (CalibrationResult, error) {
 			confidence = "low"
 		}
 	default:
-		if cv <= 0.10 {
+		switch {
+		case cv <= 0.10:
 			confidence = "high"
-		} else if cv <= 0.15 {
+		case cv <= 0.15:
 			confidence = "medium"
-		} else {
+		default:
 			confidence = "low"
 		}
 	}
@@ -156,12 +157,12 @@ func (c *Calibrator) Calibrate(provider string) (CalibrationResult, error) {
 }
 
 // GetBudget returns a budget estimate for the budget manager.
-func (c *Calibrator) GetBudget(provider string) (budget.BudgetEstimate, error) {
+func (c *Calibrator) GetBudget(provider string) (budget.Estimate, error) {
 	result, err := c.Calibrate(provider)
 	if err != nil {
-		return budget.BudgetEstimate{}, err
+		return budget.Estimate{}, err
 	}
-	return budget.BudgetEstimate{
+	return budget.Estimate{
 		WeeklyTokens: result.InferredBudget,
 		Source:       result.Source,
 		Confidence:   result.Confidence,

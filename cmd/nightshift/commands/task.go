@@ -79,7 +79,7 @@ func init() {
 	rootCmd.AddCommand(taskCmd)
 }
 
-func runTaskList(cmd *cobra.Command, args []string) error {
+func runTaskList(cmd *cobra.Command, _ []string) error {
 	categoryFilter, _ := cmd.Flags().GetString("category")
 	costFilter, _ := cmd.Flags().GetString("cost")
 	asJSON, _ := cmd.Flags().GetBool("json")
@@ -113,7 +113,7 @@ func runTaskList(cmd *cobra.Command, args []string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	_, _ = fmt.Fprintln(w, "TYPE\tNAME\tCATEGORY\tCOST\tTOKENS\tRISK")
 	for _, d := range defs {
-		min, max := d.EstimatedTokens()
+		minTokens, maxTokens := d.EstimatedTokens()
 		typeStr := string(d.Type)
 		if tasks.IsCustom(d.Type) {
 			typeStr += " [custom]"
@@ -123,8 +123,8 @@ func runTaskList(cmd *cobra.Command, args []string) error {
 			d.Name,
 			categoryShort(d.Category),
 			costShort(d.CostTier),
-			formatK(min),
-			formatK(max),
+			formatK(minTokens),
+			formatK(maxTokens),
 			d.RiskLevel,
 		)
 	}
@@ -158,12 +158,12 @@ func runTaskShow(cmd *cobra.Command, args []string) error {
 		return printTaskShowJSON(def, prompt)
 	}
 
-	min, max := def.EstimatedTokens()
+	minTokens, maxTokens := def.EstimatedTokens()
 	fmt.Printf("Task:        %s\n", def.Name)
 	fmt.Printf("Type:        %s\n", def.Type)
 	fmt.Printf("Category:    %s\n", def.Category)
 	fmt.Printf("Cost:        %s\n", def.CostTier)
-	fmt.Printf("Tokens:      %s - %s\n", formatK(min), formatK(max))
+	fmt.Printf("Tokens:      %s - %s\n", formatK(minTokens), formatK(maxTokens))
 	fmt.Printf("Risk:        %s\n", def.RiskLevel)
 	if tasks.IsCustom(def.Type) {
 		fmt.Printf("Custom:      yes\n")
@@ -251,8 +251,8 @@ func runTaskRun(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Printf("Timeout:  %s\n", timeout)
 
-	min, max := def.EstimatedTokens()
-	fmt.Printf("Est:      %s-%s tokens\n", formatK(min), formatK(max))
+	minTokens, maxTokens := def.EstimatedTokens()
+	fmt.Printf("Est:      %s-%s tokens\n", formatK(minTokens), formatK(maxTokens))
 
 	if dryRun {
 		fmt.Println("\n[dry-run] Would send this prompt:")
@@ -434,15 +434,15 @@ type taskListEntry struct {
 func printTaskListJSON(defs []tasks.TaskDefinition) error {
 	entries := make([]taskListEntry, len(defs))
 	for i, d := range defs {
-		min, max := d.EstimatedTokens()
+		minTokens, maxTokens := d.EstimatedTokens()
 		entries[i] = taskListEntry{
 			Type:        string(d.Type),
 			Name:        d.Name,
 			Category:    categoryShort(d.Category),
 			Description: d.Description,
 			Cost:        costShort(d.CostTier),
-			MinTokens:   min,
-			MaxTokens:   max,
+			MinTokens:   minTokens,
+			MaxTokens:   maxTokens,
 			Risk:        d.RiskLevel.String(),
 			Custom:      tasks.IsCustom(d.Type),
 		}
@@ -466,15 +466,15 @@ type taskShowEntry struct {
 }
 
 func printTaskShowJSON(def tasks.TaskDefinition, prompt string) error {
-	min, max := def.EstimatedTokens()
+	minTokens, maxTokens := def.EstimatedTokens()
 	entry := taskShowEntry{
 		Type:        string(def.Type),
 		Name:        def.Name,
 		Category:    categoryShort(def.Category),
 		Description: def.Description,
 		Cost:        costShort(def.CostTier),
-		MinTokens:   min,
-		MaxTokens:   max,
+		MinTokens:   minTokens,
+		MaxTokens:   maxTokens,
 		Risk:        def.RiskLevel.String(),
 		Custom:      tasks.IsCustom(def.Type),
 		Prompt:      prompt,

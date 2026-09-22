@@ -29,6 +29,7 @@ const (
 // TaskStatus represents the outcome of task execution.
 type TaskStatus string
 
+// TaskStatus values track a task through the orchestration lifecycle.
 const (
 	StatusPending   TaskStatus = "pending"
 	StatusPlanning  TaskStatus = "planning"
@@ -113,7 +114,7 @@ func DefaultConfig() Config {
 // Orchestrator manages agent execution using plan-implement-review loop.
 type Orchestrator struct {
 	agent        agents.Agent
-	budget       *budget.Tracker
+	budget       *budget.Tracker //nolint:staticcheck // Tracker retained until migration to budget.Manager
 	queue        *tasks.Queue
 	config       Config
 	logger       *logging.Logger
@@ -132,7 +133,9 @@ func WithAgent(a agents.Agent) Option {
 }
 
 // WithBudget sets the budget tracker.
-func WithBudget(b *budget.Tracker) Option {
+//
+// Deprecated: Tracker is retained for compatibility until migration to budget.Manager.
+func WithBudget(b *budget.Tracker) Option { //nolint:staticcheck // Tracker retained until migration to budget.Manager
 	return func(o *Orchestrator) {
 		o.budget = b
 	}
@@ -448,7 +451,7 @@ func (o *Orchestrator) plan(ctx context.Context, task *tasks.Task, workDir strin
 		if execResult != nil && execResult.Output != "" {
 			o.logger.WarnCtx("agent produced partial output before error", map[string]any{
 				"output_len": len(execResult.Output),
-				"output":     truncateStr(execResult.Output, 1000),
+				"output":     truncateStr(execResult.Output),
 				"error":      execResult.Error,
 			})
 		}
@@ -459,7 +462,7 @@ func (o *Orchestrator) plan(ctx context.Context, task *tasks.Task, workDir strin
 		if execResult.Output != "" {
 			o.logger.WarnCtx("agent produced output but reported error", map[string]any{
 				"output_len": len(execResult.Output),
-				"output":     truncateStr(execResult.Output, 1000),
+				"output":     truncateStr(execResult.Output),
 				"error":      execResult.Error,
 			})
 		}
@@ -510,7 +513,7 @@ func (o *Orchestrator) implement(ctx context.Context, task *tasks.Task, plan *Pl
 			o.logger.WarnCtx("agent produced partial output before error", map[string]any{
 				"phase":      "implement",
 				"output_len": len(execResult.Output),
-				"output":     truncateStr(execResult.Output, 1000),
+				"output":     truncateStr(execResult.Output),
 				"error":      execResult.Error,
 			})
 		}
@@ -522,7 +525,7 @@ func (o *Orchestrator) implement(ctx context.Context, task *tasks.Task, plan *Pl
 			o.logger.WarnCtx("agent produced output but reported error", map[string]any{
 				"phase":      "implement",
 				"output_len": len(execResult.Output),
-				"output":     truncateStr(execResult.Output, 1000),
+				"output":     truncateStr(execResult.Output),
 				"error":      execResult.Error,
 			})
 		}
@@ -624,7 +627,7 @@ func (o *Orchestrator) review(ctx context.Context, task *tasks.Task, impl *Imple
 			o.logger.WarnCtx("agent produced partial output before error", map[string]any{
 				"phase":      "review",
 				"output_len": len(execResult.Output),
-				"output":     truncateStr(execResult.Output, 1000),
+				"output":     truncateStr(execResult.Output),
 				"error":      execResult.Error,
 			})
 		}
@@ -636,7 +639,7 @@ func (o *Orchestrator) review(ctx context.Context, task *tasks.Task, impl *Imple
 			o.logger.WarnCtx("agent produced output but reported error", map[string]any{
 				"phase":      "review",
 				"output_len": len(execResult.Output),
-				"output":     truncateStr(execResult.Output, 1000),
+				"output":     truncateStr(execResult.Output),
 				"error":      execResult.Error,
 			})
 		}
@@ -936,8 +939,9 @@ func CurrentBranch(ctx context.Context, workDir string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// truncateStr returns s trimmed to maxLen characters, appending "..." if truncated.
-func truncateStr(s string, maxLen int) string {
+// truncateStr returns s trimmed to 1000 characters, appending "..." if truncated.
+func truncateStr(s string) string {
+	const maxLen = 1000
 	if len(s) <= maxLen {
 		return s
 	}

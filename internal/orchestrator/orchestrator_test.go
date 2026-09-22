@@ -33,7 +33,7 @@ func (m *mockAgent) Name() string {
 	return m.name
 }
 
-func (m *mockAgent) Execute(ctx context.Context, opts agents.ExecuteOptions) (*agents.ExecuteResult, error) {
+func (m *mockAgent) Execute(_ context.Context, opts agents.ExecuteOptions) (*agents.ExecuteResult, error) {
 	m.calls = append(m.calls, opts)
 
 	if m.callIndex >= len(m.responses) {
@@ -323,7 +323,7 @@ func TestContainsIgnoreCase(t *testing.T) {
 	}
 }
 
-func TestRunContextCancellation(t *testing.T) {
+func TestRunContextCancellation(_ *testing.T) {
 	// Create a slow mock that checks context
 	agent := &slowMockAgent{delay: 100 * time.Millisecond}
 	o := New(WithAgent(agent))
@@ -353,7 +353,7 @@ func (m *slowMockAgent) Name() string {
 	return "slow-mock"
 }
 
-func (m *slowMockAgent) Execute(ctx context.Context, opts agents.ExecuteOptions) (*agents.ExecuteResult, error) {
+func (m *slowMockAgent) Execute(ctx context.Context, _ agents.ExecuteOptions) (*agents.ExecuteResult, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()

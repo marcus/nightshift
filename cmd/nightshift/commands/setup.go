@@ -36,7 +36,7 @@ var setupCmd = &cobra.Command{
 
 Creates/updates the global config, validates providers, runs a snapshot, previews the next run,
 and optionally installs/enables the daemon.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		model, err := newSetupModel()
 		if err != nil {
 			return err
@@ -1507,11 +1507,12 @@ func renderEnvChecks(cfg *config.Config) string {
 	// Check for Copilot CLI (gh or copilot binary)
 	_, ghErr := execLookPath("gh")
 	_, copilotErr := execLookPath("copilot")
-	if ghErr != nil && copilotErr != nil {
+	switch {
+	case ghErr != nil && copilotErr != nil:
 		fmt.Fprintf(&b, "  %s %s\n", styleWarn.Render("Note:"), "Copilot CLI not found (install via 'gh' or native 'copilot')")
-	} else if ghErr == nil {
+	case ghErr == nil:
 		fmt.Fprintf(&b, "  %s %s\n", styleOk.Render("OK:"), "gh CLI available (use 'gh copilot')")
-	} else {
+	default:
 		fmt.Fprintf(&b, "  %s %s\n", styleOk.Render("OK:"), "copilot CLI available")
 	}
 	if cfg.Providers.Claude.Enabled {
@@ -1910,11 +1911,11 @@ func uninstallService(service string) error {
 
 func mustExecutablePath() string {
 	path, _ := os.Executable()
-	real, err := filepath.EvalSymlinks(path)
+	resolved, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return path
 	}
-	return real
+	return resolved
 }
 
 func writeGlobalConfig(cfg *config.Config) error {

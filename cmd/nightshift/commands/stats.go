@@ -24,7 +24,7 @@ var statsCmd = &cobra.Command{
 
 Shows run counts, task outcomes, token usage, budget projections,
 and per-project breakdowns. Use --json for machine-readable output.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		jsonOutput, _ := cmd.Flags().GetBool("json")
 		period, _ := cmd.Flags().GetString("period")
 		return runStats(jsonOutput, period)
@@ -70,7 +70,7 @@ func runStats(jsonOutput bool, period string) error {
 
 // filterStatsByPeriod recomputes stats from reports filtered by the given period.
 // For period filtering we reload reports, filter by date, and recompute.
-func filterStatsByPeriod(original *stats.StatsResult, s *stats.Stats, reportsDir string, period string) *stats.StatsResult {
+func filterStatsByPeriod(original *stats.Result, s *stats.Stats, reportsDir string, period string) *stats.Result {
 	_ = s // stats.Stats doesn't expose period filtering; we do it here
 
 	runs, err := loadRunReports(reportsDir)
@@ -107,16 +107,16 @@ func filterStatsByPeriod(original *stats.StatsResult, s *stats.Stats, reportsDir
 	}
 
 	if len(filtered) == 0 {
-		return &stats.StatsResult{TaskTypeBreakdown: make(map[string]int)}
+		return &stats.Result{TaskTypeBreakdown: make(map[string]int)}
 	}
 
 	// Recompute stats from filtered runs
 	return computeStatsFromRuns(filtered)
 }
 
-// computeStatsFromRuns builds a StatsResult from a set of report runs.
-func computeStatsFromRuns(runs []reportRun) *stats.StatsResult {
-	result := &stats.StatsResult{
+// computeStatsFromRuns builds a Result from a set of report runs.
+func computeStatsFromRuns(runs []reportRun) *stats.Result {
+	result := &stats.Result{
 		TotalRuns:         len(runs),
 		TaskTypeBreakdown: make(map[string]int),
 	}
@@ -245,13 +245,13 @@ func computeStatsFromRuns(runs []reportRun) *stats.StatsResult {
 	return result
 }
 
-func renderStatsJSON(result *stats.StatsResult) error {
+func renderStatsJSON(result *stats.Result) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(result)
 }
 
-func renderStatsHuman(result *stats.StatsResult) error {
+func renderStatsHuman(result *stats.Result) error {
 	fmt.Println("Nightshift Stats")
 	fmt.Println("================================")
 	fmt.Println()
@@ -313,7 +313,8 @@ func renderStatsHuman(result *stats.StatsResult) error {
 				fmt.Printf("    Reset:      %s\n", bp.ResetHint)
 			}
 
-			if bp.EstExhaustAt != nil {
+			switch {
+			case bp.EstExhaustAt != nil:
 				if time.Until(*bp.EstExhaustAt) <= 0 {
 					fmt.Printf("    Projected:  budget may already be exhausted\n")
 				} else {
@@ -326,11 +327,11 @@ func renderStatsHuman(result *stats.StatsResult) error {
 						}
 					}
 				}
-			} else if bp.RemainingTokens <= 0 {
+			case bp.RemainingTokens <= 0:
 				fmt.Printf("    At current rate: budget may be exhausted\n")
-			} else if bp.EstDaysRemaining > 0 {
+			case bp.EstDaysRemaining > 0:
 				fmt.Printf("    At current rate: ~%d days until budget exhausted\n", bp.EstDaysRemaining)
-			} else {
+			default:
 				fmt.Printf("    At current rate: budget may be exhausted\n")
 			}
 

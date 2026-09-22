@@ -36,10 +36,10 @@ func TestCostTierTokenRange(t *testing.T) {
 		{CostTier(99), 0, 0},
 	}
 	for _, tt := range tests {
-		min, max := tt.tier.TokenRange()
-		if min != tt.wantMin || max != tt.wantMax {
+		minTokens, maxTokens := tt.tier.TokenRange()
+		if minTokens != tt.wantMin || maxTokens != tt.wantMax {
 			t.Errorf("CostTier(%d).TokenRange() = (%d, %d), want (%d, %d)",
-				tt.tier, min, max, tt.wantMin, tt.wantMax)
+				tt.tier, minTokens, maxTokens, tt.wantMin, tt.wantMax)
 		}
 	}
 }
@@ -106,21 +106,21 @@ func TestGetDefinition(t *testing.T) {
 
 func TestGetCostEstimate(t *testing.T) {
 	// Low cost task
-	min, max, err := GetCostEstimate(TaskLintFix)
+	minTokens, maxTokens, err := GetCostEstimate(TaskLintFix)
 	if err != nil {
 		t.Fatalf("GetCostEstimate(TaskLintFix) error: %v", err)
 	}
-	if min != 10_000 || max != 50_000 {
-		t.Errorf("GetCostEstimate(TaskLintFix) = (%d, %d), want (10000, 50000)", min, max)
+	if minTokens != 10_000 || maxTokens != 50_000 {
+		t.Errorf("GetCostEstimate(TaskLintFix) = (%d, %d), want (10000, 50000)", minTokens, maxTokens)
 	}
 
 	// Very high cost task
-	min, max, err = GetCostEstimate(TaskMigrationRehearsal)
+	minTokens, maxTokens, err = GetCostEstimate(TaskMigrationRehearsal)
 	if err != nil {
 		t.Fatalf("GetCostEstimate(TaskMigrationRehearsal) error: %v", err)
 	}
-	if min != 500_000 || max != 1_000_000 {
-		t.Errorf("GetCostEstimate(TaskMigrationRehearsal) = (%d, %d), want (500000, 1000000)", min, max)
+	if minTokens != 500_000 || maxTokens != 1_000_000 {
+		t.Errorf("GetCostEstimate(TaskMigrationRehearsal) = (%d, %d), want (500000, 1000000)", minTokens, maxTokens)
 	}
 
 	// Unknown task
@@ -237,9 +237,9 @@ func TestAllDefinitions(t *testing.T) {
 
 func TestTaskDefinitionEstimatedTokens(t *testing.T) {
 	def, _ := GetDefinition(TaskLintFix)
-	min, max := def.EstimatedTokens()
-	if min != 10_000 || max != 50_000 {
-		t.Errorf("TaskDefinition.EstimatedTokens() = (%d, %d), want (10000, 50000)", min, max)
+	minTokens, maxTokens := def.EstimatedTokens()
+	if minTokens != 10_000 || maxTokens != 50_000 {
+		t.Errorf("TaskDefinition.EstimatedTokens() = (%d, %d), want (10000, 50000)", minTokens, maxTokens)
 	}
 }
 
