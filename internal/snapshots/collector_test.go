@@ -26,7 +26,7 @@ type fakeScraper struct {
 	weeklyResetTime  string
 }
 
-func (f fakeScraper) ScrapeClaudeUsage(ctx context.Context) (tmux.UsageResult, error) {
+func (f fakeScraper) ScrapeClaudeUsage(_ context.Context) (tmux.UsageResult, error) {
 	return tmux.UsageResult{
 		Provider:         "claude",
 		WeeklyPct:        f.claudePct,
@@ -36,7 +36,7 @@ func (f fakeScraper) ScrapeClaudeUsage(ctx context.Context) (tmux.UsageResult, e
 	}, nil
 }
 
-func (f fakeScraper) ScrapeCodexUsage(ctx context.Context) (tmux.UsageResult, error) {
+func (f fakeScraper) ScrapeCodexUsage(_ context.Context) (tmux.UsageResult, error) {
 	return tmux.UsageResult{
 		Provider:         "codex",
 		WeeklyPct:        f.codexPct,

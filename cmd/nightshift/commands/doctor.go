@@ -50,7 +50,7 @@ func init() {
 	rootCmd.AddCommand(doctorCmd)
 }
 
-func runDoctor(cmd *cobra.Command, args []string) error {
+func runDoctor(_ *cobra.Command, _ []string) error {
 	// Augment PATH the same way 'run' does so CLI checks are accurate.
 	ensurePATH()
 

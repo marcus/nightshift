@@ -13,7 +13,7 @@ type fakeRunner struct {
 	calls   int
 }
 
-func (f *fakeRunner) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
+func (f *fakeRunner) Run(_ context.Context, _ string, _ ...string) ([]byte, error) {
 	if len(f.outputs) == 0 {
 		return []byte(""), nil
 	}

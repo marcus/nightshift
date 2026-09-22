@@ -34,7 +34,7 @@ func (r *AgentsMDReader) Enabled() bool {
 }
 
 // Read looks for agents.md or AGENTS.md and extracts behavior preferences.
-func (r *AgentsMDReader) Read(ctx context.Context, projectPath string) (*Result, error) {
+func (r *AgentsMDReader) Read(_ context.Context, projectPath string) (*Result, error) {
 	// Try multiple possible locations
 	candidates := []string{
 		filepath.Join(projectPath, "AGENTS.md"),

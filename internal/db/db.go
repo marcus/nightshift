@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	// Blank import registers the pure-Go SQLite driver used by database/sql.
 	_ "modernc.org/sqlite"
 )
 

@@ -21,7 +21,7 @@ var budgetCmd = &cobra.Command{
 	Long: `Display current budget status and usage.
 
 Shows spending across all providers or a specific provider.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		provider, _ := cmd.Flags().GetString("provider")
 		return runBudget(provider)
 	},
@@ -114,14 +114,14 @@ func runBudget(filterProvider string) error {
 	return nil
 }
 
-func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName string, source budget.BudgetSource, snapCollector *snapshots.Collector, codex *providers.Codex) error {
+func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName string, source budget.Source, snapCollector *snapshots.Collector, codex *providers.Codex) error {
 	result, err := mgr.CalculateAllowance(provName)
 	if err != nil {
 		return err
 	}
 	claudeApprox := provName == "claude" && result.UsedPercentSource == "jsonl-fallback"
 
-	estimate := budget.BudgetEstimate{
+	estimate := budget.Estimate{
 		WeeklyTokens: int64(cfg.GetProviderBudget(provName)),
 		Source:       "config",
 	}
@@ -297,7 +297,7 @@ func printProviderBudget(mgr *budget.Manager, cfg *config.Config, provName strin
 }
 
 // printTokenAccountingNote adds a brief note about how tokens are counted.
-func printTokenAccountingNote(provider string, estimate budget.BudgetEstimate) {
+func printTokenAccountingNote(provider string, estimate budget.Estimate) {
 	if estimate.Source != "calibrated" && estimate.Source != "scraped" {
 		return
 	}
@@ -319,7 +319,7 @@ func formatTokens64(tokens int64) string {
 	return fmt.Sprintf("%d", tokens)
 }
 
-func formatBudgetMeta(estimate budget.BudgetEstimate) string {
+func formatBudgetMeta(estimate budget.Estimate) string {
 	if estimate.Source == "" {
 		return ""
 	}

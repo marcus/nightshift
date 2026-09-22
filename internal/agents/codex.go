@@ -1,4 +1,4 @@
-// codex.go implements the Agent interface for OpenAI Codex CLI.
+// Package agents implements the Agent interface for OpenAI Codex CLI.
 package agents
 
 import (
@@ -122,7 +122,7 @@ func (a *CodexAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execute
 	if ctx.Err() == context.DeadlineExceeded {
 		result.Error = fmt.Sprintf("timeout after %v", timeout)
 		if stderr != "" {
-			result.Error = fmt.Sprintf("timeout after %v; stderr: %s", timeout, truncate(stderr, 2000))
+			result.Error = fmt.Sprintf("timeout after %v; stderr: %s", timeout, truncate(stderr))
 		}
 		if stdout != "" {
 			result.Output = stdout
@@ -139,7 +139,7 @@ func (a *CodexAgent) Execute(ctx context.Context, opts ExecuteOptions) (*Execute
 		} else {
 			result.Error = err.Error()
 			if stderr != "" {
-				result.Error = fmt.Sprintf("%s; stderr: %s", err.Error(), truncate(stderr, 2000))
+				result.Error = fmt.Sprintf("%s; stderr: %s", err.Error(), truncate(stderr))
 			}
 		}
 		return result, err

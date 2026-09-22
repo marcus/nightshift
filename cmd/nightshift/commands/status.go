@@ -19,7 +19,7 @@ var statusCmd = &cobra.Command{
 	Long: `Display nightshift run history and activity.
 
 Shows the last N runs (default: 5) or today's activity summary.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		last, _ := cmd.Flags().GetInt("last")
 		today, _ := cmd.Flags().GetBool("today")
 

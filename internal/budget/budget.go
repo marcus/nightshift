@@ -38,8 +38,8 @@ type CopilotUsageProvider interface {
 	GetResetTime(mode string) (time.Time, error)
 }
 
-// BudgetEstimate provides a resolved weekly budget with metadata.
-type BudgetEstimate struct {
+// Estimate provides a resolved weekly budget with metadata.
+type Estimate struct {
 	WeeklyTokens int64
 	Source       string
 	Confidence   string
@@ -47,9 +47,9 @@ type BudgetEstimate struct {
 	Variance     float64
 }
 
-// BudgetSource provides calibrated or external budget estimates.
-type BudgetSource interface {
-	GetBudget(provider string) (BudgetEstimate, error)
+// Source provides calibrated or external budget estimates.
+type Source interface {
+	GetBudget(provider string) (Estimate, error)
 }
 
 // UsedPercentSourceProvider reports where the last used-percent value came from.
@@ -72,7 +72,7 @@ type Manager struct {
 	claude       ClaudeUsageProvider
 	codex        CodexUsageProvider
 	copilot      CopilotUsageProvider
-	budgetSource BudgetSource
+	budgetSource Source
 	trend        TrendAnalyzer
 	nowFunc      func() time.Time // for testing
 }
@@ -92,8 +92,8 @@ func NewManager(cfg *config.Config, claude ClaudeUsageProvider, codex CodexUsage
 	return mgr
 }
 
-// WithBudgetSource injects a BudgetSource for calibrated budgets.
-func WithBudgetSource(source BudgetSource) Option {
+// WithBudgetSource injects a Source for calibrated budgets.
+func WithBudgetSource(source Source) Option {
 	return func(m *Manager) {
 		m.budgetSource = source
 	}
@@ -251,8 +251,8 @@ func (m *Manager) applyReserve(result *AllowanceResult, reservePercent int) *All
 	return result
 }
 
-func (m *Manager) resolveBudget(provider string) (BudgetEstimate, error) {
-	estimate := BudgetEstimate{
+func (m *Manager) resolveBudget(provider string) (Estimate, error) {
+	estimate := Estimate{
 		WeeklyTokens: int64(m.cfg.GetProviderBudget(provider)),
 		Source:       "config",
 	}
@@ -438,6 +438,7 @@ func (m *Manager) CanRun(provider string, estimatedTokens int64) (bool, error) {
 }
 
 // Tracker provides backward compatibility for tracking actual spend.
+//
 // Deprecated: Use Manager for budget calculations.
 type Tracker struct {
 	spent map[string]int64
@@ -445,6 +446,7 @@ type Tracker struct {
 }
 
 // NewTracker creates a budget tracker with the given limit.
+//
 // Deprecated: Use NewManager instead.
 func NewTracker(limitCents int64) *Tracker {
 	return &Tracker{
@@ -454,7 +456,7 @@ func NewTracker(limitCents int64) *Tracker {
 }
 
 // Record logs spending for a provider.
-func (t *Tracker) Record(provider string, tokens int, costCents int64) {
+func (t *Tracker) Record(provider string, _ int, costCents int64) {
 	t.spent[provider] += costCents
 }
 

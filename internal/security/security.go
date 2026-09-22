@@ -237,9 +237,10 @@ func ValidateProjectPath(path string) error {
 	return nil
 }
 
-// Operation types for safety checks.
+// OperationType categorizes operations checked for safety.
 type OperationType string
 
+// OperationType values identify operation kinds.
 const (
 	OpAgentInvoke OperationType = "agent_invoke"
 	OpFileRead    OperationType = "file_read"

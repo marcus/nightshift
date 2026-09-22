@@ -25,7 +25,7 @@ type mockUsage struct {
 
 func (m *mockUsage) Name() string { return m.name }
 
-func (m *mockUsage) GetUsedPercent(mode string, weeklyBudget int64) (float64, error) {
+func (m *mockUsage) GetUsedPercent(_ string, _ int64) (float64, error) {
 	return m.pct, nil
 }
 
@@ -33,7 +33,7 @@ type mockCodexUsage struct {
 	mockUsage
 }
 
-func (m *mockCodexUsage) GetResetTime(mode string) (time.Time, error) {
+func (m *mockCodexUsage) GetResetTime(_ string) (time.Time, error) {
 	return time.Time{}, nil
 }
 
@@ -41,7 +41,7 @@ type mockCopilotUsage struct {
 	mockUsage
 }
 
-func (m *mockCopilotUsage) GetResetTime(mode string) (time.Time, error) {
+func (m *mockCopilotUsage) GetResetTime(_ string) (time.Time, error) {
 	return time.Time{}, nil
 }
 

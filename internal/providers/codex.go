@@ -1,4 +1,4 @@
-// codex.go implements the Provider interface for OpenAI Codex CLI.
+// Package providers implements the Provider interface for OpenAI Codex CLI.
 package providers
 
 import (
@@ -84,7 +84,7 @@ func (c *Codex) Name() string {
 }
 
 // Execute runs a task via Codex CLI.
-func (c *Codex) Execute(ctx context.Context, task Task) (Result, error) {
+func (c *Codex) Execute(_ context.Context, _ Task) (Result, error) {
 	// TODO: Implement - spawn codex CLI process
 	return Result{}, nil
 }

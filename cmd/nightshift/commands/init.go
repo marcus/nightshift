@@ -36,7 +36,7 @@ func init() {
 	rootCmd.AddCommand(initCmd)
 }
 
-func runInit(cmd *cobra.Command, args []string) error {
+func runInit(cmd *cobra.Command, _ []string) error {
 	global, _ := cmd.Flags().GetBool("global")
 	force, _ := cmd.Flags().GetBool("force")
 

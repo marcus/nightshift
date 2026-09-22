@@ -1,0 +1,21 @@
+version: "2"
+
+linters:
+  # standard = errcheck, govet, ineffassign, staticcheck, unused
+  default: standard
+  enable:
+    - revive
+    - gocritic
+    - misspell
+    - unconvert
+    - whitespace
+    - unparam
+  exclusions:
+    rules:
+      # Both functions are deliberate stubs whose signatures (including error
+      # returns) will be exercised by planned implementations; unparam cannot
+      # see that future use, so suppress only these two findings.
+      - linters: [unparam]
+        text: 'parseRunReportMarkdown - result 1'
+      - linters: [unparam]
+        text: '\(\*Orchestrator\)\.commit - result 0'

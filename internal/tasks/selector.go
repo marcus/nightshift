@@ -98,8 +98,8 @@ func (s *Selector) FilterEnabled(tasks []TaskDefinition) []TaskDefinition {
 func (s *Selector) FilterByBudget(tasks []TaskDefinition, budget int64) []TaskDefinition {
 	filtered := make([]TaskDefinition, 0, len(tasks))
 	for _, t := range tasks {
-		_, max := t.EstimatedTokens()
-		if int64(max) <= budget {
+		_, maxTokens := t.EstimatedTokens()
+		if int64(maxTokens) <= budget {
 			filtered = append(filtered, t)
 		}
 	}
@@ -243,8 +243,8 @@ func (s *Selector) SelectNext(budget int64, project string) *ScoredTask {
 
 	// Select top task that fits remaining budget
 	for _, st := range scored {
-		_, max := st.Definition.EstimatedTokens()
-		if int64(max) <= budget {
+		_, maxTokens := st.Definition.EstimatedTokens()
+		if int64(maxTokens) <= budget {
 			return &st
 		}
 	}

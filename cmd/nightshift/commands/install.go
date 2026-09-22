@@ -55,7 +55,7 @@ func init() {
 }
 
 // runInstall implements the install command
-func runInstall(cmd *cobra.Command, args []string) error {
+func runInstall(_ *cobra.Command, args []string) error {
 	// Determine service type
 	serviceType := ""
 	if len(args) > 0 {
@@ -378,7 +378,7 @@ func installCron(binaryPath string, cfg *config.Config) error {
 }
 
 // runUninstall implements the uninstall command
-func runUninstall(cmd *cobra.Command, args []string) error {
+func runUninstall(_ *cobra.Command, _ []string) error {
 	var errors []string
 	removed := false
 

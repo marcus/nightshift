@@ -21,7 +21,7 @@ var configCmd = &cobra.Command{
 
 Shows current configuration merged from global and project configs.
 Use subcommands to get/set specific values or validate the config.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		return runConfigShow()
 	},
 }
@@ -36,7 +36,7 @@ Examples:
   nightshift config get providers.claude.enabled
   nightshift config get logging.level`,
 	Args: cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, args []string) error {
 		return runConfigGet(args[0])
 	},
 }
@@ -66,7 +66,7 @@ var configValidateCmd = &cobra.Command{
 	Long: `Validate the current configuration.
 
 Checks both global and project configs for errors.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(_ *cobra.Command, _ []string) error {
 		return runConfigValidate()
 	},
 }
@@ -370,7 +370,7 @@ func printStruct(v reflect.Value, indent int) {
 		case reflect.Struct:
 			fmt.Printf("%s%s:\n", prefix, tag)
 			printStruct(value, indent+1)
-		case reflect.Ptr:
+		case reflect.Pointer:
 			if !value.IsNil() {
 				if value.Elem().Kind() == reflect.Struct {
 					fmt.Printf("%s%s:\n", prefix, tag)
@@ -408,7 +408,7 @@ func printStruct(v reflect.Value, indent int) {
 
 func isZero(v reflect.Value) bool {
 	switch v.Kind() {
-	case reflect.Ptr, reflect.Interface:
+	case reflect.Pointer, reflect.Interface:
 		return v.IsNil()
 	case reflect.Slice, reflect.Map:
 		return v.Len() == 0
