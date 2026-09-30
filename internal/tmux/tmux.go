@@ -76,14 +76,13 @@ func (s *Session) Start(ctx context.Context) error {
 	if s.workDir != "" {
 		args = append(args, "-c", s.workDir)
 	}
+	// Size must be set at creation: detached sessions default to 80x24 and
+	// resize-pane cannot grow a lone pane past its window.
+	if s.width > 0 && s.height > 0 {
+		args = append(args, "-x", fmt.Sprint(s.width), "-y", fmt.Sprint(s.height))
+	}
 	if _, err := s.run(ctx, args...); err != nil {
 		return fmt.Errorf("tmux new-session: %w", err)
-	}
-
-	if s.width > 0 && s.height > 0 {
-		if err := s.Resize(ctx, s.width, s.height); err != nil {
-			return err
-		}
 	}
 
 	return nil

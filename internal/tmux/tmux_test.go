@@ -443,3 +443,227 @@ Weekly limit: 23.5% used
 		})
 	}
 }
+
+type recordingRunner struct {
+	calls [][]string
+}
+
+func (r *recordingRunner) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
+	r.calls = append(r.calls, append([]string{name}, args...))
+	return nil, nil
+}
+
+func TestSessionStartArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		opts []SessionOption
+		want []string
+	}{
+		{
+			name: "default",
+			want: []string{"tmux", "new-session", "-d", "-s", "test"},
+		},
+		{
+			name: "size set at creation",
+			opts: []SessionOption{WithSize(120, 40)},
+			want: []string{"tmux", "new-session", "-d", "-s", "test", "-x", "120", "-y", "40"},
+		},
+		{
+			name: "work dir and size",
+			opts: []SessionOption{WithWorkDir("/tmp/x"), WithSize(120, 40)},
+			want: []string{"tmux", "new-session", "-d", "-s", "test", "-c", "/tmp/x", "-x", "120", "-y", "40"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &recordingRunner{}
+			opts := append([]SessionOption{WithRunner(runner)}, tt.opts...)
+			if err := NewSession("test", opts...).Start(context.Background()); err != nil {
+				t.Fatalf("Start error: %v", err)
+			}
+			// A detached session defaults to 80x24 and resize-pane cannot grow a
+			// single pane past its window, so size must be set by new-session alone.
+			if len(runner.calls) != 1 {
+				t.Fatalf("expected 1 tmux call, got %d: %v", len(runner.calls), runner.calls)
+			}
+			if got := strings.Join(runner.calls[0], " "); got != strings.Join(tt.want, " ") {
+				t.Fatalf("args = %q, want %q", got, strings.Join(tt.want, " "))
+			}
+		})
+	}
+}
+
+func TestClaudeTrustPromptKeys(t *testing.T) {
+	tests := []struct {
+		name       string
+		output     string
+		wantKeys   []string
+		wantPrompt bool
+	}{
+		{
+			name: "legacy prompt, yes selected",
+			output: `
+ Do you trust the files in this folder?
+
+ /Users/me/project
+
+ ❯ 1. Yes, proceed
+   2. No, exit
+`,
+			wantKeys:   []string{"Enter"},
+			wantPrompt: true,
+		},
+		{
+			name: "current prompt, no selected by default",
+			output: `
+ Accessing workspace:
+
+ /Users/me/project
+
+ Quick safety check: Is this a project you created or one you trust? (Like your own code, a well-known open source
+ project, or work from your team). If not, take a moment to review what's in this folder first.
+
+ Claude Code'll be able to read, edit, and execute files here.
+
+ Security guide
+
+ ❯ No, exit
+   Yes, I trust this folder
+
+ Enter to confirm · Esc to cancel
+`,
+			wantKeys:   []string{"Down", "Enter"},
+			wantPrompt: true,
+		},
+		{
+			name: "yes above cursor",
+			output: `
+ Is this a project you created or one you trust?
+   1. Yes, I trust this folder
+ ❯ 2. No, exit
+`,
+			wantKeys:   []string{"Up", "Enter"},
+			wantPrompt: true,
+		},
+		{
+			name:       "with ansi",
+			output:     "\x1b[1mQuick safety check: Is this a project you created or one you trust?\x1b[0m\n\x1b[36m❯ No, exit\x1b[0m\n  Yes, I trust this folder\n",
+			wantKeys:   []string{"Down", "Enter"},
+			wantPrompt: true,
+		},
+		{
+			name:       "no prompt",
+			output:     " ▐▛███▛█   Claude Code v2.1.273\n❯ Try \"create a util logging.py that...\"\n",
+			wantPrompt: false,
+		},
+		{
+			name:       "prompt without recognizable yes option",
+			output:     "Is this a project you created or one you trust?\n❯ Maybe later\n",
+			wantPrompt: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keys, isPrompt := claudeTrustPromptKeys(tt.output)
+			if isPrompt != tt.wantPrompt {
+				t.Fatalf("isPrompt = %v, want %v", isPrompt, tt.wantPrompt)
+			}
+			if strings.Join(keys, ",") != strings.Join(tt.wantKeys, ",") {
+				t.Fatalf("keys = %v, want %v", keys, tt.wantKeys)
+			}
+		})
+	}
+}
+
+// promptRunner serves capture-pane output from a queue and records send-keys.
+type promptRunner struct {
+	captures []string
+	sent     []string
+}
+
+func (p *promptRunner) Run(ctx context.Context, name string, args ...string) ([]byte, error) {
+	switch args[0] {
+	case "capture-pane":
+		if len(p.captures) == 0 {
+			return nil, nil
+		}
+		out := p.captures[0]
+		if len(p.captures) > 1 {
+			p.captures = p.captures[1:]
+		}
+		return []byte(out), nil
+	case "send-keys":
+		p.sent = append(p.sent, args[3:]...)
+	}
+	return nil, nil
+}
+
+func TestAcceptClaudeTrustPrompt(t *testing.T) {
+	const onNo = "Is this a project you created or one you trust?\n❯ No, exit\n  Yes, I trust this folder\n"
+	const onYes = "Is this a project you created or one you trust?\n  No, exit\n❯ Yes, I trust this folder\n"
+
+	tests := []struct {
+		name     string
+		captures []string
+		wantSent []string
+		wantErr  bool
+	}{
+		{
+			name:     "cursor moves on first try",
+			captures: []string{onNo, onYes},
+			wantSent: []string{"Down", "Enter"},
+		},
+		{
+			name:     "early keypress dropped, retried",
+			captures: []string{onNo, onNo, onYes},
+			wantSent: []string{"Down", "Down", "Enter"},
+		},
+		{
+			name:     "already on yes",
+			captures: []string{onYes},
+			wantSent: []string{"Enter"},
+		},
+		{
+			name:     "cursor never moves, never confirms no",
+			captures: []string{onNo},
+			wantErr:  true,
+		},
+		{
+			name:     "no yes option",
+			captures: []string{"Is this a project you created or one you trust?\n❯ Maybe later\n"},
+			wantErr:  true,
+		},
+	}
+
+	origSettle, origPoll := trustPromptSettle, trustPromptPoll
+	trustPromptSettle, trustPromptPoll = time.Millisecond, time.Millisecond
+	defer func() { trustPromptSettle, trustPromptPoll = origSettle, origPoll }()
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &promptRunner{captures: tt.captures}
+			session := NewSession("test", WithRunner(runner))
+			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+			defer cancel()
+
+			err := acceptClaudeTrustPrompt(ctx, session)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, sent %v", runner.sent)
+				}
+				for _, key := range runner.sent {
+					if key == "Enter" {
+						t.Fatalf("sent Enter without Yes selected: %v", runner.sent)
+					}
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("acceptClaudeTrustPrompt error: %v", err)
+			}
+			if strings.Join(runner.sent, ",") != strings.Join(tt.wantSent, ",") {
+				t.Fatalf("sent = %v, want %v", runner.sent, tt.wantSent)
+			}
+		})
+	}
+}

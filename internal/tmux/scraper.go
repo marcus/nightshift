@@ -53,8 +53,8 @@ func ScrapeClaudeUsage(ctx context.Context) (UsageResult, error) {
 	}
 
 	// Handle trust prompt if present in startup output
-	if strings.Contains(StripANSI(startupOutput), "Do you trust") {
-		if err := session.SendKeys(ctx, "Enter"); err != nil {
+	if _, isPrompt := claudeTrustPromptKeys(startupOutput); isPrompt {
+		if err := acceptClaudeTrustPrompt(ctx, session); err != nil {
 			return UsageResult{}, err
 		}
 		if err := ctxSleep(ctx, 3*time.Second); err != nil {
@@ -189,6 +189,89 @@ func ScrapeCodexUsage(ctx context.Context) (UsageResult, error) {
 		ScrapedAt:        time.Now(),
 		RawOutput:        cleanOutput,
 	}, nil
+}
+
+var (
+	claudeTrustPromptRegex = regexp.MustCompile(`(?i)do you trust|one you trust|trust this folder`)
+	trustOptionRegex       = regexp.MustCompile(`(?i)^\s*(❯|>)?\s*(?:\d+\.\s*)?(yes|no)\b`)
+)
+
+// claudeTrustPromptKeys reports whether output shows Claude's folder trust
+// prompt and returns the keys that select "Yes" and confirm. Newer Claude
+// versions default the cursor to "No, exit", so Enter alone is not safe.
+// Keys are nil when the prompt is shown but no "Yes" option is recognized.
+func claudeTrustPromptKeys(output string) ([]string, bool) {
+	clean := StripANSI(output)
+	if !claudeTrustPromptRegex.MatchString(clean) {
+		return nil, false
+	}
+
+	cursor, yes, option := -1, -1, 0
+	for _, line := range strings.Split(clean, "\n") {
+		match := trustOptionRegex.FindStringSubmatch(line)
+		if match == nil {
+			continue
+		}
+		if match[1] != "" {
+			cursor = option
+		}
+		if strings.EqualFold(match[2], "yes") {
+			yes = option
+		}
+		option++
+	}
+	if cursor < 0 || yes < 0 {
+		return nil, true
+	}
+
+	keys := make([]string, 0, 2)
+	for ; cursor < yes; cursor++ {
+		keys = append(keys, "Down")
+	}
+	for ; cursor > yes; cursor-- {
+		keys = append(keys, "Up")
+	}
+	return append(keys, "Enter"), true
+}
+
+// Timing for trust prompt handling; variables so tests can shorten them.
+var (
+	trustPromptSettle = time.Second
+	trustPromptPoll   = 300 * time.Millisecond
+)
+
+// acceptClaudeTrustPrompt selects "Yes" on Claude's trust prompt and confirms.
+// Keys sent right after the prompt renders can be dropped, so the cursor
+// position is re-read before each move and Enter is sent only once "Yes" is
+// selected. Retries until ctx is done.
+func acceptClaudeTrustPrompt(ctx context.Context, session *Session) error {
+	if err := ctxSleep(ctx, trustPromptSettle); err != nil {
+		return fmt.Errorf("claude trust prompt: %w", err)
+	}
+	for {
+		output, err := session.CapturePane(ctx, "-S", "-50")
+		if err != nil {
+			return fmt.Errorf("claude trust prompt: %w", err)
+		}
+		keys, isPrompt := claudeTrustPromptKeys(output)
+		if !isPrompt {
+			return nil
+		}
+		if len(keys) == 0 {
+			return errors.New("claude trust prompt: yes option not found")
+		}
+		if len(keys) == 1 {
+			return session.SendKeys(ctx, "Enter")
+		}
+		for _, key := range keys[:len(keys)-1] {
+			if err := session.SendKeys(ctx, key); err != nil {
+				return err
+			}
+		}
+		if err := ctxSleep(ctx, trustPromptPoll); err != nil {
+			return fmt.Errorf("claude trust prompt: cursor did not reach yes: %w", err)
+		}
+	}
 }
 
 var claudeWeekRegex = regexp.MustCompile(`(?i)current\s+week`)
