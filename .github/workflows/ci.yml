@@ -7,6 +7,19 @@ on:
     branches: [main]
 
 jobs:
+  commit-format:
+    name: Commit Format
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout base branch validator
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Validate pull request title
+        run: bash ./scripts/commit-msg.sh --title "${{ github.event.pull_request.title }}"
+
   test:
     name: Test
     runs-on: ubuntu-latest
