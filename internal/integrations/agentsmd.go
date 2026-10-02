@@ -11,6 +11,9 @@ import (
 	"github.com/marcus/nightshift/internal/config"
 )
 
+// Compile-time interface satisfaction check.
+var _ Reader = (*AgentsMDReader)(nil)
+
 // AgentsMDReader reads agents.md files for agent behavior configuration.
 type AgentsMDReader struct {
 	enabled bool

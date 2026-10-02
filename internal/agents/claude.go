@@ -14,6 +14,12 @@ import (
 	"time"
 )
 
+// Compile-time interface satisfaction checks.
+var (
+	_ Agent         = (*ClaudeAgent)(nil)
+	_ CommandRunner = (*ExecRunner)(nil)
+)
+
 // CommandRunner executes shell commands. Allows mocking in tests.
 type CommandRunner interface {
 	Run(ctx context.Context, name string, args []string, dir string, stdin string) (stdout, stderr string, exitCode int, err error)

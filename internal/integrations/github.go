@@ -11,6 +11,9 @@ import (
 	"github.com/marcus/nightshift/internal/config"
 )
 
+// Compile-time interface satisfaction check.
+var _ Reader = (*GitHubReader)(nil)
+
 // GitHubReader integrates with GitHub issues via gh CLI.
 type GitHubReader struct {
 	enabled bool

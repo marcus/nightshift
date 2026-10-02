@@ -12,6 +12,9 @@ import (
 	"time"
 )
 
+// Compile-time interface satisfaction check.
+var _ Agent = (*CopilotAgent)(nil)
+
 // CopilotAgent spawns GitHub Copilot CLI for task execution.
 //
 // GitHub Copilot CLI implementation notes:
