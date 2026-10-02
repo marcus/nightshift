@@ -71,12 +71,17 @@ func renderPreviewText(result *previewResult, opts previewTextOptions) string {
 				fmt.Fprintf(b, "    - %s: budget error: %v\n", summary.name, summary.err)
 				continue
 			}
-			line := fmt.Sprintf("    - %s: %s available (%.1f%% used, weekly=%s, source=%s)",
+			model := summary.model
+			if model == "" {
+				model = "default"
+			}
+			line := fmt.Sprintf("    - %s: %s available (%.1f%% used, weekly=%s, source=%s, model=%s)",
 				summary.name,
 				formatTokens64(summary.allowance.Allowance),
 				summary.allowance.UsedPercent,
 				formatTokens64(summary.allowance.WeeklyBudget),
-				summary.allowance.BudgetSource)
+				summary.allowance.BudgetSource,
+				model)
 			if summary.allowance.Allowance == 0 && summary.allowance.PredictedUsage > 0 {
 				line += fmt.Sprintf(" [daytime reserve: %s]", formatTokens64(summary.allowance.PredictedUsage))
 			}

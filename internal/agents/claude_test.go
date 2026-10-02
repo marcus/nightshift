@@ -523,3 +523,57 @@ func TestExecRunner_Run_WithStdin(t *testing.T) {
 		t.Errorf("stdout = %q, want %q", stdout, "hello from stdin")
 	}
 }
+
+func TestClaudeAgent_Execute_WithModel(t *testing.T) {
+	mock := &MockRunner{Stdout: "response", ExitCode: 0}
+	agent := NewClaudeAgent(
+		WithModel("claude-sonnet-4-6"),
+		WithRunner(mock),
+	)
+
+	_, err := agent.Execute(context.Background(), ExecuteOptions{Prompt: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !containsArg(mock.CapturedArgs, "--model") {
+		t.Error("expected --model in args")
+	}
+	if !containsArg(mock.CapturedArgs, "claude-sonnet-4-6") {
+		t.Error("expected model value in args")
+	}
+}
+
+func TestClaudeAgent_Execute_NoModel(t *testing.T) {
+	mock := &MockRunner{Stdout: "response", ExitCode: 0}
+	agent := NewClaudeAgent(WithRunner(mock))
+
+	_, err := agent.Execute(context.Background(), ExecuteOptions{Prompt: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if containsArg(mock.CapturedArgs, "--model") {
+		t.Error("expected no --model flag when model is not set")
+	}
+}
+
+func TestClaudeAgent_Execute_ModelFromOptions(t *testing.T) {
+	mock := &MockRunner{Stdout: "response", ExitCode: 0}
+	agent := NewClaudeAgent(
+		WithModel("claude-opus-4-6"),
+		WithRunner(mock),
+	)
+
+	_, err := agent.Execute(context.Background(), ExecuteOptions{
+		Prompt: "test",
+		Model:  "claude-haiku-4-5",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !containsArg(mock.CapturedArgs, "claude-haiku-4-5") {
+		t.Error("expected ExecuteOptions.Model to override agent default")
+	}
+	if containsArg(mock.CapturedArgs, "claude-opus-4-6") {
+		t.Error("expected agent default model to be overridden")
+	}
+}

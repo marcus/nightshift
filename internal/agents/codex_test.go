@@ -401,6 +401,60 @@ func TestCodexAgent_ImplementsAgentInterface(t *testing.T) {
 	var _ Agent = (*CodexAgent)(nil)
 }
 
+func TestCodexAgent_Execute_WithModel(t *testing.T) {
+	mock := &MockRunner{Stdout: "response", ExitCode: 0}
+	agent := NewCodexAgent(
+		WithCodexModel("gpt-5.1-codex"),
+		WithCodexRunner(mock),
+	)
+
+	_, err := agent.Execute(context.Background(), ExecuteOptions{Prompt: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !containsArg(mock.CapturedArgs, "--model") {
+		t.Error("expected --model in args")
+	}
+	if !containsArg(mock.CapturedArgs, "gpt-5.1-codex") {
+		t.Error("expected model value in args")
+	}
+}
+
+func TestCodexAgent_Execute_NoModel(t *testing.T) {
+	mock := &MockRunner{Stdout: "response", ExitCode: 0}
+	agent := NewCodexAgent(WithCodexRunner(mock))
+
+	_, err := agent.Execute(context.Background(), ExecuteOptions{Prompt: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if containsArg(mock.CapturedArgs, "--model") {
+		t.Error("expected no --model flag when model is not set")
+	}
+}
+
+func TestCodexAgent_Execute_ModelFromOptions(t *testing.T) {
+	mock := &MockRunner{Stdout: "response", ExitCode: 0}
+	agent := NewCodexAgent(
+		WithCodexModel("gpt-5.2"),
+		WithCodexRunner(mock),
+	)
+
+	_, err := agent.Execute(context.Background(), ExecuteOptions{
+		Prompt: "test",
+		Model:  "gpt-5.3-codex",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !containsArg(mock.CapturedArgs, "gpt-5.3-codex") {
+		t.Error("expected ExecuteOptions.Model to override agent default")
+	}
+	if containsArg(mock.CapturedArgs, "gpt-5.2") {
+		t.Error("expected agent default model to be overridden")
+	}
+}
+
 // TestCodexAgentDefaultsBypassFlag verifies that a CodexAgent created with no
 // options includes --dangerously-bypass-approvals-and-sandbox (required for
 // non-interactive execution). This guards against Bug #19 fix 3, where

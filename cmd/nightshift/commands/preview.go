@@ -410,6 +410,7 @@ func buildPreviewResult(cfg *config.Config, database *db.DB, projects []string, 
 
 type providerBudgetSummary struct {
 	name      string
+	model     string
 	allowance *budget.AllowanceResult
 	err       error
 }
@@ -420,6 +421,7 @@ func collectProviderBudgets(cfg *config.Config, budgetMgr *budget.Manager) []pro
 		allowance, err := budgetMgr.CalculateAllowance("claude")
 		summaries = append(summaries, providerBudgetSummary{
 			name:      "claude",
+			model:     cfg.Providers.Claude.Model,
 			allowance: allowance,
 			err:       err,
 		})
@@ -428,6 +430,7 @@ func collectProviderBudgets(cfg *config.Config, budgetMgr *budget.Manager) []pro
 		allowance, err := budgetMgr.CalculateAllowance("codex")
 		summaries = append(summaries, providerBudgetSummary{
 			name:      "codex",
+			model:     cfg.Providers.Codex.Model,
 			allowance: allowance,
 			err:       err,
 		})
@@ -436,6 +439,7 @@ func collectProviderBudgets(cfg *config.Config, budgetMgr *budget.Manager) []pro
 		allowance, err := budgetMgr.CalculateAllowance("copilot")
 		summaries = append(summaries, providerBudgetSummary{
 			name:      "copilot",
+			model:     cfg.Providers.Copilot.Model,
 			allowance: allowance,
 			err:       err,
 		})

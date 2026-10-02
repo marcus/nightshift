@@ -40,9 +40,13 @@ func newClaudeAgentFromConfig(cfg *config.Config) *agents.ClaudeAgent {
 	if cfg == nil {
 		return agents.NewClaudeAgent()
 	}
-	return agents.NewClaudeAgent(
+	opts := []agents.ClaudeOption{
 		agents.WithDangerouslySkipPermissions(cfg.Providers.Claude.DangerouslySkipPermissions),
-	)
+	}
+	if cfg.Providers.Claude.Model != "" {
+		opts = append(opts, agents.WithModel(cfg.Providers.Claude.Model))
+	}
+	return agents.NewClaudeAgent(opts...)
 }
 
 func newCodexAgentFromConfig(cfg *config.Config) *agents.CodexAgent {
@@ -64,6 +68,9 @@ func newCodexAgentFromConfig(cfg *config.Config) *agents.CodexAgent {
 	opts := []agents.CodexOption{}
 	if cfg.Providers.Codex.DangerouslyBypassApprovalsAndSandbox {
 		opts = append(opts, agents.WithDangerouslyBypassApprovalsAndSandbox(true))
+	}
+	if cfg.Providers.Codex.Model != "" {
+		opts = append(opts, agents.WithCodexModel(cfg.Providers.Codex.Model))
 	}
 	return agents.NewCodexAgent(opts...)
 }
@@ -90,6 +97,9 @@ func newCopilotAgentFromConfig(cfg *config.Config, binaryPath ...string) *agents
 	opts := []agents.CopilotOption{
 		agents.WithCopilotBinaryPath(binary),
 		agents.WithCopilotDangerouslySkipPermissions(cfg.Providers.Copilot.DangerouslySkipPermissions),
+	}
+	if cfg.Providers.Copilot.Model != "" {
+		opts = append(opts, agents.WithCopilotModel(cfg.Providers.Copilot.Model))
 	}
 	return agents.NewCopilotAgent(opts...)
 }
