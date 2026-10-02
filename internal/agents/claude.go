@@ -1,4 +1,5 @@
-// claude.go implements the Agent interface for Claude Code CLI.
+// This file implements the Agent interface for the Claude Code CLI.
+
 package agents
 
 import (

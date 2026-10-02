@@ -1,4 +1,5 @@
-// codex.go implements the Agent interface for OpenAI Codex CLI.
+// This file implements the Agent interface for the OpenAI Codex CLI.
+
 package agents
 
 import (

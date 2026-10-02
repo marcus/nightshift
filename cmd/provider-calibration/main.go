@@ -1,3 +1,5 @@
+// Command provider-calibration analyzes local Codex and Claude session logs to
+// estimate per-repository token usage, producing input for budget calibration.
 package main
 
 import (

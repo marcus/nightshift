@@ -1,4 +1,5 @@
-// claude.go implements the Provider interface for Claude Code CLI.
+// This file implements the Provider interface for the Claude Code CLI.
+
 package providers
 
 import (

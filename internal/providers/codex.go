@@ -1,4 +1,5 @@
-// codex.go implements the Provider interface for OpenAI Codex CLI.
+// This file implements the Provider interface for the OpenAI Codex CLI.
+
 package providers
 
 import (

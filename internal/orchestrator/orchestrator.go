@@ -29,6 +29,8 @@ const (
 // TaskStatus represents the outcome of task execution.
 type TaskStatus string
 
+// TaskStatus values enumerate the lifecycle states a task may be in, from
+// initial planning through execution, review, and a terminal outcome.
 const (
 	StatusPending   TaskStatus = "pending"
 	StatusPlanning  TaskStatus = "planning"

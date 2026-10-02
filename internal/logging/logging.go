@@ -370,7 +370,7 @@ func Warn(msg string) {
 	Get().Warn(msg)
 }
 
-// Error(msg string) logs an error message to the global logger.
+// Error logs an error message to the global logger.
 func Error(msg string) {
 	Get().Error(msg)
 }
