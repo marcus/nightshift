@@ -1,6 +1,6 @@
 module github.com/marcus/nightshift
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
@@ -13,6 +13,8 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
+	golang.org/x/mod v0.35.0
+	golang.org/x/sync v0.20.0
 	modernc.org/sqlite v1.35.0
 )
 
