@@ -716,6 +716,7 @@ func (o *Orchestrator) buildPlanPrompt(task *tasks.Task) string {
 	if o.runMeta != nil && o.runMeta.Branch != "" {
 		branchInstruction = fmt.Sprintf("\n   Create your feature branch from `%s`.", o.runMeta.Branch)
 	}
+	taskGuidance := o.buildTaskSpecificPlanGuidance(task)
 
 	return fmt.Sprintf(`You are a planning agent. Create a detailed execution plan for this task.
 
@@ -733,7 +734,7 @@ Description: %s
    Nightshift-Ref: https://github.com/marcus/nightshift
 4. Analyze the task requirements
 5. Identify files that need to be modified
-6. Create step-by-step implementation plan
+6. Create step-by-step implementation plan%s
 7. Output only valid JSON (no markdown, no extra text). The output is read by a machine. Use this schema:
 
 {
@@ -741,7 +742,7 @@ Description: %s
   "files": ["file1.go", "file2.go", ...],
   "description": "overall approach"
 }
-`, task.ID, task.Title, task.Description, branchInstruction, task.Type)
+`, task.ID, task.Title, task.Description, branchInstruction, task.Type, taskGuidance)
 }
 
 func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, iteration int) string {
@@ -754,6 +755,7 @@ func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, 
 	if o.runMeta != nil && o.runMeta.Branch != "" {
 		branchInstruction = fmt.Sprintf("\n   Checkout `%s` before creating your feature branch.", o.runMeta.Branch)
 	}
+	taskGuidance := o.buildTaskSpecificImplementGuidance(task)
 
 	return fmt.Sprintf(`You are an implementation agent. Execute the plan for this task.
 
@@ -776,14 +778,51 @@ Description: %s
    Nightshift-Ref: https://github.com/marcus/nightshift
 2. Implement the plan step by step
 3. Make all necessary code changes
-4. Ensure tests pass
+4. Ensure tests pass%s
 5. Output a summary as JSON:
 
 {
   "files_modified": ["file1.go", ...],
   "summary": "what was done"
 }
-`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, task.Type)
+`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, task.Type, taskGuidance)
+}
+
+// buildTaskSpecificPlanGuidance appends extra planning instructions for tasks
+// whose safe default behavior needs more precision than the generic template.
+func (o *Orchestrator) buildTaskSpecificPlanGuidance(task *tasks.Task) string {
+	switch task.Type {
+	case tasks.TaskCommitNormalize:
+		return `
+
+## Task-Specific Guidance
+- Treat commit-normalize as a low-risk, prospective cleanup for new work and lightweight repo guidance.
+- Inspect recent commits first and prefer the repository's existing commit style when it is clear.
+- If the repository has no consistent style, use a concise conventional format for new commit messages.
+- Preserve required trailers and any project-specific footer lines.
+- Keep subjects concise and avoid plans that rewrite published or shared history.`
+	default:
+		return ""
+	}
+}
+
+// buildTaskSpecificImplementGuidance keeps built-in low-risk tasks scoped to
+// safe actions. commit-normalize should standardize future work, not rewrite
+// existing shared history.
+func (o *Orchestrator) buildTaskSpecificImplementGuidance(task *tasks.Task) string {
+	switch task.Type {
+	case tasks.TaskCommitNormalize:
+		return `
+
+## Task-Specific Guidance
+- Prefer the repository's established commit message style when present; otherwise use a clear conventional format.
+- Preserve required trailers and any project-specific footer lines on new commits you create.
+- Keep commit messages concise.
+- Standardize prospectively via new commits and lightweight repo guidance; do not rewrite published history.
+- Do not rebase, force-push, or otherwise rewrite shared branch history.`
+	default:
+		return ""
+	}
 }
 
 func (o *Orchestrator) buildReviewPrompt(task *tasks.Task, impl *ImplementOutput) string {
