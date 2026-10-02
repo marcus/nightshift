@@ -1,3 +1,5 @@
+// setup.go implements the interactive onboarding wizard.
+
 package commands
 
 import (

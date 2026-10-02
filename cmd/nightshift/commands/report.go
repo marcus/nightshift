@@ -1,3 +1,5 @@
+// report.go implements the report command for viewing run history and reports.
+
 package commands
 
 import (

@@ -1,3 +1,5 @@
+// run_report.go renders and persists per-run markdown reports.
+
 package reporting
 
 import (

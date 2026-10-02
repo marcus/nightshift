@@ -1,3 +1,5 @@
+// metrics.go computes ownership concentration metrics for bus-factor analysis.
+
 package analysis
 
 import (

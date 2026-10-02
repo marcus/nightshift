@@ -1,3 +1,5 @@
+// run_results.go handles JSON serialization of structured run results.
+
 package reporting
 
 import (

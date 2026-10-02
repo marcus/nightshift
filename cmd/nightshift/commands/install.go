@@ -1,3 +1,5 @@
+// install.go implements the install and uninstall commands for system services.
+
 package commands
 
 import (

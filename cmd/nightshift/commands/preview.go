@@ -1,3 +1,5 @@
+// preview.go implements the preview command for previewing scheduled runs.
+
 package commands
 
 import (

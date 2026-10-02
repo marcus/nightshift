@@ -1,3 +1,5 @@
+// budget_helpers.go provides shared utilities for budget-related commands.
+
 package commands
 
 import (

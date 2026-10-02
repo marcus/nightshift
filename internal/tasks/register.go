@@ -1,3 +1,5 @@
+// register.go converts custom task configs into TaskDefinitions and registers them.
+
 package tasks
 
 import (

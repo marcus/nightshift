@@ -1,3 +1,5 @@
+// stats.go implements the stats command for displaying aggregate statistics.
+
 package commands
 
 import (

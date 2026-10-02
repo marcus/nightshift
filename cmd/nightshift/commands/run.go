@@ -1,3 +1,5 @@
+// run.go implements the run command for executing tasks immediately.
+
 package commands
 
 import (

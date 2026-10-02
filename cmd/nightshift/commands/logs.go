@@ -1,3 +1,5 @@
+// logs.go implements the logs command for viewing and following log output.
+
 package commands
 
 import (

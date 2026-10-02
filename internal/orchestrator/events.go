@@ -1,3 +1,5 @@
+// events.go defines event types and handlers for orchestrator lifecycle notifications.
+
 package orchestrator
 
 import "time"

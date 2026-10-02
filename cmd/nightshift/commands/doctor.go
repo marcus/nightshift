@@ -1,3 +1,5 @@
+// doctor.go implements the doctor command for diagnosing configuration issues.
+
 package commands
 
 import (

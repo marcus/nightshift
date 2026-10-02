@@ -1,3 +1,5 @@
+// helpers.go provides shared utilities for creating provider agents.
+
 package commands
 
 import (

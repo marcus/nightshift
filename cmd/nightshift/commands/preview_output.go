@@ -1,3 +1,5 @@
+// preview_output.go renders preview results as text, JSON, or paged output.
+
 package commands
 
 import (

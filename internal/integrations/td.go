@@ -1,3 +1,5 @@
+// td.go integrates with the td task management CLI.
+
 package integrations
 
 import (
