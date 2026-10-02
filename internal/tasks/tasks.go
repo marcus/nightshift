@@ -6,6 +6,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -215,6 +216,7 @@ type TaskDefinition struct {
 	Category          TaskCategory
 	Name              string
 	Description       string
+	AgentInstructions string
 	CostTier          CostTier
 	RiskLevel         RiskLevel
 	DefaultInterval   time.Duration
@@ -244,6 +246,15 @@ func DefaultIntervalForCategory(cat TaskCategory) time.Duration {
 // EstimatedTokens returns the token range for this task definition.
 func (d TaskDefinition) EstimatedTokens() (min, max int) {
 	return d.CostTier.TokenRange()
+}
+
+// PromptText returns the agent-facing instructions for this task definition.
+// When no explicit agent instructions are provided, Description is reused.
+func (d TaskDefinition) PromptText() string {
+	if strings.TrimSpace(d.AgentInstructions) != "" {
+		return d.AgentInstructions
+	}
+	return d.Description
 }
 
 // customTypes tracks which task types were registered via RegisterCustom.
@@ -329,10 +340,22 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 168 * time.Hour,
 	},
 	TaskCommitNormalize: {
-		Type:            TaskCommitNormalize,
-		Category:        CategoryPR,
-		Name:            "Commit Message Normalizer",
-		Description:     "Standardize commit message format",
+		Type:        TaskCommitNormalize,
+		Category:    CategoryPR,
+		Name:        "Commit Message Normalizer",
+		Description: "Standardize commit message format",
+		AgentInstructions: `Inspect recent repository history, contribution docs, release tooling, and any automation that depends on commit messages.
+Choose or infer one concise commit-message convention that fits this repo, then make safe forward-looking changes so future commits follow it consistently.
+
+Scope:
+- Treat this as a PR task that standardizes future behavior; do not rewrite published history.
+- Preserve Nightshift's required commit trailers and do not weaken existing PR/issue linkage conventions.
+- Prefer minimal, explainable changes such as docs, templates, hooks, validation, or helper scripts over broad workflow churn.
+
+Deliverable:
+- Update or add the smallest set of files needed to document or enforce the chosen convention.
+- Keep commit output concise and consistent with the repository's prevailing style.
+- If the repo already has a solid standard, tighten gaps rather than inventing a new format.`,
 		CostTier:        CostLow,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 24 * time.Hour,
@@ -976,12 +999,22 @@ func ClearCustom() {
 
 // Task represents a unit of work for an AI agent.
 type Task struct {
-	ID          string
-	Title       string
-	Description string
-	Priority    int
-	Type        TaskType // Optional: links to a TaskDefinition
+	ID                string
+	Title             string
+	Description       string
+	AgentInstructions string
+	Priority          int
+	Type              TaskType // Optional: links to a TaskDefinition
 	// TODO: Add more fields (labels, assignee, source, etc.)
+}
+
+// PromptText returns the agent-facing prompt text for this task instance.
+// When no explicit instructions are attached, Description is reused.
+func (t Task) PromptText() string {
+	if strings.TrimSpace(t.AgentInstructions) != "" {
+		return t.AgentInstructions
+	}
+	return t.Description
 }
 
 // Queue holds tasks to be processed.

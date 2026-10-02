@@ -741,7 +741,7 @@ Description: %s
   "files": ["file1.go", "file2.go", ...],
   "description": "overall approach"
 }
-`, task.ID, task.Title, task.Description, branchInstruction, task.Type)
+`, task.ID, task.Title, task.PromptText(), branchInstruction, task.Type)
 }
 
 func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, iteration int) string {
@@ -783,7 +783,7 @@ Description: %s
   "files_modified": ["file1.go", ...],
   "summary": "what was done"
 }
-`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, task.Type)
+`, task.ID, task.Title, task.PromptText(), plan.Description, plan.Steps, iterationNote, branchInstruction, task.Type)
 }
 
 func (o *Orchestrator) buildReviewPrompt(task *tasks.Task, impl *ImplementOutput) string {
@@ -814,7 +814,7 @@ Description: %s
 }
 
 Set "passed" to true ONLY if the implementation is correct and complete.
-`, task.ID, task.Title, task.Description, impl.Summary, impl.FilesModified)
+`, task.ID, task.Title, task.PromptText(), impl.Summary, impl.FilesModified)
 }
 
 // prURLPattern matches standard GitHub pull request URLs.

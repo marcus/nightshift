@@ -75,10 +75,26 @@ help:
 	@echo "  check         - Run tests and lint"
 	@echo "  install       - Build and install to Go bin directory"
 	@echo "  calibrate-providers - Compare local Claude/Codex session usage for calibration"
-	@echo "  install-hooks  - Install git pre-commit hook"
+	@echo "  install-hooks  - Install git hooks and commit template"
 	@echo "  help          - Show this help"
 
-# Install git pre-commit hook
+# Install git hooks and commit template
 install-hooks:
-	@ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit
-	@echo "✓ pre-commit hook installed (.git/hooks/pre-commit → scripts/pre-commit.sh)"
+	@repo_root="$$(git rev-parse --show-toplevel)"; \
+	hooks_dir="$$(git rev-parse --path-format=absolute --git-path hooks)"; \
+	git_dir="$$(git rev-parse --path-format=absolute --git-dir)"; \
+	common_dir="$$(git rev-parse --path-format=absolute --git-common-dir)"; \
+	template_path="$$repo_root/.gitmessage"; \
+	mkdir -p "$$hooks_dir"; \
+	ln -sf "$$repo_root/scripts/pre-commit.sh" "$$hooks_dir/pre-commit"; \
+	ln -sf "$$repo_root/scripts/commit-msg.sh" "$$hooks_dir/commit-msg"; \
+	if [ "$$git_dir" != "$$common_dir" ]; then \
+		git config extensions.worktreeConfig true; \
+		git config --worktree commit.template "$$template_path"; \
+		config_scope="worktree"; \
+	else \
+		git config --local commit.template "$$template_path"; \
+		config_scope="local"; \
+	fi; \
+	echo "✓ hooks installed ($$hooks_dir/pre-commit, $$hooks_dir/commit-msg)"; \
+	echo "✓ commit template configured ($$config_scope: $$template_path)"

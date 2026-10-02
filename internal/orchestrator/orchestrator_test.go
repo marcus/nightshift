@@ -468,6 +468,38 @@ func TestBuildPrompts(t *testing.T) {
 	}
 }
 
+func TestBuildPromptsUseAgentInstructions(t *testing.T) {
+	o := New()
+	task := &tasks.Task{
+		ID:                "prompt-test",
+		Title:             "Build Prompts",
+		Description:       "Short summary",
+		AgentInstructions: "Detailed agent-only instructions",
+	}
+
+	plan := &PlanOutput{
+		Steps:       []string{"step1"},
+		Description: "test plan",
+	}
+	impl := &ImplementOutput{
+		FilesModified: []string{"file1.go"},
+		Summary:       "test implementation",
+	}
+
+	for name, prompt := range map[string]string{
+		"plan":      o.buildPlanPrompt(task),
+		"implement": o.buildImplementPrompt(task, plan, 1),
+		"review":    o.buildReviewPrompt(task, impl),
+	} {
+		if !strings.Contains(prompt, task.AgentInstructions) {
+			t.Errorf("%s prompt missing agent instructions\nGot:\n%s", name, prompt)
+		}
+		if strings.Contains(prompt, "Description: "+task.Description) {
+			t.Errorf("%s prompt should use agent instructions instead of short summary\nGot:\n%s", name, prompt)
+		}
+	}
+}
+
 func TestExtractPRURL(t *testing.T) {
 	tests := []struct {
 		name  string
