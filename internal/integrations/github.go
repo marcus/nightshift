@@ -95,7 +95,7 @@ func (r *GitHubReader) listIssues(ctx context.Context, projectPath string) ([]Ta
 		return nil, err
 	}
 
-	var tasks []TaskItem
+	tasks := make([]TaskItem, 0, len(ghIssues))
 	for _, issue := range ghIssues {
 		labels := make([]string, len(issue.Labels))
 		for i, l := range issue.Labels {

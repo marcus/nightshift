@@ -12,7 +12,7 @@ import (
 // and registers them. If any registration fails, previously registered tasks from
 // this call are rolled back.
 func RegisterCustomTasksFromConfig(customs []config.CustomTaskConfig) error {
-	var registered []TaskType
+	registered := make([]TaskType, 0, len(customs))
 	for _, c := range customs {
 		cat := parseCategoryString(c.Category)
 		cost := parseCostTierString(c.CostTier)

@@ -1,9 +1,9 @@
 package providers
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -597,8 +597,8 @@ func writeJSONLFile(t *testing.T, path string, lines []string) {
 // makeAssistantLine returns a JSONL line for an assistant message with usage.
 func makeAssistantLine(ts time.Time, inputTokens, outputTokens int64) string {
 	return `{"type":"assistant","message":{"model":"claude-sonnet-4","usage":{"input_tokens":` +
-		fmt.Sprintf("%d", inputTokens) + `,"output_tokens":` +
-		fmt.Sprintf("%d", outputTokens) + `,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"` +
+		strconv.FormatInt(inputTokens, 10) + `,"output_tokens":` +
+		strconv.FormatInt(outputTokens, 10) + `,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}},"timestamp":"` +
 		ts.Format(time.RFC3339) + `"}`
 }
 

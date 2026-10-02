@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -63,8 +64,10 @@ var daemonStatusCmd = &cobra.Command{
 	RunE:  runDaemonStatus,
 }
 
-var daemonForegroundFlag bool
-var daemonTimeoutFlag time.Duration
+var (
+	daemonForegroundFlag bool
+	daemonTimeoutFlag    time.Duration
+)
 
 func init() {
 	daemonStartCmd.Flags().BoolVarP(&daemonForegroundFlag, "foreground", "f", false, "Run in foreground (don't daemonize)")
@@ -84,7 +87,7 @@ func pidFilePath() string {
 // ensurePidDir ensures the PID file directory exists.
 func ensurePidDir() error {
 	dir := filepath.Dir(pidFilePath())
-	return os.MkdirAll(dir, 0755)
+	return os.MkdirAll(dir, 0o755)
 }
 
 // writePidFile writes the current process PID to the PID file.
@@ -92,7 +95,7 @@ func writePidFile() error {
 	if err := ensurePidDir(); err != nil {
 		return fmt.Errorf("creating pid dir: %w", err)
 	}
-	return os.WriteFile(pidFilePath(), []byte(strconv.Itoa(os.Getpid())), 0644)
+	return os.WriteFile(pidFilePath(), []byte(strconv.Itoa(os.Getpid())), 0o644)
 }
 
 // readPidFile reads the PID from the PID file.
@@ -238,7 +241,7 @@ func runDaemonLoop(cfg *config.Config) error {
 	<-ctx.Done()
 
 	// Stop scheduler gracefully
-	if err := sched.Stop(); err != nil && err != scheduler.ErrNotRunning {
+	if err := sched.Stop(); err != nil && !errors.Is(err, scheduler.ErrNotRunning) {
 		log.Errorf("stopping scheduler: %v", err)
 	}
 
