@@ -19,6 +19,7 @@ title: CLI Reference
 | `nightshift logs` | Stream or export logs |
 | `nightshift stats` | Token usage statistics |
 | `nightshift daemon` | Background scheduler |
+| `nightshift metrics-coverage` | Analyze metrics instrumentation coverage |
 
 ## Run Options
 
