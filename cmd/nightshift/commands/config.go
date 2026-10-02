@@ -370,7 +370,7 @@ func printStruct(v reflect.Value, indent int) {
 		case reflect.Struct:
 			fmt.Printf("%s%s:\n", prefix, tag)
 			printStruct(value, indent+1)
-		case reflect.Ptr:
+		case reflect.Pointer:
 			if !value.IsNil() {
 				if value.Elem().Kind() == reflect.Struct {
 					fmt.Printf("%s%s:\n", prefix, tag)
@@ -408,7 +408,7 @@ func printStruct(v reflect.Value, indent int) {
 
 func isZero(v reflect.Value) bool {
 	switch v.Kind() {
-	case reflect.Ptr, reflect.Interface:
+	case reflect.Pointer, reflect.Interface:
 		return v.IsNil()
 	case reflect.Slice, reflect.Map:
 		return v.Len() == 0
