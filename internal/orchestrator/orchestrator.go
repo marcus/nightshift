@@ -711,11 +711,45 @@ func (o *Orchestrator) PlanPrompt(task *tasks.Task) string {
 	return o.buildPlanPrompt(task)
 }
 
+func taskSpecificPlanGuidance(task *tasks.Task) string {
+	switch task.Type {
+	case tasks.TaskCommitNormalize:
+		return `
+## Task-Specific Guidance
+- Inspect recent commit subjects on the repo and active work branch or PR before deciding what to normalize.
+- If the project does not document a commit-message standard, infer the local convention from recent commits and state that assumption.
+- Keep the task scoped to the current work branch or PR. Do not plan git hooks, broad repository rewrites, or history changes outside the relevant commit range.
+- Preserve existing Nightshift trailers when commit messages are reworded.
+- Prefer small, explainable actions such as rewording the relevant commits or documenting the exact normalization steps when the agent cannot safely rewrite commits.
+`
+	default:
+		return ""
+	}
+}
+
+func taskSpecificImplementGuidance(task *tasks.Task) string {
+	switch task.Type {
+	case tasks.TaskCommitNormalize:
+		return `
+## Task-Specific Guidance
+- Inspect recent commit subjects on the repo and active work branch or PR before normalizing commit messages.
+- Infer the local convention from recent commits when no documented standard exists, and report that assumption clearly.
+- Normalize only the commit messages relevant to the active branch or PR. Do not install git hooks or rewrite unrelated history.
+- Keep Nightshift trailers intact on any rewritten or newly created commits.
+- If the exact commit range is ambiguous, state the assumption and choose the narrowest safe scope.
+`
+	default:
+		return ""
+	}
+}
+
 func (o *Orchestrator) buildPlanPrompt(task *tasks.Task) string {
 	branchInstruction := ""
 	if o.runMeta != nil && o.runMeta.Branch != "" {
 		branchInstruction = fmt.Sprintf("\n   Create your feature branch from `%s`.", o.runMeta.Branch)
 	}
+
+	taskGuidance := taskSpecificPlanGuidance(task)
 
 	return fmt.Sprintf(`You are a planning agent. Create a detailed execution plan for this task.
 
@@ -723,6 +757,7 @@ func (o *Orchestrator) buildPlanPrompt(task *tasks.Task) string {
 ID: %s
 Title: %s
 Description: %s
+%s
 
 ## Instructions
 0. You are running autonomously. If the task is broad or ambiguous, choose a concrete, minimal scope that delivers value and state any assumptions in the description.
@@ -741,7 +776,7 @@ Description: %s
   "files": ["file1.go", "file2.go", ...],
   "description": "overall approach"
 }
-`, task.ID, task.Title, task.Description, branchInstruction, task.Type)
+`, task.ID, task.Title, task.Description, taskGuidance, branchInstruction, task.Type)
 }
 
 func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, iteration int) string {
@@ -755,6 +790,8 @@ func (o *Orchestrator) buildImplementPrompt(task *tasks.Task, plan *PlanOutput, 
 		branchInstruction = fmt.Sprintf("\n   Checkout `%s` before creating your feature branch.", o.runMeta.Branch)
 	}
 
+	taskGuidance := taskSpecificImplementGuidance(task)
+
 	return fmt.Sprintf(`You are an implementation agent. Execute the plan for this task.
 
 ## Task
@@ -767,6 +804,7 @@ Description: %s
 
 ## Steps
 %v
+%s
 %s
 ## Instructions
 0. Before creating your branch, record the current branch name. Create and work on a new branch. Never modify or commit directly to the primary branch.%s
@@ -783,7 +821,7 @@ Description: %s
   "files_modified": ["file1.go", ...],
   "summary": "what was done"
 }
-`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, branchInstruction, task.Type)
+`, task.ID, task.Title, task.Description, plan.Description, plan.Steps, iterationNote, taskGuidance, branchInstruction, task.Type)
 }
 
 func (o *Orchestrator) buildReviewPrompt(task *tasks.Task, impl *ImplementOutput) string {
