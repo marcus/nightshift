@@ -809,6 +809,103 @@ func TestBuildImplementPrompt_WithoutBranch(t *testing.T) {
 	}
 }
 
+func TestBuildPlanPrompt_ReleaseNotesIncludesRepoAwareGuidance(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "release-notes:/tmp/nightshift",
+		Title:       "Release Note Drafter",
+		Description: "Draft release-ready notes for the next version",
+		Type:        tasks.TaskReleaseNotes,
+	}
+
+	prompt := o.buildPlanPrompt(task)
+
+	expected := []string{
+		"CHANGELOG.md",
+		".github/workflows/release.yml",
+		"recent git tags/commits",
+		"release boundary",
+		"current release-notes artifact and format",
+		"Features, Fixes, Breaking Changes, and Other",
+		"state the assumptions",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("plan prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+}
+
+func TestBuildImplementPrompt_ReleaseNotesIncludesRepoAwareGuidance(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "release-notes:/tmp/nightshift",
+		Title:       "Release Note Drafter",
+		Description: "Draft release-ready notes for the next version",
+		Type:        tasks.TaskReleaseNotes,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"Inspect release artifacts", "Draft the notes"},
+		Description: "Use the repo's release signals to draft notes for the next release.",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+
+	expected := []string{
+		"CHANGELOG.md",
+		".github/workflows/release.yml",
+		"recent git tags/commits",
+		"release boundary",
+		"current release-notes artifact and format",
+		"Features, Fixes, Breaking Changes, and Other",
+		"state the assumptions",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("implement prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+}
+
+func TestBuildPrompts_GenericTasksDoNotReceiveReleaseNotesGuidance(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "lint-fix:/tmp/nightshift",
+		Title:       "Linter Fixes",
+		Description: "Automatically fix linting errors and style issues",
+		Type:        tasks.TaskLintFix,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"Run linters", "Fix issues"},
+		Description: "Apply lint fixes.",
+	}
+
+	planPrompt := o.buildPlanPrompt(task)
+	implPrompt := o.buildImplementPrompt(task, plan, 1)
+
+	unexpected := []string{
+		"CHANGELOG.md",
+		".github/workflows/release.yml",
+		"release boundary",
+		"current release-notes artifact and format",
+		"Features, Fixes, Breaking Changes, and Other",
+	}
+
+	for _, notWant := range unexpected {
+		if strings.Contains(planPrompt, notWant) {
+			t.Errorf("generic plan prompt should not contain %q\nGot:\n%s", notWant, planPrompt)
+		}
+		if strings.Contains(implPrompt, notWant) {
+			t.Errorf("generic implement prompt should not contain %q\nGot:\n%s", notWant, implPrompt)
+		}
+	}
+}
+
 func TestBuildMetadataBlock_WithBranch(t *testing.T) {
 	o := New()
 	o.SetRunMetadata(&RunMetadata{
