@@ -51,7 +51,7 @@ Completed analysis with conclusions. These tasks produce reports without modifyi
 | `cost-attribution` | Cost Attribution Estimator | Estimate resource costs by component | Medium | Low | 72h |
 | `security-footgun` | Security Foot-Gun Finder | Find common security anti-patterns | Medium | Low | 72h |
 | `pii-scanner` | PII Exposure Scanner | Scan for potential PII exposure | Medium | Low | 72h |
-| `privacy-policy` | Privacy Policy Consistency Checker | Check code against privacy policy claims | Medium | Low | 72h |
+| `privacy-policy` | Privacy Policy Consistency Checker | Cross-reference privacy policy claims against actual code behavior | Medium | Low | 72h |
 | `schema-evolution` | Schema Evolution Advisor | Analyze database schema changes | Medium | Low | 72h |
 | `event-taxonomy` | Event Taxonomy Normalizer | Normalize event naming and structure | Medium | Low | 72h |
 | `roadmap-entropy` | Roadmap Entropy Detector | Detect roadmap scope creep and drift | Medium | Low | 72h |
