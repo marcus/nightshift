@@ -101,7 +101,10 @@ func ExpandGlobPatterns(patterns, excludes []string) ([]string, error) {
 	// Build exclude set (expanded)
 	for _, exc := range excludes {
 		excPath := expandPath(exc)
-		excPath, _ = filepath.Abs(excPath)
+		excPath, err := filepath.Abs(excPath)
+		if err != nil {
+			continue
+		}
 		excludeSet[excPath] = true
 	}
 
@@ -114,7 +117,10 @@ func ExpandGlobPatterns(patterns, excludes []string) ([]string, error) {
 		}
 
 		for _, match := range matches {
-			absMatch, _ := filepath.Abs(match)
+			absMatch, err := filepath.Abs(match)
+			if err != nil {
+				continue
+			}
 
 			// Check if excluded
 			if excludeSet[absMatch] {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -98,7 +99,7 @@ type ParseOptions struct {
 
 // RepositoryExists checks if a valid git repository exists at the given path.
 func RepositoryExists(path string) bool {
-	gitDir := strings.TrimSpace(path) + "/.git"
+	gitDir := filepath.Join(strings.TrimSpace(path), ".git")
 	_, err := os.Stat(gitDir)
 	return err == nil
 }
