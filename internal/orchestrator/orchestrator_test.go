@@ -809,6 +809,67 @@ func TestBuildImplementPrompt_WithoutBranch(t *testing.T) {
 	}
 }
 
+func TestBuildPlanPrompt_CommitNormalizeIncludesRepoAwareGuidance(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "commit-normalize:/tmp/nightshift",
+		Title:       "Commit Message Normalizer",
+		Description: "Standardize commit message format",
+		Type:        tasks.TaskCommitNormalize,
+	}
+
+	prompt := o.buildPlanPrompt(task)
+
+	expected := []string{
+		"recent commit subjects",
+		"release or changelog expectations",
+		"infer the local convention if none is documented",
+		"preserve Nightshift or other required trailers",
+		"active work branch or PR",
+		"without rewriting unrelated history or installing git hooks",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("plan prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+}
+
+func TestBuildImplementPrompt_CommitNormalizeIncludesRepoAwareGuidance(t *testing.T) {
+	o := New()
+
+	task := &tasks.Task{
+		ID:          "commit-normalize:/tmp/nightshift",
+		Title:       "Commit Message Normalizer",
+		Description: "Standardize commit message format",
+		Type:        tasks.TaskCommitNormalize,
+	}
+	plan := &PlanOutput{
+		Steps:       []string{"Inspect recent commits", "Normalize active branch commits"},
+		Description: "Use the repo's recent commits to normalize the branch message style.",
+	}
+
+	prompt := o.buildImplementPrompt(task, plan, 1)
+
+	expected := []string{
+		"recent commit subjects",
+		"release or changelog expectations",
+		"infer the local convention if none is documented",
+		"normalize only the relevant branch or PR commit messages",
+		"preserve Nightshift or other required trailers",
+		"avoid destructive rewrites beyond the task scope",
+		"report assumptions if the target commit range is ambiguous",
+	}
+
+	for _, want := range expected {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("implement prompt missing %q\nGot:\n%s", want, prompt)
+		}
+	}
+}
+
 func TestBuildMetadataBlock_WithBranch(t *testing.T) {
 	o := New()
 	o.SetRunMetadata(&RunMetadata{
