@@ -33,8 +33,9 @@ nightshift init --global  # Create global config
 - Set `budget.week_start_day` to `monday` or `sunday`
 
 **"Provider not available"**
-- Ensure Claude/Codex CLI is installed and in PATH
-- Check API key environment variables are set
+- Run `nightshift doctor` to check CLI discovery and provider data paths
+- Ensure `claude`, `codex`, or `copilot`/`gh` is installed and in PATH
+- Remember that `nightshift task run ... --dry-run` previews prompts only; it does not test provider auth
 
 ## Debug Mode
 
