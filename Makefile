@@ -1,8 +1,13 @@
-.PHONY: build test test-verbose test-race coverage coverage-html lint clean deps check install calibrate-providers install-hooks help
+.PHONY: build test test-verbose test-race coverage coverage-html fmt fmt-check vet lint lint-install clean deps check install calibrate-providers install-hooks help
 
 # Binary name
 BINARY=nightshift
 PKG=./cmd/nightshift
+GO_FILES := $(shell git ls-files '*.go')
+TOOLS_BIN := $(CURDIR)/bin
+GOLANGCI_LINT := $(TOOLS_BIN)/golangci-lint
+GOLANGCI_LINT_PKG := github.com/golangci/golangci-lint/cmd/golangci-lint
+GOLANGCI_LINT_VERSION := v1.64.8
 
 # Build the binary
 build:
@@ -41,10 +46,38 @@ coverage-html: coverage
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
-# Run golangci-lint (if installed)
-lint:
-	@which golangci-lint > /dev/null || (echo "golangci-lint not installed. Run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest" && exit 1)
-	golangci-lint run
+# Format Go source files
+fmt:
+	@if [ -n "$(strip $(GO_FILES))" ]; then gofmt -w $(GO_FILES); fi
+
+# Verify Go source files are formatted
+fmt-check:
+	@files='$(strip $(GO_FILES))'; \
+	if [ -z "$$files" ]; then \
+		exit 0; \
+	fi; \
+	unformatted="$$(gofmt -l $$files)"; \
+	if [ -n "$$unformatted" ]; then \
+		echo "$$unformatted"; \
+		exit 1; \
+	fi
+
+# Run go vet
+vet:
+	go vet ./...
+
+# Install pinned golangci-lint version into the repo-local tool bin
+lint-install:
+	@mkdir -p "$(TOOLS_BIN)"
+	@current_version="$$(if [ -x "$(GOLANGCI_LINT)" ]; then "$(GOLANGCI_LINT)" version --format short 2>/dev/null || true; fi)"; \
+	if [ "$$current_version" != "$(GOLANGCI_LINT_VERSION)" ]; then \
+		echo "Installing golangci-lint $(GOLANGCI_LINT_VERSION)"; \
+		GOBIN="$(TOOLS_BIN)" go install "$(GOLANGCI_LINT_PKG)@$(GOLANGCI_LINT_VERSION)"; \
+	fi
+
+# Run pinned golangci-lint
+lint: lint-install
+	"$(GOLANGCI_LINT)" run ./...
 
 # Clean build artifacts
 clean:
@@ -57,8 +90,8 @@ deps:
 	go mod download
 	go mod tidy
 
-# Run all checks (test + lint)
-check: test lint
+# Run all checks
+check: fmt-check vet test lint
 
 # Show help
 help:
@@ -69,10 +102,13 @@ help:
 	@echo "  test-race     - Run tests with race detection"
 	@echo "  coverage      - Run tests with coverage report"
 	@echo "  coverage-html - Generate HTML coverage report"
-	@echo "  lint          - Run golangci-lint"
+	@echo "  fmt           - Format Go files"
+	@echo "  fmt-check     - Verify Go files are formatted"
+	@echo "  vet           - Run go vet"
+	@echo "  lint          - Run pinned golangci-lint"
 	@echo "  clean         - Clean build artifacts"
 	@echo "  deps          - Download and tidy dependencies"
-	@echo "  check         - Run tests and lint"
+	@echo "  check         - Run formatting, vet, tests, and lint"
 	@echo "  install       - Build and install to Go bin directory"
 	@echo "  calibrate-providers - Compare local Claude/Codex session usage for calibration"
 	@echo "  install-hooks  - Install git pre-commit hook"
