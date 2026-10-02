@@ -7,6 +7,59 @@ on:
     branches: [main]
 
 jobs:
+  commit-format:
+    name: Commit Format
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout base branch validator
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - name: Validate pull request title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          if [[ -f base/scripts/commit-msg.sh ]]; then
+            bash base/scripts/commit-msg.sh --title "$PR_TITLE"
+            exit 0
+          fi
+
+          echo "Base branch has no commit validator yet; using bootstrap rules."
+          conventional_types='build|chore|ci|docs|feat|fix|perf|refactor|style|test'
+          conventional_pattern="^(${conventional_types})(\\([[:alnum:]#./_-]+\\))?(!)?: [^[:space:]].*"
+
+          if [[ "$PR_TITLE" =~ ^(Merge|Revert)\  ]]; then
+            exit 0
+          fi
+
+          if [[ "$PR_TITLE" =~ $conventional_pattern ]]; then
+            exit 0
+          fi
+
+          echo "Invalid pull request title: $PR_TITLE" >&2
+          cat >&2 <<'EOF'
+          Pull request title must use Conventional Commits:
+            type: summary
+            type(scope): summary
+            type!: summary
+            type(scope)!: summary
+
+          Accepted types: build, chore, ci, docs, feat, fix, perf, refactor, style, test
+          Allowed exceptions: Merge ..., Revert ...
+
+          Examples:
+            feat(run): add pause command
+            feat!: drop legacy API
+            fix(config): preserve provider YAML keys
+            docs(readme): explain hook installation
+          EOF
+          exit 1
+
   test:
     name: Test
     runs-on: ubuntu-latest
