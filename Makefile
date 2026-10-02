@@ -75,10 +75,24 @@ help:
 	@echo "  check         - Run tests and lint"
 	@echo "  install       - Build and install to Go bin directory"
 	@echo "  calibrate-providers - Compare local Claude/Codex session usage for calibration"
-	@echo "  install-hooks  - Install git pre-commit hook"
+	@echo "  install-hooks - Install git pre-commit and commit-msg hook wrappers"
 	@echo "  help          - Show this help"
 
-# Install git pre-commit hook
+# Install git hook wrappers
 install-hooks:
-	@ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit
-	@echo "✓ pre-commit hook installed (.git/hooks/pre-commit → scripts/pre-commit.sh)"
+	@hooks_dir="$$(git rev-parse --git-path hooks)"; \
+	mkdir -p "$$hooks_dir"; \
+	for hook in pre-commit commit-msg; do \
+		hook_path="$$hooks_dir/$$hook"; \
+		script_path="scripts/$$hook.sh"; \
+		rm -f "$$hook_path"; \
+		{ \
+			printf '%s\n' '#!/usr/bin/env bash'; \
+			printf '%s\n' 'set -euo pipefail'; \
+			printf '%s\n' 'repo_root="$$(git rev-parse --show-toplevel)"'; \
+			printf '%s\n' 'exec "$$repo_root/'"$$script_path"'" "$$@"'; \
+		} > "$$hook_path"; \
+		chmod +x "$$hook_path"; \
+		echo "✓ $$hook_path -> $$script_path"; \
+	done; \
+	echo "hooks installed with worktree-safe wrappers"
