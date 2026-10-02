@@ -1,3 +1,6 @@
+// Package main is the provider-calibration CLI: an offline tool that
+// scans local Claude and Codex session transcripts to produce token
+// usage metrics used for tuning Nightshift's budget model.
 package main
 
 import (
