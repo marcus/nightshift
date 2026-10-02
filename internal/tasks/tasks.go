@@ -347,10 +347,16 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 168 * time.Hour,
 	},
 	TaskReleaseNotes: {
-		Type:            TaskReleaseNotes,
-		Category:        CategoryPR,
-		Name:            "Release Note Drafter",
-		Description:     "Draft release notes from changes",
+		Type:     TaskReleaseNotes,
+		Category: CategoryPR,
+		Name:     "Release Note Drafter",
+		Description: `Draft Nightshift release notes from repository changes.
+Inspect the latest tag and CHANGELOG.md first to understand the last published release and the existing release-note tone.
+Summarize the notable user-facing changes since that release, using commits and merged PRs as supporting evidence.
+Group the draft into clear user-facing sections (for example: Features, Fixes, Improvements, Breaking Changes) based on what changed.
+Call out breaking changes, migrations, config updates, and operator follow-up explicitly so upgrade impact is easy to scan.
+Preserve the concise tone and heading style already used in CHANGELOG.md, and skip low-signal internal churn unless it matters to users.
+If the release scope is unclear, state your assumptions, note missing evidence, and include follow-up questions or validation steps before publishing.`,
 		CostTier:        CostLow,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 168 * time.Hour,
