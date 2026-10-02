@@ -9,12 +9,13 @@ import (
 
 // Report represents a bus-factor analysis report for a codebase or component.
 type Report struct {
-	Timestamp       time.Time         `json:"timestamp"`
-	Component       string            `json:"component"` // "overall", "dir/path", etc
-	Metrics         *OwnershipMetrics `json:"metrics"`
-	Contributors    []CommitAuthor    `json:"contributors"`
-	Recommendations []string          `json:"recommendations"`
-	ReportedAt      string            `json:"reported_at"`
+	Timestamp          time.Time          `json:"timestamp"`
+	Component          string             `json:"component"` // "overall", "dir/path", etc
+	Metrics            *OwnershipMetrics  `json:"metrics"`
+	Contributors       []CommitAuthor     `json:"contributors"`
+	Recommendations    []string           `json:"recommendations"`
+	ReportedAt         string             `json:"reported_at"`
+	ComponentBreakdown []ComponentMetrics `json:"component_breakdown,omitempty"`
 }
 
 // ReportGenerator creates formatted reports from analysis results.
@@ -141,6 +142,36 @@ func (rg *ReportGenerator) RenderMarkdown(report *Report) string {
 			}
 		}
 		buf.WriteString("\n")
+	}
+
+	// Per-component breakdown (only when populated)
+	if len(report.ComponentBreakdown) > 0 {
+		buf.WriteString("## Per-Component Bus Factor\n\n")
+		buf.WriteString("| Component | Contributors | Bus Factor | Top 1 % | Risk | Silo |\n")
+		buf.WriteString("|-----------|-------------:|-----------:|--------:|------|:----:|\n")
+		siloCount := 0
+		for _, c := range report.ComponentBreakdown {
+			if c.Metrics == nil {
+				continue
+			}
+			silo := ""
+			if c.KnowledgeSilo {
+				silo = "yes"
+				siloCount++
+			}
+			fmt.Fprintf(&buf, "| `%s` | %d | %d | %.1f%% | %s | %s |\n",
+				c.Path,
+				c.Metrics.TotalContributors,
+				c.Metrics.BusFactor,
+				c.Metrics.Top1Percent,
+				c.Metrics.RiskLevel,
+				silo,
+			)
+		}
+		buf.WriteString("\n")
+		if siloCount > 0 {
+			fmt.Fprintf(&buf, "**Knowledge silos detected: %d component(s) with bus factor of 1.**\n\n", siloCount)
+		}
 	}
 
 	// Risk explanation
