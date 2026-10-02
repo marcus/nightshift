@@ -596,10 +596,22 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 168 * time.Hour,
 	},
 	TaskGuideImprover: {
-		Type:            TaskGuideImprover,
-		Category:        CategoryOptions,
-		Name:            "Guide/Skill Improver",
-		Description:     "Suggest improvements to guides and skills",
+		Type:     TaskGuideImprover,
+		Category: CategoryOptions,
+		Name:     "Guide/Skill Improver",
+		Description: `Audit docs/guides/*.md and .claude/skills/*/SKILL.md for staleness, accuracy, and compliance.
+Use README.md as the primary project context for commands, architecture, and workflows.
+For Agent Skills documentation lookup, fetch https://agentskills.io/llms.txt first and use it as the index before reading specific spec pages.
+
+1. GUIDE ACCURACY — Read each file in docs/guides/. Cross-reference referenced file paths, CLI commands, config keys, function names, and env vars against the current codebase. Flag anything stale, renamed, or removed.
+
+2. SKILL COMPLIANCE — Inspect .claude/skills/ and .codex/skills/ for SKILL.md files. Validate frontmatter fields (name, description, globs, triggers) and naming conventions against the agentskills.io spec. Flag missing required fields, invalid globs, or non-compliant names.
+
+3. CLARITY & COMPLETENESS — Evaluate each guide for logical flow, missing prerequisite steps, unclear jargon, and gaps where a reader would get stuck. Check that code examples are runnable and match current APIs.
+
+4. CONSISTENCY — Check for contradictions between guides (e.g., conflicting setup instructions) and between guides and skills (e.g., a skill referencing a workflow the guide doesn't document).
+
+5. OUTPUT — Surface findings as a structured list of suggested improvements. For each item report: file, issue summary, severity (stale/inaccurate/unclear/incomplete/inconsistent), and recommended fix. Apply safe fixes directly (typos, dead links, updated paths) and leave uncertain items as follow-up suggestions.`,
 		CostTier:        CostMedium,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 168 * time.Hour,
