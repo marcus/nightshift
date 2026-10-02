@@ -130,9 +130,9 @@ func runConfigGet(key string) error {
 
 	// Format output based on type
 	switch val := value.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		printMap(val, 0)
-	case []interface{}:
+	case []any:
 		printSlice(val, 0)
 	default:
 		fmt.Println(value)
@@ -316,7 +316,7 @@ func validateConfigFile(path string) error {
 	return config.Validate(&cfg)
 }
 
-func parseValue(value string) interface{} {
+func parseValue(value string) any {
 	// Try to parse as bool
 	if value == "true" {
 		return true
@@ -425,14 +425,14 @@ func isZero(v reflect.Value) bool {
 	}
 }
 
-func printMap(m map[string]interface{}, indent int) {
+func printMap(m map[string]any, indent int) {
 	prefix := strings.Repeat("  ", indent)
 	for k, v := range m {
 		switch val := v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			fmt.Printf("%s%s:\n", prefix, k)
 			printMap(val, indent+1)
-		case []interface{}:
+		case []any:
 			fmt.Printf("%s%s:\n", prefix, k)
 			printSlice(val, indent+1)
 		default:
@@ -441,11 +441,11 @@ func printMap(m map[string]interface{}, indent int) {
 	}
 }
 
-func printSlice(s []interface{}, indent int) {
+func printSlice(s []any, indent int) {
 	prefix := strings.Repeat("  ", indent)
 	for _, v := range s {
 		switch val := v.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			fmt.Printf("%s-\n", prefix)
 			printMap(val, indent+1)
 		default:
