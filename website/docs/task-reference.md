@@ -24,7 +24,7 @@ Fully formed, review-ready artifacts. These tasks create branches and open pull 
 | `build-optimize` | Build Time Optimization | Optimize build configuration for faster builds | High | Medium | 7d |
 | `docs-backfill` | Documentation Backfiller | Generate missing documentation | Low | Low | 7d |
 | `commit-normalize` | Commit Message Normalizer | Standardize commit message format | Low | Low | 24h |
-| `changelog-synth` | Changelog Synthesizer | Generate changelog from commits | Low | Low | 7d |
+| `changelog-synth` | Changelog Synthesizer | Draft a deterministic Markdown changelog from local git commits on the current branch, based on `main`, while preserving existing history | Low | Low | 7d |
 | `release-notes` | Release Note Drafter | Draft release notes from changes | Low | Low | 7d |
 | `adr-draft` | ADR Drafter | Draft Architecture Decision Records | Medium | Low | 7d |
 | `td-review` | TD Review Session | Review open td reviews, fix obvious bugs, create tasks for bigger issues | High | Medium | 72h |
