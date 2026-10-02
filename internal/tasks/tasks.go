@@ -686,10 +686,25 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 168 * time.Hour,
 	},
 	TaskOwnershipBoundary: {
-		Type:            TaskOwnershipBoundary,
-		Category:        CategoryOptions,
-		Name:            "Ownership Boundary Suggester",
-		Description:     "Suggest code ownership boundaries",
+		Type:     TaskOwnershipBoundary,
+		Category: CategoryOptions,
+		Name:     "Ownership Boundary Suggester",
+		Description: `Analyze git history per directory to identify code ownership boundaries and suggest team structures.
+
+Steps:
+1. Run 'nightshift ownership --json' on the repository to get per-directory ownership data.
+2. Review the dominant contributors for each directory — flag directories where no single
+   contributor owns more than 50% of commits (unclear ownership).
+3. Detect co-change patterns: directories frequently modified in the same commit suggest
+   shared ownership or tight coupling that should be owned by the same team.
+4. Identify natural ownership clusters — groups of directories consistently maintained by
+   the same person or team.
+5. Flag directories with unclear ownership where no contributor dominates, as these may
+   need an explicit owner assigned.
+6. Suggest team boundaries based on the natural clusters found.
+7. Output a CODEOWNERS file mapping directories to their dominant contributors.
+8. Output a markdown report summarizing ownership distribution, unclear areas, and
+   co-change cohesion patterns with actionable recommendations.`,
 		CostTier:        CostMedium,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 168 * time.Hour,
