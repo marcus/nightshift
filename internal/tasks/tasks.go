@@ -329,10 +329,47 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 168 * time.Hour,
 	},
 	TaskCommitNormalize: {
-		Type:            TaskCommitNormalize,
-		Category:        CategoryPR,
-		Name:            "Commit Message Normalizer",
-		Description:     "Standardize commit message format",
+		Type:     TaskCommitNormalize,
+		Category: CategoryPR,
+		Name:     "Commit Message Normalizer",
+		Description: `Standardize commit message format across the repository by detecting or establishing a Conventional Commits convention, then adding tooling to enforce it.` +
+			"\n\n" +
+			`1. DETECT EXISTING CONVENTION — Read the last 50 commits via git log --oneline -50. ` +
+			`Check for .goreleaser.yml (changelog.groups), CONTRIBUTING.md, .gitmessage, and ` +
+			`any existing commit-msg hooks for documented conventions. Tally how many recent ` +
+			`commits already follow Conventional Commits (type(scope): description) vs other ` +
+			`patterns. If ≥40% already follow Conventional Commits, adopt that as the target; ` +
+			`otherwise, propose Conventional Commits as the new standard.` +
+			"\n\n" +
+			`2. TARGET FORMAT — The canonical format is: type(scope): description` +
+			"\n" +
+			`Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert. ` +
+			`Scope is optional but encouraged. Description must be lowercase, imperative mood, ` +
+			`no trailing period, max 72 characters for the subject line. Body and trailers are ` +
+			`optional and separated by a blank line.` +
+			"\n\n" +
+			`3. ADD .gitmessage TEMPLATE — Create or update .gitmessage at the repo root with ` +
+			`a commented-out template showing the format, allowed types, and example messages. ` +
+			`Include instructions for setting it via git config commit.template .gitmessage.` +
+			"\n\n" +
+			`4. ADD COMMIT-MSG HOOK — Create or update scripts/commit-msg.sh as a commit-msg ` +
+			`git hook that validates the subject line against the Conventional Commits pattern. ` +
+			`The hook should: reject messages not matching ^(feat|fix|docs|style|refactor|perf|` +
+			`test|build|ci|chore|revert)(\(.+\))?: .{1,72}$, allow merge commits (^Merge ) and ` +
+			`revert commits (^Revert ), print a clear error showing the expected format on ` +
+			`failure, and exit 0 on success. Make the script executable (chmod +x).` +
+			"\n\n" +
+			`5. MAKEFILE INTEGRATION — If a Makefile exists, check for an install-hooks target. ` +
+			`If missing, add one that copies or symlinks scripts/commit-msg.sh to ` +
+			`.git/hooks/commit-msg. If a pre-commit hook installation target already exists, ` +
+			`extend it rather than creating a duplicate.` +
+			"\n\n" +
+			`6. CONTRIBUTING.md — If CONTRIBUTING.md exists, add or update a "Commit Messages" ` +
+			`section documenting the convention, allowed types, and examples. If the file does ` +
+			`not exist, skip this step.` +
+			"\n\n" +
+			`7. OUTPUT SUMMARY — Report what was added or updated, the detected vs target ` +
+			`convention, and the percentage of recent commits already conforming.`,
 		CostTier:        CostLow,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 24 * time.Hour,
