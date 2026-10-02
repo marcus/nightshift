@@ -21,6 +21,7 @@ import (
 	"github.com/marcus/nightshift/internal/config"
 	"github.com/marcus/nightshift/internal/db"
 	"github.com/marcus/nightshift/internal/logging"
+	"github.com/marcus/nightshift/internal/observe"
 	"github.com/marcus/nightshift/internal/orchestrator"
 	"github.com/marcus/nightshift/internal/providers"
 	"github.com/marcus/nightshift/internal/reporting"
@@ -239,6 +240,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		log.Warn("--ignore-budget active, bypassing budget checks")
 	}
 
+	metrics := observe.New()
 	params := executeRunParams{
 		cfg:          cfg,
 		budgetMgr:    budgetMgr,
@@ -254,6 +256,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		yes:          yes,
 		branch:       branch,
 		agentTimeout: agentTimeout,
+		obs:          metrics,
 		log:          log,
 	}
 	if !dryRun {
@@ -278,6 +281,7 @@ type executeRunParams struct {
 	branch       string
 	agentTimeout time.Duration
 	report       *runReport
+	obs          *observe.Collector
 	log          *logging.Logger
 }
 
@@ -690,6 +694,7 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 				AgentTimeout:  p.agentTimeout,
 			}),
 			orchestrator.WithLogger(logging.Component("orchestrator")),
+			orchestrator.WithObserver(p.obs),
 		}
 		if renderer != nil {
 			orchOpts = append(orchOpts, orchestrator.WithEventHandler(renderer.HandleEvent))
@@ -867,6 +872,21 @@ func executeRun(ctx context.Context, p executeRunParams) error {
 		"failed":    tasksFailed,
 		"projects":  len(p.projects),
 	})
+
+	// Record run-level gauges and flush metrics
+	p.obs.Gauge("run_duration_ms", float64(duration.Milliseconds()))
+	p.obs.Gauge("projects_processed", float64(len(p.projects)))
+	p.obs.Gauge("tasks_run", float64(tasksRun))
+	p.obs.Gauge("tasks_completed", float64(tasksCompleted))
+	p.obs.Gauge("tasks_failed", float64(tasksFailed))
+	// Compute budget_used_percent from first available provider
+	for _, pp := range plan.projects {
+		if pp.provider != nil {
+			p.obs.Gauge("budget_used_percent", pp.provider.allowance.UsedPercent)
+			break
+		}
+	}
+	p.obs.Flush(p.log)
 
 	if p.report != nil {
 		p.report.finalize(p.cfg, p.log)
