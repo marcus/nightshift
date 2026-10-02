@@ -40,6 +40,11 @@ var migrations = []Migration{
 		Description: "add branch column to run_history",
 		SQL:         migration005SQL,
 	},
+	{
+		Version:     6,
+		Description: "add service_advisor_results table for service boundary analysis",
+		SQL:         migration006SQL,
+	},
 }
 
 const migration002SQL = `
@@ -119,6 +124,20 @@ CREATE INDEX idx_run_history_time ON run_history(start_time DESC);
 
 const migration005SQL = `
 ALTER TABLE run_history ADD COLUMN branch TEXT NOT NULL DEFAULT '';
+`
+
+const migration006SQL = `
+CREATE TABLE IF NOT EXISTS service_advisor_results (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    component       TEXT NOT NULL,
+    timestamp       DATETIME NOT NULL,
+    packages        TEXT NOT NULL,
+    metrics         TEXT NOT NULL,
+    recommendations TEXT NOT NULL,
+    report_path     TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_service_advisor_component_time ON service_advisor_results(component, timestamp DESC);
 `
 
 // Migrate runs all pending migrations inside transactions.
