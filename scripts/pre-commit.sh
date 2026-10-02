@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # pre-commit hook for nightshift
-# Install: make install-hooks  (or: ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit)
+# Install: make install-hooks
 set -euo pipefail
 
 PASS=0
