@@ -1,6 +1,3 @@
-// Package state manages persistent state for nightshift runs.
-// Tracks run history per project and task to support staleness calculation,
-// duplicate run prevention, and task assignment tracking.
 package state
 
 import (

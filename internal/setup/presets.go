@@ -1,4 +1,3 @@
-// Package setup provides interactive configuration and task preset selection for new projects.
 package setup
 
 import (

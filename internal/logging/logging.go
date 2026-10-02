@@ -1,5 +1,3 @@
-// Package logging provides structured logging with file rotation for nightshift.
-// Supports JSON and text formats with date-based log file naming.
 package logging
 
 import (

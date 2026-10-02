@@ -1,5 +1,3 @@
-// Package budget implements token budget calculation and allocation for nightshift.
-// Supports daily and weekly modes with reserve and aggressive end-of-week options.
 package budget
 
 import (

@@ -1,5 +1,3 @@
-// Package projects handles multi-project discovery, resolution, and budget allocation.
-// Supports explicit project paths, glob patterns, and priority-based budget splitting.
 package projects
 
 import (

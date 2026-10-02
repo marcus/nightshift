@@ -1,5 +1,3 @@
-// Package scheduler handles time-based job scheduling.
-// Supports cron expressions, intervals, and time window constraints.
 package scheduler
 
 import (
