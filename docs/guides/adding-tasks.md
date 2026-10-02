@@ -25,14 +25,25 @@ TaskMyNewTask: {
     Type:            TaskMyNewTask,
     Category:        CategoryPR,       // See categories below
     Name:            "My New Task",
-    Description:     "What the agent should do, written as instructions",
+    Description:     "Short summary shown in task lists",
+    AgentInstructions: `Optional richer instructions for the agent.
+Use this when the CLI summary should stay concise but the prompt
+needs more concrete scope or guardrails.`,
     CostTier:        CostMedium,       // Estimated token usage
     RiskLevel:       RiskLow,          // Risk of unintended changes
     DefaultInterval: 72 * time.Hour,   // Minimum time between runs per project
 },
 ```
 
-The `Description` field is what the agent sees as its task instructions. Write it as a clear directive.
+Use `Description` for the concise user-facing summary shown in task lists, previews, and JSON metadata. Add `AgentInstructions` when the agent needs richer directions; if it is omitted, Nightshift falls back to `Description`.
+
+`commit-normalize` is the reference example for this split: it stays a short "Standardize commit message format" entry in the catalog, while the agent prompt makes the scope explicit:
+
+- treat it as a PR task for future commit-message consistency
+- inspect existing repo conventions before choosing a format
+- avoid rewriting published history
+- preserve Nightshift's required commit trailers
+- prefer small, explainable enforcement or documentation changes
 
 ### Step 3: Update the Completeness Test
 
@@ -115,7 +126,7 @@ tasks:
 
 ### How It Works
 
-Custom tasks register into the same task registry as built-in tasks. They participate in the same scoring, cooldown, budget filtering, and plan-implement-review orchestration cycle. The `description` field becomes the agent's task prompt.
+Custom tasks register into the same task registry as built-in tasks. They participate in the same scoring, cooldown, budget filtering, and plan-implement-review orchestration cycle. For custom tasks, the `description` field still becomes the agent's task prompt.
 
 Custom tasks appear in `nightshift task list` with a `[custom]` label and in JSON output with a `"custom": true` field.
 
@@ -134,7 +145,8 @@ tasks:
 
 ### Tips
 
-- Write descriptions as direct instructions to the agent — they become the task prompt
+- For built-in tasks, keep `Description` short and add `AgentInstructions` only when the agent needs extra guardrails
+- For custom tasks, write `description` as direct instructions to the agent — it becomes the task prompt
 - Use `nightshift preview --explain` to verify custom tasks appear in the run plan
 - Run `nightshift run --task my-custom-type --dry-run` to test a specific custom task
 - Custom task types must not match any built-in task name

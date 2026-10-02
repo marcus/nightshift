@@ -307,11 +307,12 @@ func taskInstanceFromDef(def tasks.TaskDefinition, projectPath string) *tasks.Ta
 		id = fmt.Sprintf("%s:%s", def.Type, projectPath)
 	}
 	return &tasks.Task{
-		ID:          id,
-		Title:       def.Name,
-		Description: def.Description,
-		Priority:    0,
-		Type:        def.Type,
+		ID:                id,
+		Title:             def.Name,
+		Description:       def.Description,
+		AgentInstructions: def.PromptText(),
+		Priority:          0,
+		Type:              def.Type,
 	}
 }
 
