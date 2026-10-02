@@ -347,10 +347,15 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 168 * time.Hour,
 	},
 	TaskReleaseNotes: {
-		Type:            TaskReleaseNotes,
-		Category:        CategoryPR,
-		Name:            "Release Note Drafter",
-		Description:     "Draft release notes from changes",
+		Type:     TaskReleaseNotes,
+		Category: CategoryPR,
+		Name:     "Release Note Drafter",
+		Description: `Draft release notes by analyzing git history between tags. ` +
+			`Run 'nightshift release-notes' to inspect the latest tag range, then review ` +
+			`the generated markdown for accuracy. Group commits by category (features, fixes, ` +
+			`security, performance, etc.) using conventional-commit prefixes. Highlight breaking ` +
+			`changes prominently. Update or create a RELEASE_NOTES.md (or the project's preferred ` +
+			`release notes file) and open a PR with the draft.`,
 		CostTier:        CostLow,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 168 * time.Hour,
