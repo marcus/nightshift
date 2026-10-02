@@ -54,3 +54,4 @@ go test ./...
 - **Style**: Standard Go (gofmt, govet). No magic, explicit is better.
 - **Errors**: Wrap with context, don't swallow.
 - **Tests**: Table-driven, in `_test.go` files alongside code.
+- **Commit messages**: Conventional Commits (`<type>(<scope>)?: <description>`), types: `feat, fix, chore, docs, refactor, perf, ci, test, build, style`. Run `make install-hooks` to enforce this locally via `scripts/commit-msg.sh`.
