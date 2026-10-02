@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -414,7 +415,7 @@ func formatK(tokens int) string {
 	if tokens >= 1_000 {
 		return fmt.Sprintf("%dk", tokens/1_000)
 	}
-	return fmt.Sprintf("%d", tokens)
+	return strconv.Itoa(tokens)
 }
 
 // --- JSON output ---

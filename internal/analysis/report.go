@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -128,10 +129,10 @@ func (rg *ReportGenerator) RenderMarkdown(report *Report) string {
 		buf.WriteString("## Recommendations\n\n")
 		for _, rec := range report.Recommendations {
 			// Check if this is a priority item (starts with risk level keywords)
-			isHighPriority := len(rec) > 0 && (bytes.HasPrefix([]byte(rec), []byte("GOOD")) ||
-				bytes.HasPrefix([]byte(rec), []byte("HIGH")) ||
-				bytes.HasPrefix([]byte(rec), []byte("CRITICAL")) ||
-				bytes.HasPrefix([]byte(rec), []byte("MEDIUM")))
+			isHighPriority := len(rec) > 0 && (strings.HasPrefix(rec, "GOOD") ||
+				strings.HasPrefix(rec, "HIGH") ||
+				strings.HasPrefix(rec, "CRITICAL") ||
+				strings.HasPrefix(rec, "MEDIUM"))
 
 			if isHighPriority {
 				// High priority items

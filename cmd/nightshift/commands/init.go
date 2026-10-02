@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ANSI color codes for terminal output
+// ANSI color codes for terminal output.
 const (
 	colorReset  = "\033[0m"
 	colorGreen  = "\033[32m"
