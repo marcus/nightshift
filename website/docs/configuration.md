@@ -30,6 +30,7 @@ providers:
   preference:
     - claude
     - codex
+    - copilot
   claude:
     enabled: true
     data_path: "~/.claude"
@@ -38,6 +39,10 @@ providers:
     enabled: true
     data_path: "~/.codex"
     dangerously_bypass_approvals_and_sandbox: true
+  copilot:
+    enabled: true
+    data_path: "~/.copilot"
+    dangerously_skip_permissions: false
 
 projects:
   - path: ~/code/sidecar
@@ -127,4 +132,6 @@ If `state/state.json` exists from older versions, Nightshift migrates it to the 
 
 ## Providers
 
-Nightshift supports Claude Code and Codex as execution providers. It will use whichever has budget remaining, in the order specified by `preference`.
+Nightshift supports Claude Code, Codex, and GitHub Copilot as execution providers. It will use whichever has budget remaining, in the order specified by `preference`.
+
+For the full root-level configuration reference, see `docs/SPEC.md`. For Copilot-specific setup, see `docs/COPILOT_INTEGRATION.md`.
