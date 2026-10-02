@@ -258,31 +258,6 @@ func (l *AuditLogger) Close() error {
 	return nil
 }
 
-// RotateIfNeeded checks if the log file needs rotation (new day).
-func (l *AuditLogger) RotateIfNeeded() error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	expectedFilename := fmt.Sprintf("audit-%s.jsonl", time.Now().Format("2006-01-02"))
-	expectedPath := filepath.Join(l.logDir, expectedFilename)
-
-	if l.file != nil {
-		currentPath := l.file.Name()
-		if currentPath == expectedPath {
-			// No rotation needed
-			return nil
-		}
-
-		// Close old file
-		if err := l.file.Close(); err != nil {
-			return fmt.Errorf("closing old audit log: %w", err)
-		}
-	}
-
-	// Open new file
-	return l.openLogFile()
-}
-
 // GetLogFiles returns a list of all audit log files.
 func (l *AuditLogger) GetLogFiles() ([]string, error) {
 	entries, err := os.ReadDir(l.logDir)

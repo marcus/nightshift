@@ -27,13 +27,6 @@ func (ExecRunner) Run(ctx context.Context, name string, args ...string) ([]byte,
 // SessionOption configures a tmux Session.
 type SessionOption func(*Session)
 
-// WithWorkDir sets the session working directory.
-func WithWorkDir(dir string) SessionOption {
-	return func(s *Session) {
-		s.workDir = dir
-	}
-}
-
 // WithSize sets the session pane size.
 func WithSize(width, height int) SessionOption {
 	return func(s *Session) {

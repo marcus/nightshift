@@ -983,25 +983,3 @@ type Task struct {
 	Type        TaskType // Optional: links to a TaskDefinition
 	// TODO: Add more fields (labels, assignee, source, etc.)
 }
-
-// Queue holds tasks to be processed.
-type Queue struct {
-	// TODO: Add fields
-}
-
-// NewQueue creates an empty task queue.
-func NewQueue() *Queue {
-	// TODO: Implement
-	return &Queue{}
-}
-
-// Add queues a task.
-func (q *Queue) Add(t Task) {
-	// TODO: Implement
-}
-
-// Next returns the highest priority task.
-func (q *Queue) Next() *Task {
-	// TODO: Implement
-	return nil
-}

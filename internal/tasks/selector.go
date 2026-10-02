@@ -169,11 +169,6 @@ func (s *Selector) AddSimulatedCooldown(taskType string, project string) {
 	s.simulatedCooldowns[makeTaskID(taskType, project)] = true
 }
 
-// ClearSimulatedCooldowns removes all simulated cooldowns.
-func (s *Selector) ClearSimulatedCooldowns() {
-	s.simulatedCooldowns = nil
-}
-
 // HasSimulatedCooldown returns whether a task+project has a simulated cooldown.
 func (s *Selector) HasSimulatedCooldown(taskType string, project string) bool {
 	if s.simulatedCooldowns == nil {

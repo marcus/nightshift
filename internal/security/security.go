@@ -137,16 +137,6 @@ func (m *Manager) ValidateBudgetSpend(currentPercent int) error {
 	return nil
 }
 
-// Credentials returns the credential manager.
-func (m *Manager) Credentials() *CredentialManager {
-	return m.credentials
-}
-
-// Audit returns the audit logger.
-func (m *Manager) Audit() *AuditLogger {
-	return m.audit
-}
-
 // Config returns current security config.
 func (m *Manager) Config() Config {
 	m.mu.RLock()
@@ -173,35 +163,6 @@ func (m *Manager) Close() error {
 	if m.audit != nil {
 		return m.audit.Close()
 	}
-	return nil
-}
-
-// CheckPreExecution validates all safety checks before agent execution.
-func (m *Manager) CheckPreExecution(op Operation) error {
-	// Log operation attempt
-	if m.audit != nil {
-		_ = m.audit.LogOperation(op)
-	}
-
-	// Check credentials
-	if err := m.credentials.ValidateRequired(); err != nil {
-		return fmt.Errorf("credential check failed: %w", err)
-	}
-
-	// Check write access for write operations
-	if op.Type == OpFileWrite || op.Type == OpGitCommit {
-		if err := m.ValidateWriteAccess(); err != nil {
-			return err
-		}
-	}
-
-	// Check git push permission
-	if op.Type == OpGitPush {
-		if err := m.ValidateGitPush(); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 

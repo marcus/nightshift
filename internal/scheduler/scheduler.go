@@ -472,13 +472,3 @@ func (s *Scheduler) ScheduleInterval(d time.Duration, job func()) error {
 	})
 	return nil
 }
-
-// Schedule adds a one-time job to run at the specified time.
-func (s *Scheduler) Schedule(at time.Time, job func()) {
-	s.AddJob(func(ctx context.Context) error {
-		if time.Now().After(at) {
-			job()
-		}
-		return nil
-	})
-}
