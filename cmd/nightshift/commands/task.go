@@ -11,12 +11,24 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/marcus/nightshift/internal/config"
 	"github.com/marcus/nightshift/internal/logging"
 	"github.com/marcus/nightshift/internal/orchestrator"
 	"github.com/marcus/nightshift/internal/security"
 	"github.com/marcus/nightshift/internal/tasks"
 	"github.com/spf13/cobra"
 )
+
+// registerCustomTasks loads config and registers any user-defined custom tasks
+// so they appear in task list/show/run. Mirrors the registration in run.go.
+func registerCustomTasks() {
+	cfg, err := config.Load()
+	if err != nil {
+		return
+	}
+	tasks.ClearCustom()
+	_ = tasks.RegisterCustomTasksFromConfig(cfg.Tasks.Custom)
+}
 
 var taskCmd = &cobra.Command{
 	Use:   "task",
@@ -80,6 +92,8 @@ func init() {
 }
 
 func runTaskList(cmd *cobra.Command, args []string) error {
+	registerCustomTasks()
+
 	categoryFilter, _ := cmd.Flags().GetString("category")
 	costFilter, _ := cmd.Flags().GetString("cost")
 	asJSON, _ := cmd.Flags().GetBool("json")
@@ -134,6 +148,8 @@ func runTaskList(cmd *cobra.Command, args []string) error {
 }
 
 func runTaskShow(cmd *cobra.Command, args []string) error {
+	registerCustomTasks()
+
 	taskType := tasks.TaskType(args[0])
 	promptOnly, _ := cmd.Flags().GetBool("prompt-only")
 	asJSON, _ := cmd.Flags().GetBool("json")
@@ -177,6 +193,8 @@ func runTaskShow(cmd *cobra.Command, args []string) error {
 }
 
 func runTaskRun(cmd *cobra.Command, args []string) error {
+	registerCustomTasks()
+
 	taskType := tasks.TaskType(args[0])
 	provider, _ := cmd.Flags().GetString("provider")
 	projectPath, _ := cmd.Flags().GetString("project")
