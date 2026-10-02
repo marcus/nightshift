@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // TestBackwardCompat_OldConfigLoadsWithNewDefaults verifies that config files
@@ -331,6 +332,358 @@ budget:
 	}
 	if cfg.Budget.BillingMode != DefaultBillingMode {
 		t.Errorf("Budget.BillingMode = %q, want %q (default)", cfg.Budget.BillingMode, DefaultBillingMode)
+	}
+}
+
+// TestBackwardCompat_CopilotProviderConfig verifies that configs including
+// copilot provider settings (added in v0.3.2) load correctly alongside
+// older claude/codex settings.
+func TestBackwardCompat_CopilotProviderConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Config that includes all three providers (v0.3.2+ format)
+	configWithCopilot := `
+providers:
+  claude:
+    enabled: true
+    data_path: ~/.claude
+    dangerously_skip_permissions: false
+  codex:
+    enabled: true
+    data_path: ~/.codex
+    dangerously_bypass_approvals_and_sandbox: false
+  copilot:
+    enabled: true
+    data_path: ~/.copilot
+    dangerously_skip_permissions: false
+  preference:
+    - claude
+    - codex
+    - copilot
+`
+	configPath := filepath.Join(tmpDir, "nightshift.yaml")
+	if err := os.WriteFile(configPath, []byte(configWithCopilot), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadFromPaths(tmpDir, configPath)
+	if err != nil {
+		t.Fatalf("LoadFromPaths error: %v", err)
+	}
+
+	if !cfg.Providers.Copilot.Enabled {
+		t.Error("Copilot.Enabled should be true")
+	}
+	if cfg.Providers.Copilot.DataPath != "~/.copilot" {
+		t.Errorf("Copilot.DataPath = %q, want ~/.copilot", cfg.Providers.Copilot.DataPath)
+	}
+	if cfg.Providers.Copilot.DangerouslySkipPermissions {
+		t.Error("Copilot.DangerouslySkipPermissions should be false")
+	}
+	if len(cfg.Providers.Preference) != 3 {
+		t.Errorf("Providers.Preference length = %d, want 3", len(cfg.Providers.Preference))
+	}
+}
+
+// TestBackwardCompat_PreCopilotConfigStillWorks verifies that configs from
+// before v0.3.2 (that don't mention copilot at all) still load correctly
+// and get appropriate defaults for the copilot provider.
+func TestBackwardCompat_PreCopilotConfigStillWorks(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Config from before copilot was added — no copilot section at all
+	oldConfig := `
+providers:
+  claude:
+    enabled: true
+    data_path: ~/.claude
+  codex:
+    enabled: true
+    data_path: ~/.codex
+budget:
+  mode: daily
+`
+	configPath := filepath.Join(tmpDir, "nightshift.yaml")
+	if err := os.WriteFile(configPath, []byte(oldConfig), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadFromPaths(tmpDir, configPath)
+	if err != nil {
+		t.Fatalf("LoadFromPaths error: %v", err)
+	}
+
+	// Copilot should get defaults even when not mentioned in config
+	if !cfg.Providers.Copilot.Enabled {
+		t.Error("Copilot.Enabled should default to true")
+	}
+	if cfg.Providers.Copilot.DangerouslySkipPermissions {
+		t.Error("Copilot.DangerouslySkipPermissions should default to false")
+	}
+}
+
+// TestBackwardCompat_ConfigFieldsStable verifies that all expected fields
+// exist on the Config struct by constructing a full config. A compilation
+// failure here means a field was removed or renamed.
+func TestBackwardCompat_ConfigFieldsStable(t *testing.T) {
+	// This test verifies the Config struct shape via compilation.
+	// If any field is removed or renamed, this won't compile.
+	cfg := Config{
+		Schedule: ScheduleConfig{
+			Cron:        "0 2 * * *",
+			Interval:    "",
+			Window:      nil,
+			MaxProjects: 3,
+			MaxTasks:    2,
+		},
+		Budget: BudgetConfig{
+			Mode:                  "daily",
+			MaxPercent:            75,
+			AggressiveEndOfWeek:   true,
+			ReservePercent:        5,
+			WeeklyTokens:          700000,
+			PerProvider:           map[string]int{"claude": 500000},
+			BillingMode:           "subscription",
+			CalibrateEnabled:      true,
+			SnapshotInterval:      "30m",
+			SnapshotRetentionDays: 90,
+			WeekStartDay:          "monday",
+			DBPath:                "/tmp/test.db",
+		},
+		Providers: ProvidersConfig{
+			Claude: ProviderConfig{
+				Enabled:                              true,
+				DataPath:                             "~/.claude",
+				DangerouslySkipPermissions:           false,
+				DangerouslyBypassApprovalsAndSandbox: false,
+			},
+			Codex: ProviderConfig{
+				Enabled:  true,
+				DataPath: "~/.codex",
+			},
+			Copilot: ProviderConfig{
+				Enabled:  true,
+				DataPath: "~/.copilot",
+			},
+			Preference: []string{"claude", "codex", "copilot"},
+		},
+		Projects: []ProjectConfig{
+			{
+				Path:     "/tmp/project",
+				Priority: 1,
+				Tasks:    []string{"lint-fix"},
+				Config:   "",
+				Pattern:  "",
+				Exclude:  nil,
+			},
+		},
+		Tasks: TasksConfig{
+			Enabled:    []string{"lint-fix"},
+			Priorities: map[string]int{"lint-fix": 1},
+			Disabled:   nil,
+			Intervals:  map[string]string{"lint-fix": "24h"},
+			Custom: []CustomTaskConfig{
+				{
+					Type:        "my-task",
+					Name:        "My Task",
+					Description: "test",
+					Category:    "pr",
+					CostTier:    "low",
+					RiskLevel:   "low",
+					Interval:    "48h",
+				},
+			},
+		},
+		Integrations: IntegrationsConfig{
+			ClaudeMD: true,
+			AgentsMD: true,
+			TaskSources: []TaskSourceEntry{
+				{GithubIssues: true},
+			},
+		},
+		Logging: LoggingConfig{
+			Level:  "info",
+			Path:   "/tmp/logs",
+			Format: "json",
+		},
+		Reporting: ReportingConfig{
+			MorningSummary: true,
+		},
+	}
+
+	// Sanity check that it validates
+	if err := Validate(&cfg); err != nil {
+		t.Fatalf("Full config validation failed: %v", err)
+	}
+}
+
+// TestBackwardCompat_DefaultConstants verifies that default constant values
+// haven't changed, since they affect behavior for users with minimal configs.
+func TestBackwardCompat_DefaultConstants(t *testing.T) {
+	checks := []struct {
+		name string
+		got  interface{}
+		want interface{}
+	}{
+		{"DefaultBudgetMode", DefaultBudgetMode, "daily"},
+		{"DefaultMaxPercent", DefaultMaxPercent, 75},
+		{"DefaultReservePercent", DefaultReservePercent, 5},
+		{"DefaultWeeklyTokens", DefaultWeeklyTokens, 700000},
+		{"DefaultBillingMode", DefaultBillingMode, "subscription"},
+		{"DefaultSnapshotInterval", DefaultSnapshotInterval, "30m"},
+		{"DefaultSnapshotRetention", DefaultSnapshotRetention, 90},
+		{"DefaultWeekStartDay", DefaultWeekStartDay, "monday"},
+		{"DefaultLogLevel", DefaultLogLevel, "info"},
+		{"DefaultLogFormat", DefaultLogFormat, "json"},
+		{"DefaultClaudeDataPath", DefaultClaudeDataPath, "~/.claude"},
+		{"DefaultCodexDataPath", DefaultCodexDataPath, "~/.codex"},
+		{"DefaultCopilotDataPath", DefaultCopilotDataPath, "~/.copilot"},
+		{"ProjectConfigName", ProjectConfigName, "nightshift.yaml"},
+	}
+
+	for _, c := range checks {
+		if c.got != c.want {
+			t.Errorf("%s = %v, want %v — changing defaults breaks existing minimal configs",
+				c.name, c.got, c.want)
+		}
+	}
+}
+
+// TestBackwardCompat_CustomTaskValidation verifies that custom task
+// validation rules are stable.
+func TestBackwardCompat_CustomTaskValidation(t *testing.T) {
+	// Valid custom task must pass
+	validCfg := &Config{
+		Tasks: TasksConfig{
+			Custom: []CustomTaskConfig{
+				{
+					Type:        "my-review",
+					Name:        "My Review",
+					Description: "Custom review task",
+					Category:    "pr",
+					CostTier:    "medium",
+					RiskLevel:   "low",
+					Interval:    "48h",
+				},
+			},
+		},
+	}
+	if err := Validate(validCfg); err != nil {
+		t.Errorf("Valid custom task should pass: %v", err)
+	}
+
+	// Invalid category must fail
+	invalidCat := &Config{
+		Tasks: TasksConfig{
+			Custom: []CustomTaskConfig{
+				{Type: "test", Name: "Test", Description: "test", Category: "invalid"},
+			},
+		},
+	}
+	if err := Validate(invalidCat); err == nil {
+		t.Error("Invalid category should fail validation")
+	}
+
+	// Missing required fields must fail
+	missingType := &Config{
+		Tasks: TasksConfig{
+			Custom: []CustomTaskConfig{
+				{Name: "Test", Description: "test"},
+			},
+		},
+	}
+	if err := Validate(missingType); err == nil {
+		t.Error("Missing type should fail validation")
+	}
+}
+
+// TestBackwardCompat_HelperMethodsStable verifies that Config helper
+// methods work as expected with various inputs.
+func TestBackwardCompat_HelperMethodsStable(t *testing.T) {
+	cfg := &Config{
+		Budget: BudgetConfig{
+			WeeklyTokens: 700000,
+			PerProvider:   map[string]int{"claude": 500000},
+		},
+		Tasks: TasksConfig{
+			Enabled:    []string{"lint-fix", "bug-finder"},
+			Disabled:   []string{"dead-code"},
+			Priorities: map[string]int{"lint-fix": 10},
+			Intervals:  map[string]string{"lint-fix": "24h"},
+		},
+	}
+
+	// GetProviderBudget: per-provider override
+	if got := cfg.GetProviderBudget("claude"); got != 500000 {
+		t.Errorf("GetProviderBudget(claude) = %d, want 500000", got)
+	}
+	// GetProviderBudget: fallback to default
+	if got := cfg.GetProviderBudget("codex"); got != 700000 {
+		t.Errorf("GetProviderBudget(codex) = %d, want 700000", got)
+	}
+
+	// IsTaskEnabled: in enabled list
+	if !cfg.IsTaskEnabled("lint-fix") {
+		t.Error("lint-fix should be enabled")
+	}
+	// IsTaskEnabled: not in enabled list
+	if cfg.IsTaskEnabled("perf-profile") {
+		t.Error("perf-profile should not be enabled (not in list)")
+	}
+	// IsTaskEnabled: explicitly disabled
+	if cfg.IsTaskEnabled("dead-code") {
+		t.Error("dead-code should be disabled")
+	}
+
+	// GetTaskPriority
+	if got := cfg.GetTaskPriority("lint-fix"); got != 10 {
+		t.Errorf("GetTaskPriority(lint-fix) = %d, want 10", got)
+	}
+	if got := cfg.GetTaskPriority("unknown"); got != 0 {
+		t.Errorf("GetTaskPriority(unknown) = %d, want 0", got)
+	}
+
+	// GetTaskInterval
+	if got := cfg.GetTaskInterval("lint-fix"); got != 24*time.Hour {
+		t.Errorf("GetTaskInterval(lint-fix) = %v, want 24h", got)
+	}
+	if got := cfg.GetTaskInterval("unknown"); got != 0 {
+		t.Errorf("GetTaskInterval(unknown) = %v, want 0", got)
+	}
+}
+
+// TestBackwardCompat_ValidationErrorsStable verifies that validation
+// error sentinel values haven't changed.
+func TestBackwardCompat_ValidationErrorsStable(t *testing.T) {
+	// These error values are part of the public API since users may
+	// check for specific validation errors.
+	errors := []struct {
+		name string
+		err  error
+	}{
+		{"ErrCronAndInterval", ErrCronAndInterval},
+		{"ErrInvalidBudgetMode", ErrInvalidBudgetMode},
+		{"ErrInvalidBillingMode", ErrInvalidBillingMode},
+		{"ErrInvalidWeekStartDay", ErrInvalidWeekStartDay},
+		{"ErrInvalidMaxPercent", ErrInvalidMaxPercent},
+		{"ErrInvalidReservePercent", ErrInvalidReservePercent},
+		{"ErrInvalidSnapshotRetention", ErrInvalidSnapshotRetention},
+		{"ErrInvalidLogLevel", ErrInvalidLogLevel},
+		{"ErrInvalidLogFormat", ErrInvalidLogFormat},
+		{"ErrCustomTaskMissingType", ErrCustomTaskMissingType},
+		{"ErrCustomTaskMissingName", ErrCustomTaskMissingName},
+		{"ErrCustomTaskMissingDescription", ErrCustomTaskMissingDescription},
+		{"ErrCustomTaskInvalidType", ErrCustomTaskInvalidType},
+		{"ErrCustomTaskInvalidCategory", ErrCustomTaskInvalidCategory},
+		{"ErrCustomTaskInvalidCostTier", ErrCustomTaskInvalidCostTier},
+		{"ErrCustomTaskInvalidRiskLevel", ErrCustomTaskInvalidRiskLevel},
+		{"ErrCustomTaskDuplicateType", ErrCustomTaskDuplicateType},
+	}
+
+	for _, e := range errors {
+		if e.err == nil {
+			t.Errorf("%s is nil — sentinel errors must not be removed", e.name)
+		}
 	}
 }
 
