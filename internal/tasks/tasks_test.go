@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -240,6 +241,42 @@ func TestTaskDefinitionEstimatedTokens(t *testing.T) {
 	min, max := def.EstimatedTokens()
 	if min != 10_000 || max != 50_000 {
 		t.Errorf("TaskDefinition.EstimatedTokens() = (%d, %d), want (10000, 50000)", min, max)
+	}
+}
+
+func TestCommitNormalizeDefinition(t *testing.T) {
+	def, err := GetDefinition(TaskCommitNormalize)
+	if err != nil {
+		t.Fatalf("GetDefinition(TaskCommitNormalize) error: %v", err)
+	}
+
+	if def.Type != TaskCommitNormalize {
+		t.Errorf("Type = %q, want %q", def.Type, TaskCommitNormalize)
+	}
+	if def.Category != CategoryPR {
+		t.Errorf("Category = %d, want %d", def.Category, CategoryPR)
+	}
+	if def.CostTier != CostLow {
+		t.Errorf("CostTier = %d, want %d", def.CostTier, CostLow)
+	}
+	if def.RiskLevel != RiskLow {
+		t.Errorf("RiskLevel = %d, want %d", def.RiskLevel, RiskLow)
+	}
+	if def.DefaultInterval != 24*time.Hour {
+		t.Errorf("DefaultInterval = %v, want 24h", def.DefaultInterval)
+	}
+
+	requiredText := []string{
+		"existing commit convention",
+		"document or enforce",
+		"lightweight repo-local configuration",
+		"Avoid rewriting published history",
+		"only normalize recent local commit messages when it is safe",
+	}
+	for _, text := range requiredText {
+		if !strings.Contains(def.Description, text) {
+			t.Errorf("Description missing %q: %q", text, def.Description)
+		}
 	}
 }
 
