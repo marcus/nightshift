@@ -6,12 +6,18 @@ import "time"
 type EventType int
 
 const (
-	EventTaskStart      EventType = iota // task execution begins
-	EventPhaseStart                      // entering a phase (plan/implement/review)
-	EventPhaseEnd                        // phase completed
-	EventIterationStart                  // new iteration of the implement-review loop
-	EventLog                             // internal log message
-	EventTaskEnd                         // task execution finished
+	// EventTaskStart indicates that task execution has begun.
+	EventTaskStart EventType = iota
+	// EventPhaseStart indicates entry into a phase (plan/implement/review).
+	EventPhaseStart
+	// EventPhaseEnd indicates that a phase has completed.
+	EventPhaseEnd
+	// EventIterationStart indicates a new iteration of the implement-review loop.
+	EventIterationStart
+	// EventLog carries an internal log message.
+	EventLog
+	// EventTaskEnd indicates that task execution has finished.
+	EventTaskEnd
 )
 
 // Event carries data about an orchestrator lifecycle event.

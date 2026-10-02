@@ -1,3 +1,6 @@
+// Command provider-calibration analyzes local AI provider session logs
+// (Claude and Codex) to estimate token usage and recommend a billing-mode
+// calibration for nightshift's budget accounting.
 package main
 
 import (

@@ -15,19 +15,32 @@ import (
 type AuditEventType string
 
 const (
-	AuditAgentStart     AuditEventType = "agent_start"
-	AuditAgentComplete  AuditEventType = "agent_complete"
-	AuditAgentError     AuditEventType = "agent_error"
-	AuditFileRead       AuditEventType = "file_read"
-	AuditFileWrite      AuditEventType = "file_write"
-	AuditFileDelete     AuditEventType = "file_delete"
-	AuditGitCommit      AuditEventType = "git_commit"
-	AuditGitPush        AuditEventType = "git_push"
-	AuditGitOperation   AuditEventType = "git_operation"
-	AuditSecurityCheck  AuditEventType = "security_check"
+	// AuditAgentStart records that an agent invocation has started.
+	AuditAgentStart AuditEventType = "agent_start"
+	// AuditAgentComplete records that an agent invocation completed successfully.
+	AuditAgentComplete AuditEventType = "agent_complete"
+	// AuditAgentError records that an agent invocation failed.
+	AuditAgentError AuditEventType = "agent_error"
+	// AuditFileRead records a file read operation.
+	AuditFileRead AuditEventType = "file_read"
+	// AuditFileWrite records a file write operation.
+	AuditFileWrite AuditEventType = "file_write"
+	// AuditFileDelete records a file deletion operation.
+	AuditFileDelete AuditEventType = "file_delete"
+	// AuditGitCommit records a git commit operation.
+	AuditGitCommit AuditEventType = "git_commit"
+	// AuditGitPush records a git push operation.
+	AuditGitPush AuditEventType = "git_push"
+	// AuditGitOperation records a generic git operation.
+	AuditGitOperation AuditEventType = "git_operation"
+	// AuditSecurityCheck records a security pre-execution check.
+	AuditSecurityCheck AuditEventType = "security_check"
+	// AuditSecurityDenied records that a security check denied an operation.
 	AuditSecurityDenied AuditEventType = "security_denied"
-	AuditConfigChange   AuditEventType = "config_change"
-	AuditBudgetCheck    AuditEventType = "budget_check"
+	// AuditConfigChange records a configuration change.
+	AuditConfigChange AuditEventType = "config_change"
+	// AuditBudgetCheck records a budget spend check.
+	AuditBudgetCheck AuditEventType = "budget_check"
 )
 
 // AuditEvent represents a single audit log entry.

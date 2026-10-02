@@ -13,15 +13,21 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-// Errors for scheduler operations.
 var (
-	ErrInvalidCron     = errors.New("invalid cron expression")
+	// ErrInvalidCron is returned when a cron expression is malformed.
+	ErrInvalidCron = errors.New("invalid cron expression")
+	// ErrInvalidInterval is returned when an interval duration is invalid.
 	ErrInvalidInterval = errors.New("invalid interval duration")
-	ErrInvalidWindow   = errors.New("invalid time window")
+	// ErrInvalidWindow is returned when a time window constraint is invalid.
+	ErrInvalidWindow = errors.New("invalid time window")
+	// ErrInvalidTimezone is returned when a timezone cannot be resolved.
 	ErrInvalidTimezone = errors.New("invalid timezone")
-	ErrNoSchedule      = errors.New("no schedule configured (need cron or interval)")
-	ErrAlreadyRunning  = errors.New("scheduler already running")
-	ErrNotRunning      = errors.New("scheduler not running")
+	// ErrNoSchedule is returned when neither a cron expression nor an interval is configured.
+	ErrNoSchedule = errors.New("no schedule configured (need cron or interval)")
+	// ErrAlreadyRunning is returned when starting a scheduler that is already running.
+	ErrAlreadyRunning = errors.New("scheduler already running")
+	// ErrNotRunning is returned when stopping a scheduler that is not running.
+	ErrNotRunning = errors.New("scheduler not running")
 )
 
 // Job is a function to execute on schedule.

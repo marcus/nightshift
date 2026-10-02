@@ -12,11 +12,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Service type constants
 const (
+	// ServiceLaunchd selects the macOS launchd init system.
 	ServiceLaunchd = "launchd"
+	// ServiceSystemd selects the systemd init system (Linux).
 	ServiceSystemd = "systemd"
-	ServiceCron    = "cron"
+	// ServiceCron selects a cron-based schedule.
+	ServiceCron = "cron"
 )
 
 // File paths for installed services

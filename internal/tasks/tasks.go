@@ -13,10 +13,14 @@ import (
 type CostTier int
 
 const (
-	CostLow      CostTier = iota // 10-50k tokens
-	CostMedium                   // 50-150k tokens
-	CostHigh                     // 150-500k tokens
-	CostVeryHigh                 // 500k+ tokens
+	// CostLow is the lowest cost tier, roughly 10-50k tokens.
+	CostLow CostTier = iota
+	// CostMedium is a moderate cost tier, roughly 50-150k tokens.
+	CostMedium
+	// CostHigh is a high cost tier, roughly 150-500k tokens.
+	CostHigh
+	// CostVeryHigh is the highest cost tier, roughly 500k+ tokens.
+	CostVeryHigh
 )
 
 // String returns a human-readable label for the cost tier.
@@ -55,8 +59,11 @@ func (c CostTier) TokenRange() (min, max int) {
 type RiskLevel int
 
 const (
+	// RiskLow indicates a task with minimal blast radius.
 	RiskLow RiskLevel = iota
+	// RiskMedium indicates a task with moderate risk requiring review.
 	RiskMedium
+	// RiskHigh indicates a task with significant risk of side effects.
 	RiskHigh
 )
 
@@ -128,84 +135,143 @@ type TaskType string
 
 // Category 1: "It's done - here's the PR"
 const (
-	TaskLintFix           TaskType = "lint-fix"
-	TaskBugFinder         TaskType = "bug-finder"
-	TaskAutoDRY           TaskType = "auto-dry"
-	TaskSkillGroom        TaskType = "skill-groom"
+	// TaskLintFix is the task type for linter fixes.
+	TaskLintFix TaskType = "lint-fix"
+	// TaskBugFinder is the task type for the bug finder and fixer.
+	TaskBugFinder TaskType = "bug-finder"
+	// TaskAutoDRY is the task type for automatic DRY refactoring.
+	TaskAutoDRY TaskType = "auto-dry"
+	// TaskSkillGroom is the task type for grooming project-local agent skills.
+	TaskSkillGroom TaskType = "skill-groom"
+	// TaskAPIContractVerify is the task type for API contract verification.
 	TaskAPIContractVerify TaskType = "api-contract-verify"
-	TaskBackwardCompat    TaskType = "backward-compat"
-	TaskBuildOptimize     TaskType = "build-optimize"
-	TaskDocsBackfill      TaskType = "docs-backfill"
-	TaskCommitNormalize   TaskType = "commit-normalize"
-	TaskChangelogSynth    TaskType = "changelog-synth"
-	TaskReleaseNotes      TaskType = "release-notes"
-	TaskADRDraft          TaskType = "adr-draft"
-	TaskTDReview          TaskType = "td-review"
+	// TaskBackwardCompat is the task type for backward-compatibility checks.
+	TaskBackwardCompat TaskType = "backward-compat"
+	// TaskBuildOptimize is the task type for build-time optimization.
+	TaskBuildOptimize TaskType = "build-optimize"
+	// TaskDocsBackfill is the task type for the documentation backfiller.
+	TaskDocsBackfill TaskType = "docs-backfill"
+	// TaskCommitNormalize is the task type for the commit message normalizer.
+	TaskCommitNormalize TaskType = "commit-normalize"
+	// TaskChangelogSynth is the task type for the changelog synthesizer.
+	TaskChangelogSynth TaskType = "changelog-synth"
+	// TaskReleaseNotes is the task type for the release note drafter.
+	TaskReleaseNotes TaskType = "release-notes"
+	// TaskADRDraft is the task type for the ADR drafter.
+	TaskADRDraft TaskType = "adr-draft"
+	// TaskTDReview is the task type for a td review session.
+	TaskTDReview TaskType = "td-review"
 )
 
 // Category 2: "Here's what I found"
 const (
-	TaskDocDrift        TaskType = "doc-drift"
-	TaskSemanticDiff    TaskType = "semantic-diff"
-	TaskDeadCode        TaskType = "dead-code"
-	TaskDependencyRisk  TaskType = "dependency-risk"
-	TaskTestGap         TaskType = "test-gap"
-	TaskTestFlakiness   TaskType = "test-flakiness"
-	TaskLoggingAudit    TaskType = "logging-audit"
+	// TaskDocDrift is the task type for the doc drift detector.
+	TaskDocDrift TaskType = "doc-drift"
+	// TaskSemanticDiff is the task type for the semantic diff explainer.
+	TaskSemanticDiff TaskType = "semantic-diff"
+	// TaskDeadCode is the task type for the dead code detector.
+	TaskDeadCode TaskType = "dead-code"
+	// TaskDependencyRisk is the task type for the dependency risk scanner.
+	TaskDependencyRisk TaskType = "dependency-risk"
+	// TaskTestGap is the task type for the test gap finder.
+	TaskTestGap TaskType = "test-gap"
+	// TaskTestFlakiness is the task type for the test flakiness analyzer.
+	TaskTestFlakiness TaskType = "test-flakiness"
+	// TaskLoggingAudit is the task type for the logging quality auditor.
+	TaskLoggingAudit TaskType = "logging-audit"
+	// TaskMetricsCoverage is the task type for the metrics coverage analyzer.
 	TaskMetricsCoverage TaskType = "metrics-coverage"
-	TaskPerfRegression  TaskType = "perf-regression"
+	// TaskPerfRegression is the task type for the performance regression spotter.
+	TaskPerfRegression TaskType = "perf-regression"
+	// TaskCostAttribution is the task type for the cost attribution estimator.
 	TaskCostAttribution TaskType = "cost-attribution"
+	// TaskSecurityFootgun is the task type for the security foot-gun finder.
 	TaskSecurityFootgun TaskType = "security-footgun"
-	TaskPIIScanner      TaskType = "pii-scanner"
-	TaskPrivacyPolicy   TaskType = "privacy-policy"
+	// TaskPIIScanner is the task type for the PII exposure scanner.
+	TaskPIIScanner TaskType = "pii-scanner"
+	// TaskPrivacyPolicy is the task type for the privacy policy consistency checker.
+	TaskPrivacyPolicy TaskType = "privacy-policy"
+	// TaskSchemaEvolution is the task type for the schema evolution advisor.
 	TaskSchemaEvolution TaskType = "schema-evolution"
-	TaskEventTaxonomy   TaskType = "event-taxonomy"
-	TaskRoadmapEntropy  TaskType = "roadmap-entropy"
-	TaskBusFactor       TaskType = "bus-factor"
-	TaskKnowledgeSilo   TaskType = "knowledge-silo"
+	// TaskEventTaxonomy is the task type for the event taxonomy normalizer.
+	TaskEventTaxonomy TaskType = "event-taxonomy"
+	// TaskRoadmapEntropy is the task type for the roadmap entropy detector.
+	TaskRoadmapEntropy TaskType = "roadmap-entropy"
+	// TaskBusFactor is the task type for the bus-factor analyzer.
+	TaskBusFactor TaskType = "bus-factor"
+	// TaskKnowledgeSilo is the task type for the knowledge silo detector.
+	TaskKnowledgeSilo TaskType = "knowledge-silo"
 )
 
 // Category 3: "Here are options"
 const (
-	TaskGroomer           TaskType = "task-groomer"
-	TaskGuideImprover     TaskType = "guide-improver"
-	TaskIdeaGenerator     TaskType = "idea-generator"
-	TaskTechDebtClassify  TaskType = "tech-debt-classify"
-	TaskWhyAnnotator      TaskType = "why-annotator"
-	TaskEdgeCaseEnum      TaskType = "edge-case-enum"
-	TaskErrorMsgImprove   TaskType = "error-msg-improve"
-	TaskSLOSuggester      TaskType = "slo-suggester"
-	TaskUXCopySharpener   TaskType = "ux-copy-sharpener"
-	TaskA11yLint          TaskType = "a11y-lint"
-	TaskServiceAdvisor    TaskType = "service-advisor"
+	// TaskGroomer is the task type for the task groomer.
+	TaskGroomer TaskType = "task-groomer"
+	// TaskGuideImprover is the task type for the guide and skill improver.
+	TaskGuideImprover TaskType = "guide-improver"
+	// TaskIdeaGenerator is the task type for the idea generator.
+	TaskIdeaGenerator TaskType = "idea-generator"
+	// TaskTechDebtClassify is the task type for the tech-debt classifier.
+	TaskTechDebtClassify TaskType = "tech-debt-classify"
+	// TaskWhyAnnotator is the task type for the "why does this exist" annotator.
+	TaskWhyAnnotator TaskType = "why-annotator"
+	// TaskEdgeCaseEnum is the task type for the edge-case enumerator.
+	TaskEdgeCaseEnum TaskType = "edge-case-enum"
+	// TaskErrorMsgImprove is the task type for the error-message improver.
+	TaskErrorMsgImprove TaskType = "error-msg-improve"
+	// TaskSLOSuggester is the task type for the SLO suggester.
+	TaskSLOSuggester TaskType = "slo-suggester"
+	// TaskUXCopySharpener is the task type for the UX copy sharpener.
+	TaskUXCopySharpener TaskType = "ux-copy-sharpener"
+	// TaskA11yLint is the task type for the accessibility linter.
+	TaskA11yLint TaskType = "a11y-lint"
+	// TaskServiceAdvisor is the task type for the service advisor.
+	TaskServiceAdvisor TaskType = "service-advisor"
+	// TaskOwnershipBoundary is the task type for the ownership boundary mapper.
 	TaskOwnershipBoundary TaskType = "ownership-boundary"
-	TaskOncallEstimator   TaskType = "oncall-estimator"
+	// TaskOncallEstimator is the task type for the oncall estimator.
+	TaskOncallEstimator TaskType = "oncall-estimator"
 )
 
 // Category 4: "I tried it safely"
 const (
+	// TaskMigrationRehearsal is the task type for the migration rehearsal runner.
 	TaskMigrationRehearsal TaskType = "migration-rehearsal"
-	TaskContractFuzzer     TaskType = "contract-fuzzer"
-	TaskGoldenPath         TaskType = "golden-path"
-	TaskPerfProfile        TaskType = "perf-profile"
-	TaskAllocationProfile  TaskType = "allocation-profile"
+	// TaskContractFuzzer is the task type for the integration contract fuzzer.
+	TaskContractFuzzer TaskType = "contract-fuzzer"
+	// TaskGoldenPath is the task type for the golden-path recorder.
+	TaskGoldenPath TaskType = "golden-path"
+	// TaskPerfProfile is the task type for performance profiling runs.
+	TaskPerfProfile TaskType = "perf-profile"
+	// TaskAllocationProfile is the task type for allocation and hot-path profiling.
+	TaskAllocationProfile TaskType = "allocation-profile"
 )
 
 // Category 5: "Here's the map"
 const (
+	// TaskVisibilityInstrument is the task type for the visibility instrumentor.
 	TaskVisibilityInstrument TaskType = "visibility-instrument"
-	TaskRepoTopology         TaskType = "repo-topology"
-	TaskPermissionsMapper    TaskType = "permissions-mapper"
-	TaskDataLifecycle        TaskType = "data-lifecycle"
-	TaskFeatureFlagMonitor   TaskType = "feature-flag-monitor"
-	TaskCISignalNoise        TaskType = "ci-signal-noise"
-	TaskHistoricalContext    TaskType = "historical-context"
+	// TaskRepoTopology is the task type for the repo topology visualizer.
+	TaskRepoTopology TaskType = "repo-topology"
+	// TaskPermissionsMapper is the task type for the permissions and auth surface mapper.
+	TaskPermissionsMapper TaskType = "permissions-mapper"
+	// TaskDataLifecycle is the task type for the data lifecycle tracer.
+	TaskDataLifecycle TaskType = "data-lifecycle"
+	// TaskFeatureFlagMonitor is the task type for the feature flag lifecycle monitor.
+	TaskFeatureFlagMonitor TaskType = "feature-flag-monitor"
+	// TaskCISignalNoise is the task type for the CI signal-to-noise scorer.
+	TaskCISignalNoise TaskType = "ci-signal-noise"
+	// TaskHistoricalContext is the task type for the historical context summarizer.
+	TaskHistoricalContext TaskType = "historical-context"
 )
 
 // Category 6: "For when things go sideways"
 const (
-	TaskRunbookGen    TaskType = "runbook-gen"
-	TaskRollbackPlan  TaskType = "rollback-plan"
+	// TaskRunbookGen is the task type for the runbook generator.
+	TaskRunbookGen TaskType = "runbook-gen"
+	// TaskRollbackPlan is the task type for the rollback plan generator.
+	TaskRollbackPlan TaskType = "rollback-plan"
+	// TaskPostmortemGen is the task type for the incident postmortem draft generator.
 	TaskPostmortemGen TaskType = "postmortem-gen"
 )
 

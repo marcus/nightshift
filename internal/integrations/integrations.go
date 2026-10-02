@@ -58,10 +58,14 @@ type Hint struct {
 type HintType int
 
 const (
-	HintTaskSuggestion HintType = iota // Suggested task to run
-	HintConvention                     // Coding convention
-	HintConstraint                     // Safety constraint
-	HintContext                        // Background context
+	// HintTaskSuggestion is a suggested task to run.
+	HintTaskSuggestion HintType = iota
+	// HintConvention is a coding convention extracted from configuration.
+	HintConvention
+	// HintConstraint is a safety constraint to honor.
+	HintConstraint
+	// HintContext is background context to include in prompts.
+	HintContext
 )
 
 // String returns the machine-readable name of the hint type.
