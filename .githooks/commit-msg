@@ -1,0 +1,24 @@
+#!/bin/sh
+# commit-msg hook — invoke the commit message normalizer.
+#
+# Enable for this repo:
+#   git config core.hooksPath .githooks
+# Or run: scripts/setup-hooks.sh
+
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+NORMALIZER="$REPO_ROOT/scripts/commit-normalizer.sh"
+
+if [ ! -x "$NORMALIZER" ]; then
+    echo "commit-msg: normalizer not executable at $NORMALIZER" >&2
+    echo "  fix: chmod +x scripts/commit-normalizer.sh" >&2
+    exit 1
+fi
+
+# Allow opt-out for emergencies: COMMIT_NORMALIZER=0 git commit ...
+if [ "${COMMIT_NORMALIZER:-1}" = "0" ]; then
+    exit 0
+fi
+
+exec "$NORMALIZER" "$1"

@@ -1,0 +1,36 @@
+# <type>(<scope>): <subject>   ── 72 chars or fewer; imperative mood
+#
+# Allowed types:
+#   feat      ── new feature
+#   fix       ── bug fix
+#   docs      ── documentation only
+#   style     ── formatting; no code change
+#   refactor  ── code change that neither fixes a bug nor adds a feature
+#   perf      ── performance improvement
+#   test      ── adding or correcting tests
+#   build     ── build system or dependency change
+#   ci        ── CI configuration change
+#   chore     ── housekeeping; no production code change
+#   revert    ── reverts a previous commit
+#
+# Scope is optional; use it for the affected area (e.g. parser, daemon).
+# Append `!` after the type/scope to mark a breaking change.
+#
+# Examples:
+#   feat(parser): allow optional trailing comma
+#   fix: handle empty config without panicking
+#   refactor(daemon)!: replace polling with channel-based notify
+#
+# ── Body ──────────────────────────────────────────────────────────────
+# Wrap at 72 chars. Explain *why* the change is needed; the diff already
+# shows *what* changed. Reference issues with `Fixes #123` or `Refs #45`.
+#
+#
+# ── Trailers ──────────────────────────────────────────────────────────
+# Use a single blank line before trailers. Common ones:
+#   Co-Authored-By: Name <email@example.com>
+#   Fixes: #123
+#   Refs: #45
+#   Signed-off-by: Name <email@example.com>
+#   Nightshift-Task: <task-id>
+#   Nightshift-Ref:  <task-url>

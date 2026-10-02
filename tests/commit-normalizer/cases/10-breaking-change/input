@@ -1,0 +1,3 @@
+refactor(daemon)!: replace polling with channel notify
+
+BREAKING CHANGE: --poll-interval is removed.
