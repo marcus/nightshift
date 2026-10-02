@@ -15,6 +15,10 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-isatty"
+	"github.com/muesli/termenv"
+	"github.com/spf13/cobra"
+
 	"github.com/marcus/nightshift/internal/agents"
 	"github.com/marcus/nightshift/internal/budget"
 	"github.com/marcus/nightshift/internal/calibrator"
@@ -27,9 +31,6 @@ import (
 	"github.com/marcus/nightshift/internal/state"
 	"github.com/marcus/nightshift/internal/tasks"
 	"github.com/marcus/nightshift/internal/trends"
-	"github.com/mattn/go-isatty"
-	"github.com/muesli/termenv"
-	"github.com/spf13/cobra"
 )
 
 // isInteractive reports whether stdout is a terminal. Override in tests.

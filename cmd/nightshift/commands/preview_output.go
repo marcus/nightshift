@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+
 	"github.com/marcus/nightshift/internal/budget"
 )
 

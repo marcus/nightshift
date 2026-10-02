@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/marcus/nightshift/internal/budget"
 	"github.com/marcus/nightshift/internal/calibrator"
 	"github.com/marcus/nightshift/internal/config"
@@ -26,7 +28,6 @@ import (
 	"github.com/marcus/nightshift/internal/tasks"
 	"github.com/marcus/nightshift/internal/tmux"
 	"github.com/marcus/nightshift/internal/trends"
-	"github.com/spf13/cobra"
 )
 
 const (

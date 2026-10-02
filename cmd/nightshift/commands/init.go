@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/marcus/nightshift/internal/config"
 	"github.com/spf13/cobra"
+
+	"github.com/marcus/nightshift/internal/config"
 )
 
 // ANSI color codes for terminal output
