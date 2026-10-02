@@ -789,13 +789,72 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 168 * time.Hour,
 	},
 	TaskFeatureFlagMonitor: {
-		Type:            TaskFeatureFlagMonitor,
-		Category:        CategoryMap,
-		Name:            "Feature Flag Lifecycle Monitor",
-		Description:     "Monitor feature flag usage and lifecycle",
+		Type:     TaskFeatureFlagMonitor,
+		Category: CategoryAnalysis,
+		Name:     "Feature Flag Lifecycle Monitor",
+		Description: `Scan the codebase for feature flag definitions and usage across common frameworks and custom patterns. ` +
+			`Detect flags from LaunchDarkly, Unleash, Flagsmith, OpenFeature, Split, and custom implementations ` +
+			`(env-var checks, config-file lookups, database-backed toggles, compile-time build tags).` +
+			"\n\n" +
+			`BUILD A FLAG INVENTORY — For each flag found, record:` +
+			"\n" +
+			`- flag key/name and definition location (file:line)` +
+			"\n" +
+			`- all usage sites where the flag is evaluated (file:line, count)` +
+			"\n" +
+			`- gate type: boolean on/off, multivariate (string/int variants), percentage rollout, user-segment targeting` +
+			"\n" +
+			`- default/fallback value when the flag is unavailable` +
+			"\n\n" +
+			`CLASSIFY LIFECYCLE STAGE — Assign each flag one of these stages:` +
+			"\n" +
+			`- new: defined but evaluated in ≤2 call sites, or added within the last 30 days per git history` +
+			"\n" +
+			`- active: evaluated in ≥3 sites, both branches contain meaningful logic` +
+			"\n" +
+			`- fully-rolled-out: the "off" branch is empty, trivial, or unreachable (always-true guard)` +
+			"\n" +
+			`- stale: flag not modified in git for 90+ days AND at least one branch is dead code or a no-op` +
+			"\n" +
+			`- dead: flag is defined but never evaluated anywhere in the codebase` +
+			"\n\n" +
+			`DETECT CLEANUP CANDIDATES — Cross-reference git history and code analysis:` +
+			"\n" +
+			`- flags where both conditional branches collapse to the same behavior` +
+			"\n" +
+			`- flags fully rolled out (always-true) that were never cleaned up — the flag check and dead branch can be removed` +
+			"\n" +
+			`- flags with no evaluations (dead definitions) that should be deleted` +
+			"\n" +
+			`- flags not touched in 90+ days — run git log on the flag key to find last-modified date` +
+			"\n\n" +
+			`CHECK NAMING CONSISTENCY — Flag keys should follow a consistent convention. Detect:` +
+			"\n" +
+			`- mixed naming styles within the same repo (camelCase vs snake_case vs kebab-case vs dot.notation)` +
+			"\n" +
+			`- missing team/domain prefixes where other flags use them` +
+			"\n" +
+			`- ambiguous or overly generic names (e.g., "new_feature", "test", "flag1")` +
+			"\n\n" +
+			`OUTPUT FORMAT — Produce a structured markdown report with these sections:` +
+			"\n" +
+			`1. **Summary** — total flag count, breakdown by lifecycle stage, flags needing attention` +
+			"\n" +
+			`2. **Flag Inventory** — table of all flags with key, location, gate type, stage, and last-modified date` +
+			"\n" +
+			`3. **Cleanup Candidates** — flags recommended for removal, ordered by confidence, with the specific ` +
+			`code locations to clean up and the reason (fully-rolled-out, dead, stale)` +
+			"\n" +
+			`4. **Naming Inconsistencies** — flags that break the dominant convention, with suggested renames` +
+			"\n" +
+			`5. **Recommendations** — prioritized action items: which flags to remove first, naming convention to adopt, ` +
+			`and process suggestions (e.g., add flag expiry dates, set up automated stale-flag detection)` +
+			"\n\n" +
+			`Exclude vendored and third-party code. When uncertain whether something is a feature flag or a ` +
+			`regular config value, include it with a note. Prefer false positives over missed flags.`,
 		CostTier:        CostMedium,
 		RiskLevel:       RiskLow,
-		DefaultInterval: 168 * time.Hour,
+		DefaultInterval: 72 * time.Hour,
 	},
 	TaskCISignalNoise: {
 		Type:            TaskCISignalNoise,
