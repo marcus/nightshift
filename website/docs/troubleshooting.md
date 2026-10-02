@@ -9,17 +9,19 @@ title: Troubleshooting
 
 **"Something feels off"**
 - Run `nightshift doctor` to check config, schedule, and provider health
+- Run `nightshift config validate` after editing YAML by hand
 
 **"No config file found"**
 ```bash
-nightshift init           # Create project config
-nightshift init --global  # Create global config
+nightshift init           # Create project config in the current directory
+nightshift init --global  # Create the global config at ~/.config/nightshift/config.yaml
 ```
+- If you want the guided version, run `nightshift setup` instead. It creates the global config, checks providers, and can install the daemon service.
 
 **"Insufficient budget"**
 - Check current budget: `nightshift budget`
 - Increase `max_percent` in config
-- Wait for budget reset (check reset time in output)
+- Wait for the next configured reset window (check reset time in the output)
 
 **"Calibration confidence is low"**
 - Run `nightshift budget snapshot` a few times to collect samples
@@ -27,14 +29,17 @@ nightshift init --global  # Create global config
 - Keep snapshots running for at least a few days
 
 **"tmux not found"**
-- Install tmux or set `budget.billing_mode: api` if you pay per token
+- Install tmux, or set `budget.billing_mode: api` if you pay per token and want to skip local usage calibration
 
 **"Week boundary looks wrong"**
-- Set `budget.week_start_day` to `monday` or `sunday`
+- Set `budget.week_start_day` to `monday` or `sunday` and verify your `budget.mode`
 
 **"Provider not available"**
-- Ensure Claude/Codex CLI is installed and in PATH
-- Check API key environment variables are set
+- Ensure the provider CLI is installed and in PATH:
+  - Claude: `claude`
+  - Codex: `codex`
+  - Copilot: `gh` with the Copilot extension, or the standalone `copilot` binary
+- Check `providers.preference` and each provider's `enabled` flag in config
 
 ## Debug Mode
 
