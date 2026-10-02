@@ -56,6 +56,14 @@ func (s *Selector) SetTaskSources(sources []string) {
 
 // ScoreTask calculates the priority score for a task.
 // Formula: base_priority + staleness_bonus + context_bonus + task_source_bonus
+//
+// Scoring rationale:
+//   - Staleness (0.1/day, capped at 3.0): gentle upward pressure so neglected
+//     tasks eventually surface, without overwhelming explicit priority.
+//   - Context bonus (+2): tasks mentioned in claude.md/agents.md are likely
+//     relevant to current work, so they should rank above stale-but-irrelevant tasks.
+//   - Task source bonus (+3): tasks backed by a td issue or GitHub issue represent
+//     explicit human intent, so they outrank context mentions.
 func (s *Selector) ScoreTask(taskType TaskType, project string) float64 {
 	var score float64
 
@@ -260,7 +268,10 @@ func (s *Selector) SelectAndAssign(budget int64, project string) *ScoredTask {
 		return nil
 	}
 
-	// Mark as assigned to prevent duplicate selection
+	// Mark as assigned to prevent duplicate selection by concurrent runs.
+	// Assignments are persisted in SQLite and automatically cleared after
+	// 2 hours (see ClearStaleAssignments) so a crashed run doesn't
+	// permanently block a task type.
 	taskID := makeTaskID(string(task.Definition.Type), project)
 	s.state.MarkAssigned(taskID, project, string(task.Definition.Type))
 

@@ -168,8 +168,11 @@ func (m *Manager) CalculateAllowance(provider string) (*AllowanceResult, error) 
 		return nil, fmt.Errorf("invalid budget mode: %s", mode)
 	}
 
-	// Apply reserve enforcement
+	// Reserve holds back a fraction of the base budget so that a single
+	// nightshift run can't consume the entire remaining allocation.
 	result = m.applyReserve(result, reservePercent)
+	// Snapshot allowance before daytime reservation so the CLI can show
+	// what the budget would be without predicted daytime usage deducted.
 	result.AllowanceNoDaytime = result.Allowance
 	if m.trend != nil {
 		predicted, err := m.trend.PredictDaytimeUsage(provider, m.nowFunc(), weeklyBudget)
@@ -224,10 +227,11 @@ func (m *Manager) calculateWeeklyAllowance(weeklyBudget int64, usedPercent float
 
 	remainingWeekly := float64(weeklyBudget) * (1 - usedPercent/100)
 
-	// Aggressive end-of-week multiplier
+	// Aggressive end-of-week: spend remaining budget faster as the reset
+	// approaches, since unspent tokens are wasted after the weekly reset.
+	// Formula: 3 - remainingDays → 1x with 2 days left (no boost), 2x on last day.
 	multiplier := 1.0
 	if m.cfg.Budget.AggressiveEndOfWeek && remainingDays <= 2 {
-		// 2x on day before reset, 3x on last day
 		multiplier = float64(3 - remainingDays)
 	}
 
@@ -312,10 +316,10 @@ func (m *Manager) GetUsedPercent(provider string) (float64, error) {
 		if m.copilot == nil {
 			return 0, fmt.Errorf("copilot provider not configured")
 		}
-		// Copilot uses monthly request limits, not weekly token budgets
-		// Convert weekly budget to monthly limit for consistency
-		// Note: This is a simplification; actual monthly limits should be configured separately
-		monthlyLimit := weeklyBudget * 4 // Approximate: 4 weeks per month
+		// Copilot's API reports usage against a monthly request cap, not a weekly
+		// token budget. Multiply by 4 to convert our weekly budget figure into
+		// an approximate monthly limit so the percentage math stays consistent.
+		monthlyLimit := weeklyBudget * 4
 		return m.copilot.GetUsedPercent(mode, monthlyLimit)
 
 	default:
