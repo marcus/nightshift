@@ -1,3 +1,13 @@
+// Command provider-calibration is a standalone diagnostic tool that aggregates
+// token and session metrics from local provider logs (Codex sessions under
+// ~/.codex/sessions and Claude projects under ~/.claude/projects) and compares
+// per-session and per-user-turn token usage between the two providers. It
+// derives the ratio of Codex to Claude token consumption and suggests a budget
+// calibration multiplier, which feeds the budget manager's calibration.
+//
+// It is not part of the main nightshift binary; run it via
+// "make calibrate-providers" or "go run ./cmd/provider-calibration".
+// See docs/guides/provider-calibration.md for details.
 package main
 
 import (
