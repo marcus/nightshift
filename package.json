@@ -1,0 +1,6 @@
+{
+  "private": true,
+  "scripts": {
+    "release-notes": "bun run scripts/release-notes/draft.ts"
+  }
+}
