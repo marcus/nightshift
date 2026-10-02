@@ -392,10 +392,18 @@ Apply safe updates directly, and leave concise follow-ups for anything uncertain
 		DefaultInterval: 72 * time.Hour,
 	},
 	TaskSemanticDiff: {
-		Type:            TaskSemanticDiff,
-		Category:        CategoryAnalysis,
-		Name:            "Semantic Diff Explainer",
-		Description:     "Explain the semantic meaning of code changes",
+		Type:     TaskSemanticDiff,
+		Category: CategoryAnalysis,
+		Name:     "Semantic Diff Explainer",
+		Description: `Analyze recent git changes and produce a semantic diff report.
+Run 'nightshift semantic-diff --since 72h' (or the configured interval) on the target repository.
+Classify every commit and changed file into one of: feature, bugfix, refactor, dependency-update,
+config-change, test-change, docs-change, or cleanup. Group the results by category and highlight
+high-impact changes (API surface modifications, schema/migration changes, security-sensitive files,
+and large diffs exceeding 200 lines). Output a structured markdown report with a TL;DR summary,
+aggregate stats (commits, files, lines added/deleted), an impact-highlights section, and per-category
+breakdowns listing each commit with its affected files. When --json is used, return the report as
+structured JSON for downstream tooling.`,
 		CostTier:        CostMedium,
 		RiskLevel:       RiskLow,
 		DefaultInterval: 72 * time.Hour,
