@@ -1,5 +1,3 @@
-// Package tasks defines task structures and loading from various sources.
-// Tasks can come from GitHub issues, local files, or inline definitions.
 package tasks
 
 import (

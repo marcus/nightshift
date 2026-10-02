@@ -1,4 +1,3 @@
-// Package analysis provides code ownership and bus-factor analysis tools.
 package analysis
 
 import (

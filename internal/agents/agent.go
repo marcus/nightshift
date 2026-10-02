@@ -1,5 +1,3 @@
-// Package agents provides interfaces and implementations for spawning AI agents.
-// Unlike providers (which track usage), agents execute tasks autonomously.
 package agents
 
 import (
