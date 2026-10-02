@@ -97,6 +97,15 @@ func TestGetDefinition(t *testing.T) {
 		t.Errorf("GetDefinition(TaskLintFix).CostTier = %d, want %d", def.CostTier, CostLow)
 	}
 
+	commitNormalize, err := GetDefinition(TaskCommitNormalize)
+	if err != nil {
+		t.Fatalf("GetDefinition(TaskCommitNormalize) returned error: %v", err)
+	}
+	wantDescription := "Standardize commit messages created by Nightshift to use a short imperative subject, optional body, and required trailers without rewriting shared history"
+	if commitNormalize.Description != wantDescription {
+		t.Errorf("GetDefinition(TaskCommitNormalize).Description = %q, want %q", commitNormalize.Description, wantDescription)
+	}
+
 	// Unknown task type
 	_, err = GetDefinition("unknown-task")
 	if err == nil {
@@ -136,10 +145,17 @@ func TestGetTasksByCategory(t *testing.T) {
 	if len(prTasks) == 0 {
 		t.Error("GetTasksByCategory(CategoryPR) returned empty slice")
 	}
+	foundCommitNormalize := false
 	for _, task := range prTasks {
 		if task.Category != CategoryPR {
 			t.Errorf("GetTasksByCategory(CategoryPR) returned task with category %d", task.Category)
 		}
+		if task.Type == TaskCommitNormalize {
+			foundCommitNormalize = true
+		}
+	}
+	if !foundCommitNormalize {
+		t.Error("GetTasksByCategory(CategoryPR) should include TaskCommitNormalize")
 	}
 
 	// Verify all 6 categories have tasks
