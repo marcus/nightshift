@@ -200,7 +200,8 @@ func (s *Scheduler) Start(ctx context.Context) error {
 	s.stopCh = make(chan struct{})
 	s.doneCh = make(chan struct{})
 
-	if s.cronExpr != "" {
+	switch {
+	case s.cronExpr != "":
 		// Cron-based scheduling
 		s.cron = cron.New(cron.WithLocation(s.location))
 		entryID, err := s.cron.AddFunc(s.cronExpr, func() {
@@ -222,13 +223,13 @@ func (s *Scheduler) Start(ctx context.Context) error {
 			s.cron.Stop()
 			close(s.doneCh)
 		}()
-	} else if s.interval > 0 {
+	case s.interval > 0:
 		// Interval-based scheduling
 		s.updateNextRunLocked()
 		s.mu.Unlock()
 
 		go s.intervalLoop(ctx)
-	} else {
+	default:
 		s.running = false
 		s.mu.Unlock()
 		return ErrNoSchedule
@@ -449,12 +450,13 @@ func (s *Scheduler) IsRunning() bool {
 }
 
 // ScheduleCron adds a recurring job using cron expression.
+//
 // Deprecated: Use SetCron and AddJob instead.
 func (s *Scheduler) ScheduleCron(expr string, job func()) error {
 	if err := s.SetCron(expr); err != nil {
 		return err
 	}
-	s.AddJob(func(ctx context.Context) error {
+	s.AddJob(func(_ context.Context) error {
 		job()
 		return nil
 	})
@@ -466,7 +468,7 @@ func (s *Scheduler) ScheduleInterval(d time.Duration, job func()) error {
 	if err := s.SetInterval(d); err != nil {
 		return err
 	}
-	s.AddJob(func(ctx context.Context) error {
+	s.AddJob(func(_ context.Context) error {
 		job()
 		return nil
 	})
@@ -475,7 +477,7 @@ func (s *Scheduler) ScheduleInterval(d time.Duration, job func()) error {
 
 // Schedule adds a one-time job to run at the specified time.
 func (s *Scheduler) Schedule(at time.Time, job func()) {
-	s.AddJob(func(ctx context.Context) error {
+	s.AddJob(func(_ context.Context) error {
 		if time.Now().After(at) {
 			job()
 		}

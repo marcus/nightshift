@@ -53,8 +53,8 @@ func (d Duration) String() string {
 	return fmt.Sprintf("%dh %dm", int(dur.Hours()), int(dur.Minutes())%60)
 }
 
-// StatsResult holds all computed statistics, JSON-serializable.
-type StatsResult struct {
+// Result holds all computed statistics, JSON-serializable.
+type Result struct {
 	// Run overview
 	TotalRuns      int        `json:"total_runs"`
 	FirstRunAt     *time.Time `json:"first_run_at,omitempty"`
@@ -118,7 +118,7 @@ type Stats struct {
 	db           *db.DB
 	reportsDir   string
 	nowFunc      func() time.Time
-	budgetSource budget.BudgetSource
+	budgetSource budget.Source
 }
 
 // New creates a Stats instance.
@@ -131,7 +131,7 @@ func New(database *db.DB, reportsDir string) *Stats {
 }
 
 // NewWithBudgetSource creates a Stats instance with a calibrated budget source.
-func NewWithBudgetSource(database *db.DB, reportsDir string, source budget.BudgetSource) *Stats {
+func NewWithBudgetSource(database *db.DB, reportsDir string, source budget.Source) *Stats {
 	return &Stats{
 		db:           database,
 		reportsDir:   reportsDir,
@@ -140,9 +140,9 @@ func NewWithBudgetSource(database *db.DB, reportsDir string, source budget.Budge
 	}
 }
 
-// Compute aggregates all available data into a StatsResult.
-func (s *Stats) Compute() (*StatsResult, error) {
-	result := &StatsResult{
+// Compute aggregates all available data into a Result.
+func (s *Stats) Compute() (*Result, error) {
+	result := &Result{
 		TaskTypeBreakdown: make(map[string]int),
 	}
 
@@ -215,7 +215,7 @@ func (s *Stats) loadReports() []*reporting.RunResults {
 }
 
 // computeFromReports extracts task-level stats from report JSON files.
-func (s *Stats) computeFromReports(result *StatsResult, reports []*reporting.RunResults) {
+func (s *Stats) computeFromReports(result *Result, reports []*reporting.RunResults) {
 	if len(reports) == 0 {
 		return
 	}
@@ -306,7 +306,7 @@ func (s *Stats) computeFromReports(result *StatsResult, reports []*reporting.Run
 }
 
 // computeFromRunHistory queries the run_history table for run-level stats.
-func (s *Stats) computeFromRunHistory(result *StatsResult) {
+func (s *Stats) computeFromRunHistory(result *Result) {
 	sqlDB := s.db.SQL()
 	if sqlDB == nil {
 		return
@@ -359,7 +359,7 @@ func (s *Stats) computeFromRunHistory(result *StatsResult) {
 }
 
 // computeFromProjects queries the projects table for project count and run counts.
-func (s *Stats) computeFromProjects(result *StatsResult) {
+func (s *Stats) computeFromProjects(result *Result) {
 	sqlDB := s.db.SQL()
 	if sqlDB == nil {
 		return
@@ -416,7 +416,7 @@ func (s *Stats) computeFromProjects(result *StatsResult) {
 }
 
 // computeBudgetProjections estimates projection windows for available providers.
-func (s *Stats) computeBudgetProjections(result *StatsResult) {
+func (s *Stats) computeBudgetProjections(result *Result) {
 	sqlDB := s.db.SQL()
 	if sqlDB == nil {
 		return

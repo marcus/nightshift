@@ -117,7 +117,7 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 }
 
-func runRun(cmd *cobra.Command, args []string) error {
+func runRun(cmd *cobra.Command, _ []string) error {
 	dryRun, _ := cmd.Flags().GetBool("dry-run")
 	projectPath, _ := cmd.Flags().GetString("project")
 	taskFilter, _ := cmd.Flags().GetString("task")
@@ -465,7 +465,8 @@ func buildPreflight(p executeRunParams) (*preflightPlan, error) {
 		// Select tasks
 		var selectedTasks []tasks.ScoredTask
 
-		if p.taskFilter != "" {
+		switch {
+		case p.taskFilter != "":
 			def, err := tasks.GetDefinition(tasks.TaskType(p.taskFilter))
 			if err != nil {
 				return nil, fmt.Errorf("unknown task type: %s", p.taskFilter)
@@ -475,7 +476,7 @@ func buildPreflight(p executeRunParams) (*preflightPlan, error) {
 				Score:      p.selector.ScoreTask(def.Type, projectPath),
 				Project:    projectPath,
 			}}
-		} else if p.randomTask {
+		case p.randomTask:
 			taskBudget := choice.allowance.Allowance
 			if p.ignoreBudget {
 				taskBudget = math.MaxInt64
@@ -483,7 +484,7 @@ func buildPreflight(p executeRunParams) (*preflightPlan, error) {
 			if picked := p.selector.SelectRandom(taskBudget, projectPath); picked != nil {
 				selectedTasks = []tasks.ScoredTask{*picked}
 			}
-		} else {
+		default:
 			n := p.maxTasks
 			if n <= 0 {
 				n = 1

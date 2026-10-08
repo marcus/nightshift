@@ -887,7 +887,7 @@ func TestCompute_DBOnlyNoReports(t *testing.T) {
 
 func TestStatsResult_JSONRoundTrip(t *testing.T) {
 	now := time.Date(2025, 1, 15, 2, 0, 0, 0, time.UTC)
-	original := &StatsResult{
+	original := &Result{
 		TotalRuns:       5,
 		FirstRunAt:      &now,
 		TotalDuration:   Duration{2 * time.Hour},
@@ -933,7 +933,7 @@ func TestStatsResult_JSONRoundTrip(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	var decoded StatsResult
+	var decoded Result
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}

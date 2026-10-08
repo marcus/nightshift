@@ -44,7 +44,7 @@ func init() {
 	rootCmd.AddCommand(previewCmd)
 }
 
-func runPreview(cmd *cobra.Command, args []string) error {
+func runPreview(cmd *cobra.Command, _ []string) error {
 	runs, _ := cmd.Flags().GetInt("runs")
 	projectPath, _ := cmd.Flags().GetString("project")
 	taskFilter, _ := cmd.Flags().GetString("task")

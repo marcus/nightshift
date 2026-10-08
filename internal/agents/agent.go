@@ -41,8 +41,9 @@ func (r *ExecuteResult) IsSuccess() bool {
 	return r.ExitCode == 0 && r.Error == ""
 }
 
-// truncate returns s trimmed to maxLen characters, appending "..." if truncated.
-func truncate(s string, maxLen int) string {
+// truncate returns s trimmed to 2000 characters, appending "..." if truncated.
+func truncate(s string) string {
+	const maxLen = 2000
 	if len(s) <= maxLen {
 		return s
 	}

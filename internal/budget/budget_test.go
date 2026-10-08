@@ -15,7 +15,7 @@ type mockClaudeProvider struct {
 }
 
 func (m *mockClaudeProvider) Name() string { return "claude" }
-func (m *mockClaudeProvider) GetUsedPercent(mode string, weeklyBudget int64) (float64, error) {
+func (m *mockClaudeProvider) GetUsedPercent(_ string, _ int64) (float64, error) {
 	return m.usedPercent, m.err
 }
 func (m *mockClaudeProvider) LastUsedPercentSource() string {
@@ -30,10 +30,10 @@ type mockCodexProvider struct {
 }
 
 func (m *mockCodexProvider) Name() string { return "codex" }
-func (m *mockCodexProvider) GetUsedPercent(mode string, weeklyBudget int64) (float64, error) {
+func (m *mockCodexProvider) GetUsedPercent(_ string, _ int64) (float64, error) {
 	return m.usedPercent, m.err
 }
-func (m *mockCodexProvider) GetResetTime(mode string) (time.Time, error) {
+func (m *mockCodexProvider) GetResetTime(_ string) (time.Time, error) {
 	return m.resetTime, m.err
 }
 
@@ -45,19 +45,19 @@ type mockCopilotProvider struct {
 }
 
 func (m *mockCopilotProvider) Name() string { return "copilot" }
-func (m *mockCopilotProvider) GetUsedPercent(mode string, monthlyLimit int64) (float64, error) {
+func (m *mockCopilotProvider) GetUsedPercent(_ string, _ int64) (float64, error) {
 	return m.usedPercent, m.err
 }
-func (m *mockCopilotProvider) GetResetTime(mode string) (time.Time, error) {
+func (m *mockCopilotProvider) GetResetTime(_ string) (time.Time, error) {
 	return m.resetTime, m.err
 }
 
 type mockBudgetSource struct {
-	estimate BudgetEstimate
+	estimate Estimate
 	err      error
 }
 
-func (m *mockBudgetSource) GetBudget(provider string) (BudgetEstimate, error) {
+func (m *mockBudgetSource) GetBudget(_ string) (Estimate, error) {
 	return m.estimate, m.err
 }
 
@@ -66,7 +66,7 @@ type mockTrendAnalyzer struct {
 	err       error
 }
 
-func (m *mockTrendAnalyzer) PredictDaytimeUsage(provider string, now time.Time, weeklyBudget int64) (int64, error) {
+func (m *mockTrendAnalyzer) PredictDaytimeUsage(_ string, _ time.Time, _ int64) (int64, error) {
 	return m.predicted, m.err
 }
 
@@ -475,7 +475,7 @@ func TestBudgetSourceOverridesConfig(t *testing.T) {
 	}
 
 	claude := &mockClaudeProvider{usedPercent: 0}
-	source := &mockBudgetSource{estimate: BudgetEstimate{
+	source := &mockBudgetSource{estimate: Estimate{
 		WeeklyTokens: 700000,
 		Source:       "calibrated",
 		Confidence:   "high",
@@ -509,7 +509,7 @@ func TestBudgetSourceFallbacksToConfig(t *testing.T) {
 	}
 
 	claude := &mockClaudeProvider{usedPercent: 0}
-	source := &mockBudgetSource{estimate: BudgetEstimate{
+	source := &mockBudgetSource{estimate: Estimate{
 		WeeklyTokens: 0,
 	}}
 

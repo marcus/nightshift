@@ -24,7 +24,7 @@ var logsCmd = &cobra.Command{
 	Long: `View nightshift logs.
 
 Displays recent log entries. Use --follow to stream logs in real-time.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		tail, _ := cmd.Flags().GetInt("tail")
 		follow, _ := cmd.Flags().GetBool("follow")
 		export, _ := cmd.Flags().GetString("export")

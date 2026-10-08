@@ -83,11 +83,12 @@ func renderPreviewText(result *previewResult, opts previewTextOptions) string {
 			fmt.Fprintln(b, line)
 		}
 	}
-	if result.TaskFilter != "" {
+	switch {
+	case result.TaskFilter != "":
 		fmt.Fprintf(b, "  Task filter: %s\n", result.TaskFilter)
-	} else if len(result.EnabledTasks) == 0 {
+	case len(result.EnabledTasks) == 0:
 		b.WriteString("  Task filter: all enabled tasks (none explicitly enabled)\n")
-	} else {
+	default:
 		fmt.Fprintf(b, "  Task filter: enabled list (%d) [%s]\n", len(result.EnabledTasks), strings.Join(result.EnabledTasks, ", "))
 	}
 	if opts.Explain && result.ProjectCount > 1 {
@@ -347,7 +348,7 @@ func renderDiagnosticsText(b *strings.Builder, styles previewStyles, diagnostics
 	renderCooldownsText(b, styles, diagnostics.Cooldowns, indent)
 }
 
-func renderCooldownsText(b *strings.Builder, styles previewStyles, cooldowns []previewCooldownEntry, indent string) {
+func renderCooldownsText(b *strings.Builder, _ previewStyles, cooldowns []previewCooldownEntry, indent string) {
 	if len(cooldowns) == 0 {
 		return
 	}

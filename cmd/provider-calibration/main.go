@@ -1,3 +1,4 @@
+// Package main implements a diagnostic tool for calibrating provider budgets.
 package main
 
 import (

@@ -136,9 +136,7 @@ func TestProgressBar(t *testing.T) {
 		if tt.hasBlock && tt.filled > 0 && !strings.Contains(bar, "█") {
 			t.Errorf("expected progress bar to contain filled block for %d filled", tt.filled)
 		}
-		if strings.Contains(bar, "[") && strings.Contains(bar, "]") {
-			// Valid format
-		} else {
+		if !strings.Contains(bar, "[") || !strings.Contains(bar, "]") {
 			t.Errorf("progress bar should be wrapped in brackets")
 		}
 	}

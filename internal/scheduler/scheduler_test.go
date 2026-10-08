@@ -462,7 +462,7 @@ func TestScheduler_JobExecution_Interval(t *testing.T) {
 
 	var count atomic.Int32
 
-	s.AddJob(func(ctx context.Context) error {
+	s.AddJob(func(_ context.Context) error {
 		count.Add(1)
 		return nil
 	})
@@ -502,7 +502,7 @@ func TestScheduler_JobExecution_WindowBlocks(t *testing.T) {
 
 	var count atomic.Int32
 
-	s.AddJob(func(ctx context.Context) error {
+	s.AddJob(func(_ context.Context) error {
 		count.Add(1)
 		return nil
 	})
@@ -529,7 +529,7 @@ func TestScheduler_ContextCancellation(t *testing.T) {
 
 	var count atomic.Int32
 
-	s.AddJob(func(ctx context.Context) error {
+	s.AddJob(func(_ context.Context) error {
 		count.Add(1)
 		return nil
 	})

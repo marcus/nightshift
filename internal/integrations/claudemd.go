@@ -34,7 +34,7 @@ func (r *ClaudeMDReader) Enabled() bool {
 }
 
 // Read looks for claude.md in project root and extracts context.
-func (r *ClaudeMDReader) Read(ctx context.Context, projectPath string) (*Result, error) {
+func (r *ClaudeMDReader) Read(_ context.Context, projectPath string) (*Result, error) {
 	// Try multiple possible locations
 	candidates := []string{
 		filepath.Join(projectPath, "claude.md"),

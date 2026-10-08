@@ -57,6 +57,7 @@ type Hint struct {
 // HintType categorizes hints.
 type HintType int
 
+// Hint types emitted by integration readers.
 const (
 	HintTaskSuggestion HintType = iota // Suggested task to run
 	HintConvention                     // Coding convention

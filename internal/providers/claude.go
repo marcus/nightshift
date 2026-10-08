@@ -1,4 +1,4 @@
-// claude.go implements the Provider interface for Claude Code CLI.
+// Package providers implements the Provider interface for Claude Code CLI.
 package providers
 
 import (
@@ -102,7 +102,7 @@ func (c *Claude) Name() string {
 }
 
 // Execute runs a task via Claude Code CLI.
-func (c *Claude) Execute(ctx context.Context, task Task) (Result, error) {
+func (c *Claude) Execute(_ context.Context, _ Task) (Result, error) {
 	// TODO: Implement - spawn claude CLI process
 	return Result{}, nil
 }
