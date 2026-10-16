@@ -75,10 +75,14 @@ help:
 	@echo "  check         - Run tests and lint"
 	@echo "  install       - Build and install to Go bin directory"
 	@echo "  calibrate-providers - Compare local Claude/Codex session usage for calibration"
-	@echo "  install-hooks  - Install git pre-commit hook"
+	@echo "  install-hooks - Install git pre-commit and commit-msg hooks"
 	@echo "  help          - Show this help"
 
-# Install git pre-commit hook
+# Install git hooks
 install-hooks:
+	@mkdir -p .git/hooks
 	@ln -sf ../../scripts/pre-commit.sh .git/hooks/pre-commit
-	@echo "✓ pre-commit hook installed (.git/hooks/pre-commit → scripts/pre-commit.sh)"
+	@ln -sf ../../scripts/commit-msg.sh .git/hooks/commit-msg
+	@echo "✓ hooks installed"
+	@echo "  .git/hooks/pre-commit -> scripts/pre-commit.sh"
+	@echo "  .git/hooks/commit-msg -> scripts/commit-msg.sh"
