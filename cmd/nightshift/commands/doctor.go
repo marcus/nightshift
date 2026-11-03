@@ -116,6 +116,10 @@ func checkSchedule(cfg *config.Config, add func(string, checkStatus, string)) {
 		return
 	}
 	nextRuns, err := sched.NextRuns(1)
+	if errors.Is(err, scheduler.ErrNoRunInWindow) {
+		add("schedule", statusWarn, err.Error())
+		return
+	}
 	if err != nil || len(nextRuns) == 0 {
 		add("schedule", statusWarn, "unable to compute next run")
 		return

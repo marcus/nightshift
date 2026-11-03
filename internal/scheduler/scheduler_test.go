@@ -2,12 +2,14 @@ package scheduler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/marcus/nightshift/internal/config"
+	"github.com/robfig/cron/v3"
 )
 
 func TestParseTimeOfDay(t *testing.T) {
@@ -577,5 +579,115 @@ func TestScheduleInterval_Legacy(t *testing.T) {
 	}
 	if len(s.jobs) != 1 {
 		t.Errorf("len(jobs) = %d, want 1", len(s.jobs))
+	}
+}
+
+func TestNextCronRunInWindow(t *testing.T) {
+	loc := time.UTC
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	at := func(day, hour, min int) time.Time {
+		return time.Date(2026, 1, day, hour, min, 0, 0, loc)
+	}
+
+	tests := []struct {
+		name   string
+		cron   string
+		start  string
+		end    string
+		after  time.Time
+		want   time.Time
+		wantOK bool
+	}{
+		{
+			name: "next cron tick already inside window",
+			cron: "0 * * * *", start: "22:00", end: "06:00",
+			after: at(5, 23, 10), want: at(6, 0, 0), wantOK: true,
+		},
+		{
+			name: "skips ticks outside window to first tick inside",
+			cron: "0 * * * *", start: "22:30", end: "06:00",
+			after: at(5, 7, 0), want: at(5, 23, 0), wantOK: true,
+		},
+		{
+			name: "does not snap to window start when cron never fires there",
+			cron: "15 */2 * * *", start: "09:00", end: "17:00",
+			after: at(5, 18, 0), want: at(6, 10, 15), wantOK: true,
+		},
+		{
+			name: "weekday-only cron skips weekend",
+			cron: "0 23 * * 1-5", start: "22:00", end: "06:00",
+			after: at(9, 23, 30), want: at(12, 23, 0), wantOK: true, // Fri -> Mon
+		},
+		{
+			name: "cron never fires inside window",
+			cron: "0 2 * * *", start: "09:00", end: "17:00",
+			after: at(5, 12, 0), wantOK: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sched, err := parser.Parse(tt.cron)
+			if err != nil {
+				t.Fatalf("parse cron: %v", err)
+			}
+			start, _ := ParseTimeOfDay(tt.start)
+			end, _ := ParseTimeOfDay(tt.end)
+			w := &Window{Start: start, End: end, Location: loc}
+
+			got, ok := nextCronRunInWindow(sched, w, tt.after)
+			if ok != tt.wantOK {
+				t.Fatalf("ok = %v, want %v (got %v)", ok, tt.wantOK, got)
+			}
+			if ok && !got.Equal(tt.want) {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNextRuns_CronWithWindow(t *testing.T) {
+	cfg := &config.ScheduleConfig{
+		Cron:   "0 * * * *",
+		Window: &config.WindowConfig{Start: "09:30", End: "17:00", Timezone: "UTC"},
+	}
+	s, err := NewFromConfig(cfg)
+	if err != nil {
+		t.Fatalf("NewFromConfig() error = %v", err)
+	}
+
+	// 24 runs always span time outside the window, so any snapping to the
+	// window start (09:30) would show up here.
+	runs, err := s.NextRuns(24)
+	if err != nil {
+		t.Fatalf("NextRuns() error = %v", err)
+	}
+	if len(runs) != 24 {
+		t.Fatalf("NextRuns() returned %d runs, want 24", len(runs))
+	}
+	for i, r := range runs {
+		if r.Minute() != 0 {
+			t.Errorf("run %d at %v is not a cron tick (minute != 0)", i, r)
+		}
+		if !s.IsInWindow(r) {
+			t.Errorf("run %d at %v is outside the window", i, r)
+		}
+		if i > 0 && !r.After(runs[i-1]) {
+			t.Errorf("run %d at %v not after previous run %v", i, r, runs[i-1])
+		}
+	}
+}
+
+func TestNextRuns_CronNeverInWindow(t *testing.T) {
+	cfg := &config.ScheduleConfig{
+		Cron:   "0 2 * * *",
+		Window: &config.WindowConfig{Start: "09:00", End: "17:00", Timezone: "UTC"},
+	}
+	s, err := NewFromConfig(cfg)
+	if err != nil {
+		t.Fatalf("NewFromConfig() error = %v", err)
+	}
+	if _, err := s.NextRuns(1); !errors.Is(err, ErrNoRunInWindow) {
+		t.Errorf("NextRuns() error = %v, want ErrNoRunInWindow", err)
 	}
 }

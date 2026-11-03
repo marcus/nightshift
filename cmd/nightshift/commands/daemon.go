@@ -230,9 +230,13 @@ func runDaemonLoop(cfg *config.Config) error {
 		return fmt.Errorf("start scheduler: %w", err)
 	}
 
-	log.InfoCtx("daemon running", map[string]any{
-		"next_run": sched.NextRun().Format(time.RFC3339),
-	})
+	if next := sched.NextRun(); next.IsZero() {
+		log.Warnf("daemon running, no upcoming run: %v", scheduler.ErrNoRunInWindow)
+	} else {
+		log.InfoCtx("daemon running", map[string]any{
+			"next_run": next.Format(time.RFC3339),
+		})
+	}
 
 	// Wait for context cancellation
 	<-ctx.Done()
