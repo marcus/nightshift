@@ -22,7 +22,12 @@ var (
 	ErrNoSchedule      = errors.New("no schedule configured (need cron or interval)")
 	ErrAlreadyRunning  = errors.New("scheduler already running")
 	ErrNotRunning      = errors.New("scheduler not running")
+	ErrNoRunInWindow   = errors.New("cron schedule never fires inside time window")
 )
+
+// cronSearchHorizon bounds the search for a cron tick inside the window.
+// Matches robfig/cron, which gives up after five years.
+const cronSearchHorizon = 5 * 365 * 24 * time.Hour
 
 // Job is a function to execute on schedule.
 type Job func(ctx context.Context) error
@@ -333,9 +338,9 @@ func (s *Scheduler) NextRuns(n int) ([]time.Time, error) {
 		}
 		current := now
 		for i := 0; i < n; i++ {
-			next := schedule.Next(current)
-			if window != nil && !window.Contains(next) {
-				next = nextWindowStartForWindow(window, next)
+			next, ok := nextCronRunInWindow(schedule, window, current)
+			if !ok {
+				return nil, ErrNoRunInWindow
 			}
 			runs = append(runs, next)
 			current = next
@@ -369,16 +374,45 @@ func (s *Scheduler) updateNextRunLocked() {
 	now := time.Now().In(s.location)
 
 	if s.cronExpr != "" && s.cron != nil {
+		// Cron only fires on its own ticks; runs outside the window are
+		// skipped, so the next real run is the first tick inside it.
 		entry := s.cron.Entry(s.entryID)
-		s.nextRun = entry.Next
-	} else if s.interval > 0 {
-		s.nextRun = now.Add(s.interval)
+		next, ok := nextCronRunInWindow(entry.Schedule, s.window, now)
+		if !ok {
+			next = time.Time{}
+		}
+		s.nextRun = next
+		return
 	}
 
-	// Adjust for window if needed (use internal check, no lock)
-	if s.window != nil && !s.window.Contains(s.nextRun) {
-		s.nextRun = s.nextWindowStartLocked(s.nextRun)
+	if s.interval > 0 {
+		s.nextRun = now.Add(s.interval)
+		// The interval loop sleeps until nextRun, so snapping to the
+		// window start is accurate here.
+		if s.window != nil && !s.window.Contains(s.nextRun) {
+			s.nextRun = s.nextWindowStartLocked(s.nextRun)
+		}
 	}
+}
+
+// nextCronRunInWindow returns the first cron tick after t that falls inside
+// window. Ticks outside the window are skipped by runJobs, so they are not
+// real runs. Returns false if no such tick exists within cronSearchHorizon.
+func nextCronRunInWindow(schedule cron.Schedule, window *Window, t time.Time) (time.Time, bool) {
+	if schedule == nil {
+		return time.Time{}, false
+	}
+	limit := t.Add(cronSearchHorizon)
+	next := schedule.Next(t)
+	for !next.IsZero() && !next.After(limit) {
+		if window == nil || window.Contains(next) {
+			return next, true
+		}
+		// Jump to just before the next window opening rather than walking
+		// every tick in between.
+		next = schedule.Next(nextWindowStartForWindow(window, next).Add(-time.Second))
+	}
+	return time.Time{}, false
 }
 
 // IsInWindow checks if the given time is within the allowed execution window.
